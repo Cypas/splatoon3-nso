@@ -1,0 +1,46 @@
+body {
+  display: block;
+  margin: 0 !important;
+  font-size: 20px;
+}
+
+h4, h5 {
+  margin: 10px 0;
+}
+
+.markdown-body table {
+  border-spacing: 0;
+  border-collapse: collapse;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.markdown-body td,
+.markdown-body th {
+  padding: 0;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  padding: 5px 10px;
+  border: 0;
+}
+
+.markdown-body table tr {
+  background-color: #ffffff;
+  border-top: 1px solid hsla(210,18%,87%,1);
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: #f6f8fa;
+}
+
+.markdown-body table img {
+  background-color: transparent;
+}
+
+.markdown-body table tr td:first-child, td:last-child {
+  padding: 0;
+}
