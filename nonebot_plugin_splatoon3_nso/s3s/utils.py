@@ -6,10 +6,18 @@ import base64, datetime, json, re, sys, uuid
 import requests
 from bs4 import BeautifulSoup
 
-SPLATNET3_URL = "https://api.lp1.av5ja.srv.nintendo.net"
+
 GRAPHQL_URL = "https://api.lp1.av5ja.srv.nintendo.net/api/graphql"
-WEB_VIEW_VERSION = "6.0.0-daea5c11"  # fallback
 S3S_NAMESPACE = uuid.UUID('b3a2dbf5-2c09-4792-b78c-00b548b70aeb')
+
+SUPPORTED_KEYS = [
+	"ignore_private",
+	"ignore_private_jobs",
+	"app_user_agent",
+	"force_uploads",
+	"errors_pass_silently",
+	"old_export_format"
+]
 
 # SHA256 hash database for SplatNet 3 GraphQL queries
 # full list: https://github.com/samuelthomas2774/nxapi/discussions/11#discussioncomment-3614603
@@ -35,26 +43,6 @@ translate_rid = {
 	'EventBoardQuery':                   'ad4097d5fb900b01f12dffcb02228ef6c20ddbfba41f0158bb91e845335c708e',
 }
 
-def get_web_view_ver():
-	'''Find & parse the SplatNet 3 main.js file for the current site version.'''
-
-	splatnet3_home = requests.get(SPLATNET3_URL)
-	soup = BeautifulSoup(splatnet3_home.text, "html.parser")
-
-	main_js = soup.select_one("script[src*='static']")
-	if not main_js:
-		return WEB_VIEW_VERSION
-
-	main_js_url = SPLATNET3_URL + main_js.attrs["src"]
-	main_js_body = requests.get(main_js_url)
-
-	match = re.search(r"\b(?P<revision>[0-9a-f]{40})\b.*revision_info_not_set\"\),.*?=\"(?P<version>\d+\.\d+\.\d+)", main_js_body.text)
-	if not match:
-		return WEB_VIEW_VERSION
-
-	version, revision = match.group("version"), match.group("revision")
-	return f"{version}-{revision[:8]}"
-
 
 def set_noun(which):
 	'''Returns the term to be used when referring to the type of results in question.'''
@@ -73,17 +61,25 @@ def b64d(string):
 	thing_id = base64.b64decode(string).decode('utf-8')
 	thing_id = thing_id.replace("VsStage-", "")
 	thing_id = thing_id.replace("VsMode-", "")
-	thing_id = thing_id.replace("Weapon-", "")
 	thing_id = thing_id.replace("CoopStage-", "")
 	thing_id = thing_id.replace("CoopGrade-", "")
-	if thing_id[:15] == "VsHistoryDetail" or thing_id[:17] == "CoopHistoryDetail":
+	thing_id = thing_id.replace("CoopEnemy-", "")
+	thing_id = thing_id.replace("CoopEventWave-", "")
+	thing_id = thing_id.replace("CoopUniform-", "")
+	thing_id = thing_id.replace("SpecialWeapon-", "")
+	if "Weapon-" in thing_id:
+		thing_id = thing_id.replace("Weapon-", "")
+		if len(thing_id) == 5 and thing_id[:1] == "2" and thing_id[-3:] == "900": # grizzco weapon ID from a hacker
+			return ""
+
+	if thing_id[:15] == "VsHistoryDetail" or thing_id[:17] == "CoopHistoryDetail" or thing_id[:8] == "VsPlayer":
 		return thing_id # string
 	else:
 		return int(thing_id) # integer
 
 
 def epoch_time(time_string):
-	'''Converts a playedTime string into an int representing the epoch time.'''
+	'''Converts a playedTime string into an integer representing the epoch time.'''
 
 	utc_time = datetime.datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ")
 	epoch_time = int((utc_time - datetime.datetime(1970, 1, 1)).total_seconds())
@@ -114,8 +110,7 @@ def custom_key_exists(key, config_data, value=True):
 	# https://github.com/frozenpandaman/s3s/wiki/config-keys
 	if key not in ["ignore_private", "app_user_agent", "force_uploads"]:
 		print("(!) Checking unexpected custom key")
-	return True if key in config_data and config_data[key].lower() == str(value).lower() else False
-
+	return str(config_data.get(key, None)).lower() == str(value).lower()
 
 if __name__ == "__main__":
 	print("This program cannot be run alone. See https://github.com/frozenpandaman/s3s")
