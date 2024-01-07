@@ -4,11 +4,11 @@
 import httpx
 from loguru import logger
 import base64, hashlib, json, os, re, sys
-import requests
 from bs4 import BeautifulSoup
-from ..utils import BOT_VERSION
+from ..utils import BOT_VERSION, get_or_init_login_client, ClientReq
 
-S3S_VERSION = "unknown"
+A_VERSION = '0.6.0'  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
+S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
 NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "2.8.1"  # fallback
 WEB_VIEW_VERSION = "unknown"
@@ -22,34 +22,9 @@ APP_USER_AGENT = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) ' \
                  'AppleWebKit/537.36 (KHTML, like Gecko) ' \
                  'Chrome/94.0.4606.61 Mobile Safari/537.36'
 
-global_client_dict: dict[httpx.Client] = {}
 
-
-# 登录需要保持一段时间浏览器状态，在输入npf码完成登录后需要关闭session
-
-def get_or_init_client(msg_id):
-    """为每个登录会话创建唯一client，防止公共变量覆盖"""
-    global global_client_dict
-    client: httpx.Client = global_client_dict.get(msg_id)
-    if client:
-        return client
-    else:
-        client = httpx.Client()
-        global_client_dict.update({msg_id: client})
-        return client
-
-
-def close_client(msg_id):
-    """关闭client"""
-    global global_client_dict
-    client: httpx.Client = global_client_dict.get(msg_id)
-    if client:
-        client.close()
-        global_client_dict.pop(msg_id)
-
-
-def get_nsoapp_version(f_gen_url):
-    '''Fetches the current Nintendo Switch Online app version from f API or the Apple App Store and sets it globally.'''
+async def get_nsoapp_version(f_gen_url):
+    """Fetches the current Nintendo Switch Online app version from f API or the Apple App Store and sets it globally."""
 
     global NSOAPP_VERSION
     if NSOAPP_VERSION != "unknown":  # already set
@@ -58,7 +33,7 @@ def get_nsoapp_version(f_gen_url):
         try:  # try to get NSO version from f API
             f_conf_url = os.path.dirname(f_gen_url) + "/config"  # default endpoint for imink API
             f_conf_header = {'User-Agent': F_USER_AGENT}
-            f_conf_rsp = httpx.get(f_conf_url, headers=f_conf_header)
+            f_conf_rsp = await ClientReq.get(f_conf_url, headers=f_conf_header)
             f_conf_json = json.loads(f_conf_rsp.text)
             ver = f_conf_json["nso_version"]
 
@@ -67,7 +42,7 @@ def get_nsoapp_version(f_gen_url):
             return NSOAPP_VERSION
         except:  # fallback to apple app store
             try:
-                page = httpx.get("https://apps.apple.com/us/app/nintendo-switch-online/id1234806557")
+                page = await ClientReq.get("https://apps.apple.com/us/app/nintendo-switch-online/id1234806557")
                 soup = BeautifulSoup(page.text, 'html.parser')
                 elt = soup.find("p", {"class": "whats-new__latest__version"})
                 ver = elt.get_text().replace("Version ", "").strip()
@@ -80,7 +55,7 @@ def get_nsoapp_version(f_gen_url):
             return NSOAPP_VER_FALLBACK
 
 
-def get_web_view_ver(bhead=[], gtoken=""):
+async def get_web_view_ver(bhead=[], gtoken=""):
     """Finds & parses the SplatNet 3 main.js file to fetch the current site version and sets it globally."""
 
     global WEB_VIEW_VERSION
@@ -110,7 +85,7 @@ def get_web_view_ver(bhead=[], gtoken=""):
             app_cookies["_gtoken"] = gtoken  # X-GameWebToken
 
         try:
-            home = httpx.get(SPLATNET3_URL, headers=app_head, cookies=app_cookies)
+            home = await ClientReq.get(SPLATNET3_URL, headers=app_head, cookies=app_cookies)
         except httpx.ConnectError:
             print("Could not connect to network. Please try again.")
 
@@ -138,7 +113,7 @@ def get_web_view_ver(bhead=[], gtoken=""):
             app_head["Accept-Encoding"] = bhead.get("Accept-Encoding")
             app_head["Accept-Language"] = bhead.get("Accept-Language")
 
-        main_js_body = httpx.get(main_js_url, headers=app_head, cookies=app_cookies)
+        main_js_body = await ClientReq.get(main_js_url, headers=app_head, cookies=app_cookies)
         if main_js_body.status_code != 200:
             return WEB_VIEW_VER_FALLBACK
 
@@ -155,14 +130,11 @@ def get_web_view_ver(bhead=[], gtoken=""):
         return WEB_VIEW_VERSION
 
 
-def log_in(ver, msg_id):
-    """Logs in to a Nintendo Account and returns a session_token."""
-
-    global S3S_VERSION
-    S3S_VERSION = ver
+async def log_in(msg_id):
+    """登录步骤第一步
+    Logs in to a Nintendo Account and returns a session_token."""
 
     auth_state = base64.urlsafe_b64encode(os.urandom(36))
-
     auth_code_verifier = base64.urlsafe_b64encode(os.urandom(32))
     auth_cv_hash = hashlib.sha256()
     auth_cv_hash.update(auth_code_verifier.replace(b"=", b""))
@@ -191,7 +163,7 @@ def log_in(ver, msg_id):
     }
 
     url = 'https://accounts.nintendo.com/connect/1.0.0/authorize'
-    client = get_or_init_client(msg_id)
+    client = get_or_init_login_client(msg_id)
     r = client.get(url, headers=app_head, params=body)
 
     post_login = r.history[0].url
@@ -204,7 +176,8 @@ def log_in(ver, msg_id):
     return post_login, auth_code_verifier
 
 
-def login_2(use_account_url, auth_code_verifier):
+async def login_in_2(use_account_url, auth_code_verifier):
+    """登录步骤第二步"""
     while True:
         try:
             if use_account_url == "skip":
@@ -227,7 +200,7 @@ def login_2(use_account_url, auth_code_verifier):
 
 
 def get_session_token(session_token_code, auth_code_verifier, msg_id):
-    """Helper function for log_in()."""
+    """Helper function for log_in_2()."""
 
     nsoapp_version = get_nsoapp_version()
 
@@ -249,27 +222,19 @@ def get_session_token(session_token_code, auth_code_verifier, msg_id):
     }
 
     url = 'https://accounts.nintendo.com/connect/1.0.0/api/session_token'
-    client = get_or_init_client(msg_id)
+    client = get_or_init_login_client(msg_id)
     r = client.post(url, headers=app_head, data=body)
-    try:
-        s_t = json.loads(r.text)["session_token"]
-    except json.decoder.JSONDecodeError:
-        print("Got non-JSON response from Nintendo (in api/session_token step). Please try again.")
-        sys.exit(1)
 
-    return s_t
+    return json.loads(r.text)["session_token"]
 
 
-async def get_gtoken(f_gen_url, session_token, ver):
+async def get_gtoken(f_gen_url, session_token):
     """Provided the session_token, returns a GameWebToken and account info."""
 
     if not session_token:
         raise ValueError('invalid_grant')
 
     nsoapp_version = get_nsoapp_version(f_gen_url)
-
-    global S3S_VERSION
-    S3S_VERSION = ver
 
     app_head = {
         'Host': 'accounts.nintendo.com',
@@ -288,7 +253,7 @@ async def get_gtoken(f_gen_url, session_token, ver):
     }
 
     url = "https://accounts.nintendo.com/connect/1.0.0/api/token"
-    r = httpx.post(url, headers=app_head, json=body)
+    r = await ClientReq.post(url, headers=app_head, json=body)
     id_response = json.loads(r.text)
 
     # get user info
@@ -311,7 +276,7 @@ async def get_gtoken(f_gen_url, session_token, ver):
         return
 
     url = "https://api.accounts.nintendo.com/2.0.0/users/me"
-    r = httpx.get(url, headers=app_head)
+    r = await ClientReq.get(url, headers=app_head)
     user_info = json.loads(r.text)
 
     user_nickname = user_info["nickname"]
@@ -323,7 +288,7 @@ async def get_gtoken(f_gen_url, session_token, ver):
     body = {}
     try:
         access_token = id_response["id_token"]
-        f, uuid, timestamp = call_f_api(access_token, 1, f_gen_url, user_id)
+        f, uuid, timestamp = await call_f_api(access_token, 1, f_gen_url, user_id)
 
         parameter = {
             'f': f,
@@ -354,7 +319,7 @@ async def get_gtoken(f_gen_url, session_token, ver):
     }
 
     url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
-    r = httpx.post(url, headers=app_head, json=body)
+    r = await ClientReq.post(url, headers=app_head, json=body)
     splatoon_token = json.loads(r.text)
 
     try:
@@ -363,13 +328,13 @@ async def get_gtoken(f_gen_url, session_token, ver):
     except:
         # retry once if 9403/9599 error from nintendo
         try:
-            f, uuid, timestamp = call_f_api(access_token, 1, f_gen_url, user_id)
+            f, uuid, timestamp = await call_f_api(access_token, 1, f_gen_url, user_id)
             body["parameter"]["f"] = f
             body["parameter"]["requestId"] = uuid
             body["parameter"]["timestamp"] = timestamp
             app_head["Content-Length"] = str(990 + len(f))
             url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
-            r = httpx.post(url, headers=app_head, json=body)
+            r = await ClientReq.post(url, headers=app_head, json=body)
             splatoon_token = json.loads(r.text)
             access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
             coral_user_id = splatoon_token["result"]["user"]["id"]
@@ -380,7 +345,7 @@ async def get_gtoken(f_gen_url, session_token, ver):
                 "Try re-running the script. Or, if the NSO app has recently been updated, you may temporarily change `USE_OLD_NSOAPP_VER` to True at the top of iksm.py for a workaround.")
             return
 
-        f, uuid, timestamp = call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
+        f, uuid, timestamp = await call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
 
     # get web service token
     app_head = {
@@ -404,7 +369,7 @@ async def get_gtoken(f_gen_url, session_token, ver):
     body["parameter"] = parameter
 
     url = "https://api-lp1.znc.srv.nintendo.net/v2/Game/GetWebServiceToken"
-    r = httpx.post(url, headers=app_head, json=body)
+    r = await ClientReq.post(url, headers=app_head, json=body)
     web_service_resp = json.loads(r.text)
 
     try:
@@ -412,12 +377,12 @@ async def get_gtoken(f_gen_url, session_token, ver):
     except:
         # retry once if 9403/9599 error from nintendo
         try:
-            f, uuid, timestamp = call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
+            f, uuid, timestamp = await call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
             body["parameter"]["f"] = f
             body["parameter"]["requestId"] = uuid
             body["parameter"]["timestamp"] = timestamp
             url = "https://api-lp1.znc.srv.nintendo.net/v2/Game/GetWebServiceToken"
-            r = httpx.post(url, headers=app_head, json=body)
+            r = await ClientReq.post(url, headers=app_head, json=body)
             web_service_resp = json.loads(r.text)
             web_service_token = web_service_resp["result"]["accessToken"]
         except:
@@ -432,7 +397,7 @@ async def get_gtoken(f_gen_url, session_token, ver):
     return web_service_token, user_nickname, user_lang, user_country, user_info
 
 
-def get_bullet(web_service_token, app_user_agent, user_lang, user_country):
+async def get_bullet(user_id, web_service_token, app_user_agent, user_lang, user_country):
     """Given a gtoken, returns a bulletToken."""
 
     app_head = {
@@ -451,35 +416,23 @@ def get_bullet(web_service_token, app_user_agent, user_lang, user_country):
         '_dnt': '1'  # Do Not Track
     }
     url = f'{SPLATNET3_URL}/api/bullet_tokens'
-    r = httpx.post(url, headers=app_head, cookies=app_cookies)
-
-    if r.status_code == 401:
-        print("Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
-        sys.exit(1)
-    elif r.status_code == 403:
-        print("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
-        sys.exit(1)
-    elif r.status_code == 204:  # No Content, USER_NOT_REGISTERED
-        print("Cannot access SplatNet 3 without having played online.")
-        sys.exit(1)
+    r = await ClientReq.post(url, headers=app_head, cookies=app_cookies)
 
     try:
-        bullet_resp = json.loads(r.text)
-        bullet_token = bullet_resp["bulletToken"]
-    except (json.decoder.JSONDecodeError, TypeError):
-        print("Got non-JSON response from Nintendo (in api/bullet_tokens step):")
-        print(r.text)
-        bullet_token = ""
-    except:
-        print("Error from Nintendo (in api/bullet_tokens step):")
-        print(json.dumps(bullet_resp, indent=2))
-        sys.exit(1)
-
-    return bullet_token
+        return r.json()['bulletToken']
+    except Exception as e:
+        logger.exception(f'{user_id} get_bullet error. {r.status_code}')
+        if r.status_code == 401:
+            logger.exception("Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
+        elif r.status_code == 403:
+            logger.exception("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
+        elif r.status_code == 204:  # No Content, USER_NOT_REGISTERED
+            logger.exception("Cannot access SplatNet 3 without having played online.")
+        raise Exception(f'{user_id} get_bullet error. {r.status_code}')
 
 
-def call_f_api(access_token, step, f_gen_url, user_id, coral_user_id=None):
-    '''Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp).'''
+async def call_f_api(access_token, step, f_gen_url, user_id, coral_user_id=None):
+    """Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp)."""
 
     api_head = {}
     api_body = {}
@@ -499,7 +452,7 @@ def call_f_api(access_token, step, f_gen_url, user_id, coral_user_id=None):
         if step == 2 and coral_user_id is not None:
             api_body["coral_user_id"] = coral_user_id
 
-        api_response = httpx.post(f_gen_url, data=api_body, headers=api_head)
+        api_response = await  ClientReq.post(f_gen_url, data=api_body, headers=api_head)
         resp = json.loads(api_response.text)
 
         logger.debug(f"get f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
