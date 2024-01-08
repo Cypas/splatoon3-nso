@@ -19,6 +19,7 @@ nonebot-adapter-kaiheila = "^0.2.8"
 nonebot-adapter-qq = "^1.3.4"
 nonebot-plugin-apscheduler = "^0.3.0"
 nonebot_plugin_htmlrender = "^0.2.3"
+SQLAlchemy = "^2.0.25"
 
 
 
