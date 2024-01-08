@@ -6,6 +6,7 @@ from loguru import logger
 import base64, hashlib, json, os, re, sys
 from bs4 import BeautifulSoup
 from ..utils import BOT_VERSION, get_or_init_login_client, ClientReq
+from .utils import SPLATNET3_URL, GRAPHQL_URL
 
 A_VERSION = '0.6.0'  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
@@ -13,9 +14,6 @@ NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "2.8.1"  # fallback
 WEB_VIEW_VERSION = "unknown"
 WEB_VIEW_VER_FALLBACK = "6.0.0-daea5c11"  # fallback
-
-SPLATNET3_URL = "https://api.lp1.av5ja.srv.nintendo.net"
-GRAPHQL_URL = SPLATNET3_URL + "/api/graphql"
 
 F_USER_AGENT = f'splatoon3_bot/{BOT_VERSION}'
 APP_USER_AGENT = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) ' \
@@ -228,8 +226,10 @@ def get_session_token(session_token_code, auth_code_verifier, msg_id):
     return json.loads(r.text)["session_token"]
 
 
-async def get_gtoken(f_gen_url, session_token):
-    """Provided the session_token, returns a GameWebToken and account info."""
+async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
+    """Provided the session_token, returns a GameWebToken and account info.
+    only_nso_access_token: 仅获取nso_access_token
+    """
 
     if not session_token:
         raise ValueError('invalid_grant')
@@ -346,6 +346,8 @@ async def get_gtoken(f_gen_url, session_token):
             return
 
         f, uuid, timestamp = await call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
+    if only_nso_access_token:
+        return access_token
 
     # get web service token
     app_head = {
@@ -397,14 +399,14 @@ async def get_gtoken(f_gen_url, session_token):
     return web_service_token, user_nickname, user_lang, user_country, user_info
 
 
-async def get_bullet(user_id, web_service_token, app_user_agent, user_lang, user_country):
+async def get_bullet(user_id, web_service_token, user_lang, user_country):
     """Given a gtoken, returns a bulletToken."""
 
     app_head = {
         'Content-Length': '0',
         'Content-Type': 'application/json',
         'Accept-Language': user_lang,
-        'User-Agent': app_user_agent,
+        'User-Agent': APP_USER_AGENT,
         'X-Web-View-Ver': get_web_view_ver(),
         'X-NACOUNTRY': user_country,
         'Accept': '*/*',

@@ -6,7 +6,8 @@ import base64, datetime, json, re, sys, uuid
 import requests
 from bs4 import BeautifulSoup
 
-GRAPHQL_URL = "https://api.lp1.av5ja.srv.nintendo.net/api/graphql"
+SPLATNET3_URL = "https://api.lp1.av5ja.srv.nintendo.net"
+GRAPHQL_URL = SPLATNET3_URL + "/api/graphql"
 S3S_NAMESPACE = uuid.UUID('b3a2dbf5-2c09-4792-b78c-00b548b70aeb')
 
 SUPPORTED_KEYS = [
