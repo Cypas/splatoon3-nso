@@ -11,7 +11,6 @@ global_client_dict: dict[httpx.Client] = {}  # 登录涉及函数login in和logi
 
 def cf_http_get(url: str):
     """cf get"""
-    global proxy_address
     # 实例化一个create_scraper对象
     scraper = cfscrape.create_scraper()
     # 请求报错，可以加上时延
@@ -31,19 +30,13 @@ def cf_http_get(url: str):
 
 async def async_http_get(url: str) -> Response:
     """async http_get"""
-    if proxy_address:
-        proxies = "http://{}".format(proxy_address)
-        async with httpx.AsyncClient(proxies=proxies) as client:
-            response = await client.get(url, timeout=5.0)
-            return response
-    else:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, timeout=5.0)
-            return response
+    response = ClientReq.get(url, timeout=5.0)
+    return response
 
 
 def http_get(url: str) -> Response:
     """http_get"""
+    global proxy_address
     if proxy_address:
         proxies = "http://{}".format(proxy_address)
         response = httpx.get(url, proxies=proxies, timeout=5.0)
@@ -93,13 +86,25 @@ class ClientReq(object):
     """httpx 请求封装为异步client请求"""
 
     @staticmethod
-    def get(*args, **kwargs):
-        async with httpx.AsyncClient() as client:
-            response = await client.get(*args, **kwargs)
-            return response
+    def get(url, **kwargs):
+        if proxy_address:
+            proxies = "http://{}".format(proxy_address)
+            async with httpx.AsyncClient(proxies=proxies) as client:
+                response = await client.get(url, **kwargs)
+                return response
+        else:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, **kwargs)
+                return response
 
     @staticmethod
-    def post(*args, **kwargs):
-        async with httpx.AsyncClient() as client:
-            response = await client.post(*args, **kwargs)
-            return response
+    def post(url, **kwargs):
+        if proxy_address:
+            proxies = "http://{}".format(proxy_address)
+            async with httpx.AsyncClient(proxies=proxies) as client:
+                response = await client.post(url, **kwargs)
+                return response
+        else:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(url, **kwargs)
+                return response

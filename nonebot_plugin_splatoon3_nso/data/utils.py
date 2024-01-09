@@ -1,0 +1,87 @@
+import copy
+
+from sqlalchemy import text
+
+from .db_sqlite import DBSession, TempImageTable, DIR_TEMP_IMAGE
+from ..utils import init_path, get_file_url
+
+
+class GlobalUserInfo:
+    def __init__(self, **kwargs):
+        self.platform = kwargs.get('platform', None)
+        self.user_id = kwargs.get('user_id', None)
+        self.user_name = kwargs.get('user_name', None)
+        self.session_token = kwargs.get('session_token', None)
+        self.g_token = kwargs.get('g_token', None)
+        self.bullet_token = kwargs.get('bullet_token', None)
+        self.game_name = kwargs.get('game_name', None)
+        self.game_id_sp = kwargs.get('game_id_sp', None)
+        self.push = kwargs.get('push', 0)
+        self.stat_key = kwargs.get('stat_key', None)
+
+
+async def model_get_or_set_temp_image(_type, name: str, link) -> TempImageTable:
+    """获取或设置缓存图片"""
+    session = DBSession()
+    name = name.replace("/", "-")
+    row: TempImageTable = get_insert_or_update_obj(TempImageTable, {"type": _type, "name": name})
+
+    download_flag: bool = False
+    temp_image = TempImageTable()
+    if row:
+        # 判断是否是用户图像缓存，并比对缓存数据是否需要更新
+        if row.type in ("friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link:
+            download_flag = True
+        else:
+            temp_image = copy.deepcopy(row)
+    else:
+        download_flag = True
+    if download_flag:
+        # 通过url下载图片储存至本地
+        image_data = await get_file_url(link)
+        file_name = ""
+        if len(image_data) > 0:
+            # 创建文件夹
+            init_path(f"{DIR_TEMP_IMAGE}")
+            init_path(f"{DIR_TEMP_IMAGE}/{_type}")
+
+            file_name = f'{name}.png'
+            with open(f"{DIR_TEMP_IMAGE}/{_type}/{file_name}", "wb") as f:
+                f.write(image_data)
+        temp_image = TempImageTable(
+            type=_type,
+            name=name,
+            link=link,
+            file_name=file_name
+        )
+        # 将复制值传给orm
+        session.add(copy.deepcopy(temp_image))
+    session.commit()
+    session.close()
+    return temp_image
+
+
+def get_insert_or_update_obj(cls, filter_dict, **kw):
+    """ 获取插入或更新对象
+    cls:            Model 类名
+    filter_dict:      filter的参数.eg:{"name"="嘤嘤嘤"}
+    **kw:           【属性、值】字典,用于构建新实例，或修改存在的记录
+    """
+    session = DBSession()
+    query = session.query(cls)
+    # 拼装全部筛选条件
+    if len(filter_dict) > 0:
+        for k, v in filter_dict.items():
+            query = query.filter(text(str(k) + '="' + str(v) + '"'))
+        row = query.first()
+    else:
+        # 没有提供筛选
+        row = None
+    if not row:
+        res = cls()
+    else:
+        res = row
+    for k, v in kw.items():
+        if hasattr(res, k):
+            setattr(res, k, v)
+    return res
