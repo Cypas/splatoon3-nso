@@ -1,9 +1,4 @@
-import copy
-
-from loguru import logger
-from sqlalchemy import text
-
-from .db_sqlite import DBSession, DIR_TEMP_IMAGE, DBSession_Friends, UserTable
+from .db_sqlite import *
 from .utils import model_get_or_set_temp_image, get_insert_or_update_obj, GlobalUserInfo
 
 global_user_info_dict: dict[str:GlobalUserInfo] = {}  # 用于缓存今日已使用过指令的用户，并为这些活跃用户定期更新token
@@ -36,8 +31,12 @@ def model_get_or_set_user(platform, user_id, **kwargs) -> UserTable:
     try:
         session = DBSession()
         filter_dict = {"platform": platform, "user_id": user_id}
-        user = get_insert_or_update_obj(UserTable, filter_dict, platform=platform, user_id=user_id, **kwargs)
-        session.add(copy.deepcopy(user))
+        if len(kwargs) != 0:
+            user = get_insert_or_update_obj(UserTable, filter_dict, platform=platform, user_id=user_id, **kwargs)
+        else:
+            user = get_insert_or_update_obj(UserTable, filter_dict)
+        if user:
+            session.add(copy.deepcopy(user))
         session.commit()
         session.close()
         return user
@@ -62,12 +61,12 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
     优先读取字典内信息，没有则查询数据库
     """
     global global_user_info_dict
-    key = platform + "-" + user_id
+    key = f"{platform}-{user_id}"
     user_info = global_user_info_dict.get(key)
     if not user_info:
         # 不存在，从数据库获取信息再写入字典
         user = model_get_or_set_user(platform, user_id)
-        if not user:
+        if user:
             user_info = GlobalUserInfo(
                 platform=user.platform,
                 user_id=user.user_id,
@@ -75,20 +74,126 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
                 session_token=user.session_token,
                 g_token=user.g_token,
                 bullet_token=user.bullet_token,
+                access_token=user.access_token,
                 game_name=user.game_name,
-                game_id_sp=user.game_id_sp,
+                game_sp_id=user.game_sp_id,
+                push=0,
+                push_cnt=user.push_cnt or 0,
+                stat_key=user.stat_key,
             )
+            global_user_info_dict.update({key: user_info})
         else:
-            user_info = None
+            # 该用户未登录
+            user_info = GlobalUserInfo(
+                platform=user.platform,
+                user_id=user.user_id)
 
-    if (len(kwargs) != 0) and (not user_info):
+    if len(kwargs) != 0:
         # 更新字典
+        if not user_info:
+            user_info = GlobalUserInfo(platform=platform, user_id=user_id)
         for k, v in kwargs.items():
             if hasattr(user_info, k):
                 setattr(user_info, k, v)
-        setattr(global_user_info_dict, key, user_info)
+        global_user_info_dict.update({key: user_info})
         # 更新数据库
         user = model_get_or_set_user(platform, user_id, **kwargs)
         if not user:
             logger.debug(f"user info update error; {kwargs}")
     return user_info
+
+
+def model_get_login_user(player_code):
+    session = DBSession()
+    user = session.query(UserTable).filter(UserTable.game_sp_id == player_code).first()
+    new_user = copy.deepcopy(user)
+    session.commit()
+    session.close()
+    return new_user
+
+
+def model_get_top_player(player_code):
+    """获取一名top玩家信息"""
+    session = DBSession()
+    user = session.query(TopPlayer).filter(
+        TopPlayer.player_code == player_code).order_by(TopPlayer.power.desc()).first()
+    new_user = copy.deepcopy(user)
+    session.commit()
+    session.close()
+    return new_user
+
+
+def model_get_top_all(player_code) -> TopAll:
+    """获取一条top all信息"""
+    session = DBSession()
+    user = session.query(TopAll).filter(
+        TopAll.player_code == player_code).order_by(TopAll.power.desc()).first()
+    new_user = copy.deepcopy(user)
+    session.commit()
+    session.close()
+    return new_user
+
+
+def model_get_all_weapon() -> dict:
+    """获取全部装备数据"""
+    session = DBSession()
+    weapon = session.query(Weapon).all()
+    _dict = dict((str(i.weapon_id), dict(name=i.weapon_name, url=i.image2d_thumb)) for i in weapon)
+    session.commit()
+    session.close()
+    return _dict
+
+
+def model_get_user_friend(game_name) -> UserFriendTable:
+    """获取好友数据"""
+    session = DBSession_Friends()
+    user = session.query(UserFriendTable).filter(
+        UserFriendTable.game_name == game_name
+    ).order_by(UserFriendTable.create_time.desc()).first()
+    new_user = copy.deepcopy(user)
+    session.commit()
+    session.close()
+    return new_user
+
+
+def model_set_user_friend(data_lst):
+    """设置好友数据"""
+    report_logger = logger.bind(report=True)
+    session = DBSession_Friends()
+    for r in data_lst:
+        u = session.query(UserFriendTable).filter(UserFriendTable.friend_id == r[1]).first()
+        game_name = r[2] or r[3]
+        user = copy.deepcopy(u)
+        session.commit()
+        if user:
+            is_change = False
+            if r[2] and user.game_name != game_name:
+                is_change = True
+            if is_change is False and user.user_icon != r[4]:
+                is_change = True
+
+            if is_change:
+                report_logger.debug(f'change {user.id:>5}, {user.player_name}, {user.nickname}, {user.game_name}')
+                report_logger.debug(f'cha--> {user.id:>5}, {r[2]}, {r[3]}, {game_name}')
+                user.player_name = r[2]
+                user.nickname = r[3]
+                user.user_icon = r[4]
+                user.game_name = game_name
+                session.commit()
+                report_logger.debug(f'edit user_friend: {user.id:>5}, {r[1]}, {r[2]}, {r[3]}, {game_name}')
+
+        else:
+            _dict = {
+                'user_id': '',
+                'friend_id': r[1],
+                'player_name': r[2],
+                'nickname': r[3],
+                'game_name': game_name,
+                'user_icon': r[4],
+            }
+            new_user = UserFriendTable(**_dict)
+            session.add(new_user)
+            session.commit()
+            report_logger.debug(f'add user_friend: {r[1]}, {r[2]}, {r[3]}, {game_name}')
+
+    session.close()

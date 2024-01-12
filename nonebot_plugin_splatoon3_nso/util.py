@@ -1,3 +1,6 @@
+from .utils.bot import *
+
+
 def get_or_init(dictionary: dict, key: str, default=None):
     """字典赋值"""
     if default is None:

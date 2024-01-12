@@ -5,7 +5,7 @@ import httpx
 from loguru import logger
 import base64, hashlib, json, os, re, sys
 from bs4 import BeautifulSoup
-from ..utils import BOT_VERSION, get_or_init_login_client, ClientReq
+from ..utils import BOT_VERSION, get_or_init_login_client, AsHttpReq, HttpReq
 from .utils import SPLATNET3_URL, GRAPHQL_URL
 
 A_VERSION = '0.6.0'  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
@@ -21,7 +21,7 @@ APP_USER_AGENT = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) ' \
                  'Chrome/94.0.4606.61 Mobile Safari/537.36'
 
 
-async def get_nsoapp_version(f_gen_url):
+def get_nsoapp_version(f_gen_url):
     """Fetches the current Nintendo Switch Online app version from f API or the Apple App Store and sets it globally."""
 
     global NSOAPP_VERSION
@@ -31,7 +31,7 @@ async def get_nsoapp_version(f_gen_url):
         try:  # try to get NSO version from f API
             f_conf_url = os.path.dirname(f_gen_url) + "/config"  # default endpoint for imink API
             f_conf_header = {'User-Agent': F_USER_AGENT}
-            f_conf_rsp = await ClientReq.get(f_conf_url, headers=f_conf_header)
+            f_conf_rsp = HttpReq.get(f_conf_url, headers=f_conf_header)
             f_conf_json = json.loads(f_conf_rsp.text)
             ver = f_conf_json["nso_version"]
 
@@ -40,7 +40,7 @@ async def get_nsoapp_version(f_gen_url):
             return NSOAPP_VERSION
         except:  # fallback to apple app store
             try:
-                page = await ClientReq.get("https://apps.apple.com/us/app/nintendo-switch-online/id1234806557")
+                page = HttpReq.get("https://apps.apple.com/us/app/nintendo-switch-online/id1234806557")
                 soup = BeautifulSoup(page.text, 'html.parser')
                 elt = soup.find("p", {"class": "whats-new__latest__version"})
                 ver = elt.get_text().replace("Version ", "").strip()
@@ -53,9 +53,8 @@ async def get_nsoapp_version(f_gen_url):
             return NSOAPP_VER_FALLBACK
 
 
-async def get_web_view_ver(bhead=[], gtoken=""):
+def get_web_view_ver(bhead=[], gtoken=""):
     """Finds & parses the SplatNet 3 main.js file to fetch the current site version and sets it globally."""
-
     global WEB_VIEW_VERSION
     if WEB_VIEW_VERSION != "unknown":
         return WEB_VIEW_VERSION
@@ -83,9 +82,9 @@ async def get_web_view_ver(bhead=[], gtoken=""):
             app_cookies["_gtoken"] = gtoken  # X-GameWebToken
 
         try:
-            home = await ClientReq.get(SPLATNET3_URL, headers=app_head, cookies=app_cookies)
+            home = HttpReq.get(SPLATNET3_URL, headers=app_head, cookies=app_cookies)
         except httpx.ConnectError:
-            print("Could not connect to network. Please try again.")
+            return WEB_VIEW_VER_FALLBACK
 
         if home.status_code != 200:
             return WEB_VIEW_VER_FALLBACK
@@ -111,7 +110,7 @@ async def get_web_view_ver(bhead=[], gtoken=""):
             app_head["Accept-Encoding"] = bhead.get("Accept-Encoding")
             app_head["Accept-Language"] = bhead.get("Accept-Language")
 
-        main_js_body = await ClientReq.get(main_js_url, headers=app_head, cookies=app_cookies)
+        main_js_body = HttpReq.get(main_js_url, headers=app_head, cookies=app_cookies)
         if main_js_body.status_code != 200:
             return WEB_VIEW_VER_FALLBACK
 
@@ -226,7 +225,7 @@ def get_session_token(session_token_code, auth_code_verifier, msg_id):
     return json.loads(r.text)["session_token"]
 
 
-async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
+async def get_gtoken(f_gen_url, session_token):
     """Provided the session_token, returns a GameWebToken and account info.
     only_nso_access_token: 仅获取nso_access_token
     """
@@ -240,7 +239,6 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
         'Host': 'accounts.nintendo.com',
         'Accept-Encoding': 'gzip',
         'Content-Type': 'application/json',
-        'Content-Length': '436',
         'Accept': 'application/json',
         'Connection': 'Keep-Alive',
         'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 7.1.2)'
@@ -253,7 +251,7 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
     }
 
     url = "https://accounts.nintendo.com/connect/1.0.0/api/token"
-    r = await ClientReq.post(url, headers=app_head, json=body)
+    r = await AsHttpReq.post(url, headers=app_head, json=body)
     id_response = json.loads(r.text)
 
     # get user info
@@ -276,7 +274,7 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
         return
 
     url = "https://api.accounts.nintendo.com/2.0.0/users/me"
-    r = await ClientReq.get(url, headers=app_head)
+    r = await AsHttpReq.get(url, headers=app_head)
     user_info = json.loads(r.text)
 
     user_nickname = user_info["nickname"]
@@ -312,17 +310,17 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
         'X-Platform': 'Android',
         'X-ProductVersion': nsoapp_version,
         'Content-Type': 'application/json; charset=utf-8',
-        'Content-Length': str(990 + len(f)),
         'Connection': 'Keep-Alive',
         'Accept-Encoding': 'gzip',
         'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/7.1.2)',
     }
 
     url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
-    r = await ClientReq.post(url, headers=app_head, json=body)
+    r = await AsHttpReq.post(url, headers=app_head, json=body)
     splatoon_token = json.loads(r.text)
 
     try:
+        # access_token过期时间7200s 即2h
         access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
         coral_user_id = splatoon_token["result"]["user"]["id"]
     except:
@@ -332,9 +330,10 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
             body["parameter"]["f"] = f
             body["parameter"]["requestId"] = uuid
             body["parameter"]["timestamp"] = timestamp
-            app_head["Content-Length"] = str(990 + len(f))
+            # Content-Length字段似乎不是必要的，或是httpx自动生成了，原来的字段是给request请求设置的
+            # app_head["Content-Length"] = str(990 + len(f))
             url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
-            r = await ClientReq.post(url, headers=app_head, json=body)
+            r = await AsHttpReq.post(url, headers=app_head, json=body)
             splatoon_token = json.loads(r.text)
             access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
             coral_user_id = splatoon_token["result"]["user"]["id"]
@@ -346,8 +345,6 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
             return
 
         f, uuid, timestamp = await call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
-    if only_nso_access_token:
-        return access_token
 
     # get web service token
     app_head = {
@@ -355,7 +352,6 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
         'X-ProductVersion': nsoapp_version,
         'Authorization': f'Bearer {access_token}',
         'Content-Type': 'application/json; charset=utf-8',
-        'Content-Length': '391',
         'Accept-Encoding': 'gzip',
         'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/7.1.2)'
     }
@@ -371,20 +367,20 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
     body["parameter"] = parameter
 
     url = "https://api-lp1.znc.srv.nintendo.net/v2/Game/GetWebServiceToken"
-    r = await ClientReq.post(url, headers=app_head, json=body)
+    r = await AsHttpReq.post(url, headers=app_head, json=body)
     web_service_resp = json.loads(r.text)
 
     try:
         web_service_token = web_service_resp["result"]["accessToken"]
     except:
-        # retry once if 9403/9599 error from nintendo
+        # retry once if code 9403/9599 error from nintendo
         try:
             f, uuid, timestamp = await call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
             body["parameter"]["f"] = f
             body["parameter"]["requestId"] = uuid
             body["parameter"]["timestamp"] = timestamp
             url = "https://api-lp1.znc.srv.nintendo.net/v2/Game/GetWebServiceToken"
-            r = await ClientReq.post(url, headers=app_head, json=body)
+            r = await AsHttpReq.post(url, headers=app_head, json=body)
             web_service_resp = json.loads(r.text)
             web_service_token = web_service_resp["result"]["accessToken"]
         except:
@@ -395,8 +391,8 @@ async def get_gtoken(f_gen_url, session_token, only_nso_access_token=False):
                 nickname = user_info.get('nickname')
                 raise ValueError(f'Membership required error.|{nickname}')
             return
-
-    return web_service_token, user_nickname, user_lang, user_country, user_info
+    # web_service_token 有效期为10800秒 3h
+    return access_token, web_service_token, user_nickname, user_lang, user_country, user_info
 
 
 async def get_bullet(user_id, web_service_token, user_lang, user_country):
@@ -418,9 +414,10 @@ async def get_bullet(user_id, web_service_token, user_lang, user_country):
         '_dnt': '1'  # Do Not Track
     }
     url = f'{SPLATNET3_URL}/api/bullet_tokens'
-    r = await ClientReq.post(url, headers=app_head, cookies=app_cookies)
+    r = await AsHttpReq.post(url, headers=app_head, cookies=app_cookies)
 
     try:
+        # bullet_token过期时间7200s 即2h
         return r.json()['bulletToken']
     except Exception as e:
         logger.exception(f'{user_id} get_bullet error. {r.status_code}')
@@ -454,7 +451,7 @@ async def call_f_api(access_token, step, f_gen_url, user_id, coral_user_id=None)
         if step == 2 and coral_user_id is not None:
             api_body["coral_user_id"] = coral_user_id
 
-        api_response = await  ClientReq.post(f_gen_url, data=api_body, headers=api_head)
+        api_response = await AsHttpReq.post(f_gen_url, json=api_body, headers=api_head)
         resp = json.loads(api_response.text)
 
         logger.debug(f"get f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")

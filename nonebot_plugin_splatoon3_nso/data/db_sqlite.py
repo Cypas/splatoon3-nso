@@ -6,26 +6,28 @@ import os
 import httpx
 from httpx import Response
 from loguru import logger
-from sqlalchemy import Column, String, create_engine, Integer, Boolean, Text, DateTime, func, Float
+from sqlalchemy import Column, String, create_engine, Integer, Boolean, Text, DateTime, func, Float, \
+    PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.sql import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-dir_plugin = os.path.abspath(os.path.join(__file__, os.pardir))
-database_uri_main = f'sqlite:///{dir_plugin}/resource/nso_data.sqlite'
-database_uri_friends = f'sqlite:///{dir_plugin}/resource/data_friend.sqlite'
+from ..utils import DIR_RESOURCE
 
-DIR_TEMP_IMAGE = f'{os.path.abspath(os.path.join(__file__, os.pardir))}/resource/temp_image'
+database_uri_main = f'sqlite:///{DIR_RESOURCE}/nso_data.sqlite'
+database_uri_friends = f'sqlite:///{DIR_RESOURCE}/data_friend.sqlite'
+
+DIR_TEMP_IMAGE = f'{DIR_RESOURCE}/temp_image'
 
 Base_Main = declarative_base()
 engine = create_engine(database_uri_main)
-Base_Main.metadata.create_all(engine)
-DBSession = sessionmaker(bind=engine)
+
+
 
 Base_Friends = declarative_base()
 engine_friends = create_engine(database_uri_friends)
-Base_Friends.metadata.create_all(engine_friends)
-DBSession_Friends = sessionmaker(bind=engine_friends)
+
+
 
 
 # Table
@@ -33,24 +35,29 @@ class UserTable(Base_Main):
     __tablename__ = 'user'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    platform = Column(String(), unique=True, nullable=True)
-    user_id = Column(String(), unique=True, nullable=True)
+    platform = Column(String(), nullable=True)
+    user_id = Column(String(), nullable=True)
     user_name = Column(String(), nullable=True)
     push_cnt = Column(Integer(), default=0)
     cmd_cnt = Column(Integer(), default=0)
     stat_key = Column(String(), nullable=True)
     session_token = Column(String(), nullable=True)  # 账号缓存凭证
-    g_token = Column(String(), nullable=True)  # web service token，可能是游戏网页通用token
-    bullet_token = Column(String(), nullable=True)  # 作用未知，可能是sp3应用专用token
+    access_token = Column(String(), nullable=True) # nso用户操作token |有效期2h| 获取ns friends，好友码
+    g_token = Column(String(), nullable=True)  # web service token，nso内sp3网页服务token |有效期3h| nso页面操作，截图时使用
+    bullet_token = Column(String(), nullable=True)  # nso内sp3网页api接口token |有效期2h| 战绩api接口使用
     user_info = Column(Text(), nullable=True)
     game_name = Column(String(), default='')
-    game_id_sp = Column(String(), nullable=True)
+    game_sp_id = Column(String(), nullable=True)
     api_notify = Column(Integer(), default=1)  # 0:close 1:open
     report_notify = Column(Integer(), default=1)  # 0:close 1:open
     last_play_time = Column(DateTime(), nullable=True)
     first_play_time = Column(DateTime(), nullable=True)
     create_time = Column(DateTime(), default=func.now())
     update_time = Column(DateTime(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("platform", "user_id", name='Idx_Platform_User'),
+    )
 
 
 class TopPlayer(Base_Main):
@@ -129,3 +136,9 @@ class UserFriendTable(Base_Friends):
     user_icon = Column(String(), default='')
     create_time = Column(DateTime(), default=func.now())
     update_time = Column(DateTime(), onupdate=func.now())
+
+
+Base_Main.metadata.create_all(engine)
+DBSession = sessionmaker(bind=engine)
+Base_Friends.metadata.create_all(engine_friends)
+DBSession_Friends = sessionmaker(bind=engine_friends)

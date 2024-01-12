@@ -1,5 +1,6 @@
 import copy
 
+import httpx
 from sqlalchemy import text
 
 from .db_sqlite import DBSession, TempImageTable, DIR_TEMP_IMAGE
@@ -14,9 +15,11 @@ class GlobalUserInfo:
         self.session_token = kwargs.get('session_token', None)
         self.g_token = kwargs.get('g_token', None)
         self.bullet_token = kwargs.get('bullet_token', None)
+        self.access_token = kwargs.get('access_token', None)
         self.game_name = kwargs.get('game_name', None)
-        self.game_id_sp = kwargs.get('game_id_sp', None)
+        self.game_sp_id = kwargs.get('game_sp_id', None)
         self.push = kwargs.get('push', 0)
+        self.push_cnt = kwargs.get('push_cnt', 0)
         self.stat_key = kwargs.get('stat_key', None)
 
 
@@ -72,15 +75,17 @@ def get_insert_or_update_obj(cls, filter_dict, **kw):
     # 拼装全部筛选条件
     if len(filter_dict) > 0:
         for k, v in filter_dict.items():
-            query = query.filter(text(str(k) + '="' + str(v) + '"'))
+            query = query.filter(text(str(k) + "='" + str(v) + "'"))
         row = query.first()
     else:
         # 没有提供筛选
         row = None
-    if not row:
+    if not row and len(kw) > 0:
+        # 创建新对象
         res = cls()
     else:
         res = row
+
     for k, v in kw.items():
         if hasattr(res, k):
             setattr(res, k, v)

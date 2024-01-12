@@ -6,6 +6,10 @@ from pydantic import BaseModel, validator
 
 # 其他地方出现的类似 from .. import config，均是从 __init__.py 导入的 Config 实例
 class Config(BaseModel):
+    # 默认 proxy = None 表示不使用代理进行连接
+    splatoon3_proxy_address: str = ""
+    # 指定回复模式，开启后将通过触发词的消息进行回复
+    splatoon3_reply_mode: bool = False
     # 日志消息将由该bot发送至tg频道
     splatoon3_notify_tg_bot_id: str = ""
     splatoon3_tg_channel_msg_chat_id: str = ""
@@ -30,3 +34,7 @@ class Config(BaseModel):
 driver = get_driver()
 global_config = driver.config
 plugin_config = Config.parse_obj(global_config)
+
+# driver = None
+# global_config = None
+# plugin_config = Config()

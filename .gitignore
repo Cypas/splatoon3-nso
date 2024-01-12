@@ -138,9 +138,12 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 .idea
+*.sqlite
 nonebot_plugin_splatoon3_nso/resource/s3sits_git/
 nonebot_plugin_splatoon3_nso/resource/msg_img/
 nonebot_plugin_splatoon3_nso/resource/*.txt
 nonebot_plugin_splatoon3_nso/resource/temp_image/
 nonebot_plugin_splatoon3_nso/数据结构/
-splatoon3_nso
+splatoon3_nso/
+tests/
+数据结构/
