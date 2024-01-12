@@ -15,10 +15,10 @@ F_GEN_URL = 'https://api.imink.app/f'
 F_GEN_URL_2 = 'https://nxapi-znca-api.fancy.org.uk/api/znca/f'
 
 
-class User_DB_Info:
+class UserDBInfo:
     def __init__(self, db_id, user_name, game_name, game_sp_id):
-        self.db_id = db_id,
-        self.user_name = user_name,
+        self.db_id = db_id
+        self.user_name = user_name
         self.game_name = game_name
         self.game_sp_id = game_sp_id
 
@@ -41,10 +41,10 @@ class Splatoon:
             self.bullet_token = user.bullet_token
             self.g_token = user.g_token
             self.access_token = user.access_token
-            self.user_db_info = User_DB_Info(user.id or 0,
-                                             user.user_name or "no user name",
-                                             user.game_name or "no game name",
-                                             user.game_sp_id or "")
+            self.user_db_info = UserDBInfo(str(user.id) or "0",
+                                           user.user_name or "no user name",
+                                           user.game_name or "no game name",
+                                           user.game_sp_id or "")
 
     def set_user_info(self, **kwargs):
         """修改user信息"""
@@ -57,12 +57,14 @@ class Splatoon:
 
     async def refresh_gtoken_and_bullettoken(self):
         """刷新gtoken 和 bullettoken"""
+        new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
+            "", "", "", self.user_lang, self.user_country
         try:
             new_access_token, new_g_token, user_nickname, user_lang, user_country, _user_info = \
                 await get_gtoken(F_GEN_URL, self.session_token)
         except Exception as e:
             msg_id = f"{self.platform}-{self.user_id}"
-            logger.warning(f'{msg_id} refresh_gtoken_and_bullettoken error. {e}\n{self.session_token}')
+            logger.warning(f'{msg_id} refresh_gtoken_and_bullettoken error. {e} {self.session_token}')
             if self.user_db_info:
                 user = self.user_db_info
                 if 'invalid_grant' in str(e):
@@ -79,7 +81,8 @@ class Splatoon:
                     return
                 elif 'Membership required' in str(e):
                     # 会员过期
-                    logger.warning(f'membership_required: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
+                    logger.warning(
+                        f'membership_required: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
                     _ex, nickname = str(e).split('|')
                     nickname = nickname or ''
                     logger.warning('membership_required notify')
@@ -91,9 +94,13 @@ class Splatoon:
                     return
                 logger.warning(
                     f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
-            logger.warning('try f_gen_url_2 url')
-            new_access_token, new_g_token, user_nickname, user_lang, user_country, _user_info = \
-                await get_gtoken(F_GEN_URL_2, self.session_token)
+                logger.warning('try f_gen_url_2 url')
+                try:
+                    new_access_token, new_g_token, user_nickname, user_lang, user_country, _user_info = \
+                        await get_gtoken(F_GEN_URL_2, self.session_token)
+                except Exception as e:
+                    logger.warning(
+                        f'f_gen_url_2 url also fail:{e} db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
 
         # 获取bullettoken
         new_bullet_token = await get_bullet(self.user_db_info.db_id, new_g_token, user_lang, user_country)

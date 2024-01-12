@@ -47,7 +47,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
             width = kwargs.get('image_width')
         # 打工
         if 'W1 ' in message and 'duration: ' not in message:
-            width = 570
+            width = 640
         img_data = await md_to_pic(message, width=width, css_path=f'{DIR_RESOURCE}/md.css')
 
     if kwargs.get('photo'):

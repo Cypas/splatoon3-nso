@@ -44,12 +44,12 @@ async def _(bot: Bot, event: Event):
         for cmd in cmd_lst:
             if cmd.isdigit():
                 # 数字索引
-                idx = int(cmd) - 1
-                idx = max(0, idx)
-                idx = min(49, idx)
+                idx = min(49, max(0, int(cmd) - 1))
                 break
 
-    image_width = 1000 if get_pic else 630
+    image_width = 720
+    if get_pic:
+        image_width = 1000
     msg, is_playing = await get_last_battle_or_coop(platform, user_id, get_battle=get_battle, get_coop=get_coop,
                                                     get_pic=get_pic,
                                                     idx=idx,
@@ -82,7 +82,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
                                   get_screenshot=False, mask=False):
     """获取上一局对战或打工数据"""
     user = dict_get_or_set_user_info(platform, user_id)
-    splatoon = Splatoon(platform, user.user_id,user.user_name, user.session_token)
+    splatoon = Splatoon(platform, user.user_id, user.user_name, user.session_token)
     battle_t = ""
     coop_t = ""
 
@@ -106,21 +106,36 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
         # 获取最近全部打工
         res = await splatoon.get_coops()
         try:
-            # token 每两小时更新，再次尝试一次
-            if not res:
-                res = await splatoon.get_coops()
+            coop = res['data']['coopResult']
+            # /last c 2 指令可能存在跨期查询的问题，idx需要查询每期nodes数量
+            coop_group_idx = 0
+            # 计算过去有记录的全部打工数据
+            coop_total_count = 0
+            # 加回1 方便语义计算
+            idx += 1
+            for group in coop['historyGroups']['nodes']:
+                group_count = len(group['historyDetails']['nodes'])
+                coop_total_count += group_count
+                if idx > group_count:
+                    # 超出一组记录
+                    idx -= group_count
+                    coop_group_idx += 1
+            if idx > coop_total_count:
+                msg = "查询索引超出最大历史记录，请用更小索引重试"
+                is_playing = False
+                return msg, is_playing
+            # 减1变回索引
+            idx -= 1
             coop_info = {
-                'coop_point': res['data']['coopResult']['pointCard']['regularPoint'],
-                'coop_eggs': res['data']['coopResult']['historyGroups']['nodes'][0]['highestResult'].get(
-                    'jobScore') or 0
+                'coop_point': coop['pointCard']['regularPoint'] or "0",
+                'coop_eggs': coop['historyGroups']['nodes'][coop_group_idx]['highestResult'].get(
+                    'jobScore') or "0"
             }  # coop_eggs为当期获得的最多的蛋数
-            coop_id = res['data']['coopResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]['id']
+            coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx]['id']
             coop_t = get_battle_time_or_coop_time(coop_id)
-        except:
+        except Exception as e:
             coop_info = {}
             coop_id = ""
-
-    is_playing = False
 
     # 未指定模式下
     if (not get_coop) and (not get_battle):

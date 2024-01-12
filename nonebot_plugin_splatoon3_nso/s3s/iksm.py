@@ -268,7 +268,7 @@ async def get_gtoken(f_gen_url, session_token):
     except:
         logger.warning("Not a valid authorization request. Please delete config.txt and try again.")
         logger.warning("Error from Nintendo (in api/token step):")
-        logger.warning(json.dumps(id_response, indent=2))
+        logger.warning(json.dumps(id_response))
         if id_response.get('error') == 'invalid_grant':
             raise ValueError('invalid_grant')
         return
@@ -301,8 +301,8 @@ async def get_gtoken(f_gen_url, session_token):
         return
     except:
         logger.warning("Error(s) from Nintendo:")
-        logger.warning(json.dumps(id_response, indent=2))
-        logger.warning(json.dumps(user_info, indent=2))
+        logger.warning(f"response:{json.dumps(id_response)}")
+        logger.warning(f"user_info:{json.dumps(user_info)}")
         return
     body["parameter"] = parameter
 
@@ -339,7 +339,7 @@ async def get_gtoken(f_gen_url, session_token):
             coral_user_id = splatoon_token["result"]["user"]["id"]
         except:
             logger.warning("Error from Nintendo (in Account/Login step):")
-            logger.warning(json.dumps(splatoon_token, indent=2))
+            logger.warning(json.dumps(splatoon_token))
             logger.warning(
                 "Try re-running the script. Or, if the NSO app has recently been updated, you may temporarily change `USE_OLD_NSOAPP_VER` to True at the top of iksm.py for a workaround.")
             return
@@ -385,7 +385,7 @@ async def get_gtoken(f_gen_url, session_token):
             web_service_token = web_service_resp["result"]["accessToken"]
         except:
             logger.warning("Error from Nintendo (in Game/GetWebServiceToken step):")
-            logger.warning(json.dumps(web_service_resp, indent=2))
+            logger.warning(json.dumps(web_service_resp))
             if web_service_resp.get('errorMessage') == 'Membership required error.':
                 logger.warning(user_info)
                 nickname = user_info.get('nickname')
@@ -418,7 +418,8 @@ async def get_bullet(user_id, web_service_token, user_lang, user_country):
 
     try:
         # bullet_token过期时间7200s 即2h
-        return r.json()['bulletToken']
+        bullet_token = r.json()['bulletToken']
+        return bullet_token
     except Exception as e:
         logger.exception(f'{user_id} get_bullet error. {r.status_code}')
         if r.status_code == 401:
@@ -464,7 +465,7 @@ async def call_f_api(access_token, step, f_gen_url, user_id, coral_user_id=None)
             logger.warning(f"Error during f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
             if api_response and api_response.text:
                 logger.error(
-                    f"Error during f generation:\n{json.dumps(json.loads(api_response.text), indent=2, ensure_ascii=False)}")
+                    f"Error during f generation:\n{json.dumps(json.loads(api_response.text), ensure_ascii=False)}")
             else:
                 logger.error(f"Error during f generation: Error {api_response.status_code}.")
         except:

@@ -110,12 +110,25 @@ async def get_row_user_stats(p, mask=False):
     """
     re = p['result']
     if not re:
-        re = {"kill": 0, "death": 99, "assist": 0, "special": 0}
+        re = {"kill": 0, "death": 0, "assist": 0, "special": 0}
     ak = re['kill']
     k = re['kill'] - re['assist']
     k_str = f'{k}+{re["assist"]}'
     d = re['death']
-    ration = k / d if d else 99
+    sp = re['special']
+    # 避免除数和被除数为0的情况
+    if d == 0:
+        d = 1
+    if k != 0 and d != 0:
+        ration = k / d
+    else:
+        ration = 0
+
+    sp_name = p["weapon"]["specialWeapon"]["name"] or ""
+    sp_img = p["weapon"]["specialWeapon"]["image"]["url"] or ""
+    weapon_sp_img = await model_get_temp_image_path("battle_weapon_special", sp_name, sp_img)
+    sp_img = f'<img height="25" src="{weapon_sp_img}"/>'
+
     name = p['name'].replace('`', '&#96;').replace('|', '&#124;')
     if p.get('isMyself'):
         name = f'<b>{name}</b>'
@@ -138,7 +151,7 @@ async def get_row_user_stats(p, mask=False):
     weapon_main_img = await model_get_temp_image_path(img_type, p['weapon']['name'], weapon_img)
     w_str = f'<img height="40" src="{weapon_main_img}"/>'
     name = f'{name}|'
-    t = f"|{w_str}|{ak:>2}|{k_str:>5}k | {d:>2}d|{ration:>4.1f}|{re['special']:>3}sp| {p['paint']:>4}p| {name}|\n"
+    t = f"|{w_str}|{ak:>2}|{k_str:>5}k | {d:>2}d|{ration:>4.1f}|{sp}|{sp_img}| {p['paint']:>4}p| {name}|\n"
     return t
 
 
@@ -210,7 +223,7 @@ async def get_battle_msg_md(b_info, battle_detail, **kwargs):
     battle_detail = battle_detail['data']['vsHistoryDetail'] or {}
     # 标题 点数 进度(0-3)
     title, point, b_process = await get_battle_msg_title(b_info, battle_detail, **kwargs)
-    if not b_process:
+    if b_process:
         b_process = f"进度:{b_process}"
 
     get_pic = kwargs.get('get_pic')
@@ -221,25 +234,24 @@ async def get_battle_msg_md(b_info, battle_detail, **kwargs):
 
     if get_pic:
         # 衣服搭配
-        msg = '''|||||||
+        msg += '''|||||||
 |---|---|---|---|---|---|
 |武器|帽子|上衣|鞋子|背景|徽章|
 '''
     else:
         # 战绩
-        msg = """|||||||||
-|---|---:|---:|---:|---:|---:|---:|---|
-|武器|总击杀|击杀+助攻|死亡|kd|大招|涂地面积|玩家|
+        msg += """||||||||||
+|---|---:|----:|----:|---:|---:|:---:|---:|:----|
+|武器|总|杀+助|死亡|kd<td colspan="2">大招</td> |涂地|玩家|
 """
-        msg += """
-        """
+
     # body
     text_list = []
     teams = [battle_detail['myTeam']] + battle_detail['otherTeams']
     for team in sorted(teams, key=lambda x: x['order']):
         for p in team['players']:
             if get_pic:
-                text_list.append(await get_row_user_clothes(p, mask))
+                text_list.append(await get_row_user_clothes(p))
             else:
                 text_list.append(await get_row_user_stats(p, mask))
 
@@ -262,7 +274,7 @@ async def get_battle_msg_md(b_info, battle_detail, **kwargs):
             score_list.append(str((t['result']['score'])))
         elif (t.get('result') or {}).get('paintRatio') is not None:
             score_list.append(f"{t['result']['paintRatio']:.2%}"[:-2])
-    score = ':'.join(score_list)
+    score = ' : '.join(score_list)
     str_open_power = ''
     str_max_open_power = ''
     last_power = ''

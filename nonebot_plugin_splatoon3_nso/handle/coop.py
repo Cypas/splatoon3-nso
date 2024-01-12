@@ -6,26 +6,39 @@ from ..data.data_source import model_get_temp_image_path
 from ..utils.bot import *
 
 
-async def coop_row_user(p, mask=False, is_myself=False):
+async def coop_row_user(p, wave_results, mask=False, is_myself=False):
     """打工获取一行用户"""
     try:
+        sp_name = p['specialWeapon']['name']
+        sp_residue_count = 2
+        for w in wave_results:
+            # 计算留大
+            for s in w.get('specialWeapons'):
+                if sp_name == s['name']:
+                    sp_residue_count -= 1
+
+        if sp_residue_count != 0:
+            sp_residue = f"剩{sp_residue_count}"
+        else:
+            sp_residue = ""
+
         img_type = "coop_special"
         special_img = await model_get_temp_image_path(img_type, p['specialWeapon']['name'],
                                                       p['specialWeapon']['image']['url'])
-        weapon = f"<img height='18' src='{special_img}'/> |"
+        weapon = f"<img height='18' src='{special_img}'/> |{sp_residue}|"
         for w in p['weapons']:
             img_type = "coop_weapon"
             weapon_img = await model_get_temp_image_path(img_type, w['name'], w['image']['url'])
             weapon += f"<img height='18' src='{weapon_img}'/>"
     except Exception as e:
         logger.warning(f'coop_row error: {e}')
-        weapon = 'w|'
+        weapon = 'w||'
 
     p_name = p['player']['name']
     img_type = "coop_uniform"
     uniform_img = await model_get_temp_image_path(img_type, p["player"]["uniform"]['name'],
                                                   p["player"]["uniform"]["image"]["url"])
-    img_str = f'<img height="18" src="{uniform_img}"/>'
+    uniform = f'<img height="18" src="{uniform_img}"/>'
 
     if mask:
         p_name = f'~~我是马赛克~~'
@@ -36,8 +49,10 @@ async def coop_row_user(p, mask=False, is_myself=False):
     else:
         p_name = f'<b>{p_name}</b>'
 
-    return f"|x{p['defeatEnemyCount']}| {p['goldenDeliverCount']} |{p['rescuedCount']}d |" \
-           f"{p['deliverCount']} |{p['rescueCount']}r| {img_str} {p_name}|{weapon}|"
+    t = f"|x{p['defeatEnemyCount']}| {p['goldenDeliverCount']} |{p['rescuedCount']}d |" \
+        f"{p['deliverCount']} |{p['rescueCount']}r| {uniform} {p_name}|{weapon}|"
+
+    return t
 
 
 async def get_coop_msg_md(coop_info, data, **kwargs):
@@ -48,10 +63,10 @@ async def get_coop_msg_md(coop_info, data, **kwargs):
     mask = kwargs.get('mask')
     my = detail['myResult']
     wave_msg = '''| | | |  |
-| -- | --: |--|--|
-| 波数 | 蛋数:提交/需求(出现) |潮位|大招|
+| :--- |:---:|:---:|:---:|
+| 波数 | 提交/需求(出现) |潮位|大招|
 '''
-    d_w = {0: '∼', 1: '≈', 2: '≋'}
+    d_w = {0: '退潮', 1: '平潮', 2: '涨潮'}
     win = False
     total_deliver_cnt = 0
     wave_cnt = 3
@@ -60,7 +75,8 @@ async def get_coop_msg_md(coop_info, data, **kwargs):
     if detail['resultWave'] == 0:  # 0为胜利(未失败)  -1为掉线
         win = True
     # 全部w的数据
-    for w in detail['waveResults'][:wave_cnt]:
+    wave_results = detail['waveResults'][:wave_cnt]
+    for w in wave_results:
         event = (w.get('eventWave') or {}).get('name') or ''
         specs = ''
         for s in w.get('specialWeapons') or []:
@@ -91,7 +107,7 @@ async def get_coop_msg_md(coop_info, data, **kwargs):
 
     # boss槽
     king_smell = detail.get("smellMeter")
-    king_str = f'boss槽:{king_smell}/5' if king_smell else ''
+    king_str = f'{king_smell}/5' if king_smell else ''
     # 段位
     h_grade = detail['afterGrade']['name'] if detail.get('afterGrade') else ''
     h_point = detail['afterGradePoint'] or ''
@@ -104,16 +120,16 @@ async def get_coop_msg_md(coop_info, data, **kwargs):
 {wave_msg}
 
 #### {total_deliver_cnt}
-|  |   ||  |||||
-| --: |--:|--:|--:|--|--|--|--|
-| 击杀 |蛋数|死亡|红蛋|救人|名称|大招|武器|
-{await coop_row_user(my, is_myself=True)}
+|  |   ||  ||||||
+| --: |--:|--:|--:|--:|:--|--|--|--|
+| 击杀 |蛋数|死亡|红蛋|救人|玩家<td colspan="2">大招</td>|武器|
+{await coop_row_user(my,wave_results, is_myself=True)}
 """
     for p in detail['memberResults']:
-        msg += f"""{await coop_row_user(p, mask=mask)}\n"""
+        msg += f"""{await coop_row_user(p,wave_results, mask=mask)}\n"""
     msg += '''\n|        | ||
-|-------|--:|--|
-|全队击杀(自己击杀)|出现数量|boss|
+|:--:|:--:|:--|
+|全队(自己)|出现|boss|
 '''
     for e in detail['enemyResults']:
         nice = ''
@@ -138,7 +154,7 @@ async def get_coop_msg_md(coop_info, data, **kwargs):
     try:
         date_play = dt.strptime(detail['playedTime'], '%Y-%m-%dT%H:%M:%SZ') + timedelta(hours=8)
         str_time = date_play.strftime('%y-%m-%d %H:%M:%S')
-        msg += f"\n##### Time: {str_time}"
+        msg += f"\n##### 时间: {str_time}"
     except Exception as e:
         pass
 

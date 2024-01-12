@@ -85,8 +85,8 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
         else:
             # 该用户未登录
             user_info = GlobalUserInfo(
-                platform=user.platform,
-                user_id=user.user_id)
+                platform=platform,
+                user_id=user_id)
 
     if len(kwargs) != 0:
         # 更新字典
