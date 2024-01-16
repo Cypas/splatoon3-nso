@@ -1,6 +1,7 @@
 import httpx
 from httpx import Response
 
+from . import get_msg_id
 from ..config import plugin_config
 
 HTTP_TIME_OUT = 5.0  # 请求超时，秒
@@ -19,62 +20,67 @@ async def get_file_url(url):
     return data
 
 
-def get_or_init_login_client(msg_id):
-    """获取msg_id对应的LoginClient
-    为每个登录会话创建唯一client，防止公共变量覆盖
+def get_or_init_client(platform, user_id):
+    """获取msg_id对应的ReqClient
+    为每个会话创建唯一ReqClient，能极大加快请求速度，如第一次请求3s，第二次只需要0.7s
     """
-    global global_login_client_dict
-    login_client = global_login_client_dict.get(msg_id)
-    if login_client:
-        return login_client
+    msg_id = get_msg_id(platform, user_id)
+    global global_client_dict
+    req_client = global_client_dict.get(msg_id)
+    if req_client:
+        return req_client
     else:
-        login_client = LoginClient(msg_id)
-        global_login_client_dict.update({msg_id: login_client})
-        return login_client
+        req_client = ReqClient(msg_id)
+        global_client_dict.update({msg_id: req_client})
+        return req_client
 
 
-class LoginClient:
-    """登录会话管理"""
-    def __init__(self, msg_id):
+class ReqClient:
+    """二次封装的httpx client会话管理"""
+
+    def __init__(self, msg_id, _type=None):
         self.msg_id = msg_id
         self.client = httpx.Client(proxies=proxies)
+        self._type = _type  # 标记client的作用
 
     def close(self, msg_id):
         """关闭login client"""
         self.client.close()
 
-    async def get(self, url, **kwargs):
+    async def get(self, url, **kwargs) -> Response:
         """client get"""
         response = self.client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
         return response
 
-    async def post(self, url, **kwargs):
+    async def post(self, url, **kwargs) -> Response:
         """client post"""
         response = self.client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
         return response
 
     @staticmethod
     def close_all():
-        """关闭全部login client"""
-        global global_login_client_dict
-        for l_client in global_login_client_dict.values():
-            l_client.client.close()
-        global_login_client_dict.clear()
+        """关闭全部client"""
+        global global_client_dict
+        for req_client in global_client_dict.values():
+            req_client.client.close()
+        global_client_dict.clear()
 
 
-global_login_client_dict: dict[str, LoginClient] = {}  # 登录涉及函数login in和login_2需要保持一段时间浏览器状态，在输入npf码完成登录后需要关闭client
+global_client_dict: dict[str, ReqClient] = {}
+# 登录涉及函数login in和login_2需要保持一段时间浏览器状态，在输入npf码完成登录后需要关闭client
+# 普通请求也可以共用这个结构体，有利于加速网页请求，仅首次请求需要3s左右，后续只需要0.7s
 
 
 class HttpReq(object):
     """httpx 请求封装"""
 
     @staticmethod
-    def get(url, **kwargs):
+    def get(url, **kwargs) -> Response:
         response = httpx.get(url, proxies=proxies, timeout=HTTP_TIME_OUT, **kwargs)
         return response
 
     @staticmethod
-    def post(url, **kwargs):
+    def post(url, **kwargs) -> Response:
         response = httpx.post(url, proxies=proxies, timeout=HTTP_TIME_OUT, **kwargs)
         return response
 
@@ -83,14 +89,13 @@ class AsHttpReq(object):
     """httpx 异步请求封装"""
 
     @staticmethod
-    async def get(url, **kwargs):
+    async def get(url, **kwargs) -> Response:
         async with httpx.AsyncClient(proxies=proxies) as client:
             response = await client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
             return response
 
     @staticmethod
-    async def post(url, **kwargs):
+    async def post(url, **kwargs) -> Response:
         async with httpx.AsyncClient(proxies=proxies) as client:
             response = await client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
             return response
-

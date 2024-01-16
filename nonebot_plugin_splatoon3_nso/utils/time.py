@@ -104,3 +104,11 @@ def get_time_now_china() -> datetime.datetime:
     utc_now = datetime.datetime.utcnow()
     convert_now = TimeUtil.convert_timezone(utc_now, "+8")
     return convert_now
+
+
+def get_time_now_china_str(now=None) -> str:
+    """获取中国所在东八区时间字符串"""
+    if not now:
+        now = get_time_now_china()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+    return now_str

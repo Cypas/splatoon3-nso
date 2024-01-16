@@ -12,7 +12,7 @@ from sqlalchemy.sql import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-from ..utils import DIR_RESOURCE
+from ..utils import DIR_RESOURCE, get_time_now_china_str
 
 database_uri_main = f'sqlite:///{DIR_RESOURCE}/nso_data.sqlite'
 database_uri_friends = f'sqlite:///{DIR_RESOURCE}/data_friend.sqlite'
@@ -22,12 +22,8 @@ DIR_TEMP_IMAGE = f'{DIR_RESOURCE}/temp_image'
 Base_Main = declarative_base()
 engine = create_engine(database_uri_main)
 
-
-
 Base_Friends = declarative_base()
 engine_friends = create_engine(database_uri_friends)
-
-
 
 
 # Table
@@ -42,7 +38,7 @@ class UserTable(Base_Main):
     cmd_cnt = Column(Integer(), default=0)
     stat_key = Column(String(), nullable=True)
     session_token = Column(String(), nullable=True)  # 账号缓存凭证
-    access_token = Column(String(), nullable=True) # nso用户操作token |有效期2h| 获取ns friends，好友码
+    access_token = Column(String(), nullable=True)  # nso用户操作token |有效期2h| 获取ns friends，好友码
     g_token = Column(String(), nullable=True)  # web service token，nso内sp3网页服务token |有效期3h| nso页面操作，截图时使用
     bullet_token = Column(String(), nullable=True)  # nso内sp3网页api接口token |有效期2h| 战绩api接口使用
     user_info = Column(Text(), nullable=True)
@@ -50,10 +46,11 @@ class UserTable(Base_Main):
     game_sp_id = Column(String(), nullable=True)
     api_notify = Column(Integer(), default=1)  # 0:close 1:open
     report_notify = Column(Integer(), default=1)  # 0:close 1:open
-    last_play_time = Column(DateTime(), nullable=True)
-    first_play_time = Column(DateTime(), nullable=True)
-    create_time = Column(DateTime(), default=func.now())
-    update_time = Column(DateTime(), onupdate=func.now())
+    last_play_time = Column(String(), nullable=True)
+    first_play_time = Column(String(), nullable=True)
+    create_time = Column(String(), default=get_time_now_china_str())
+    update_time = Column(String(), onupdate=get_time_now_china_str())  # sqlalchemy自带的fun.now()会返回utc时间，而非本地时间，故弃用改为自定义函数
+
 
     __table_args__ = (
         UniqueConstraint("platform", "user_id", name='Idx_Platform_User'),
@@ -74,9 +71,9 @@ class TopPlayer(Base_Main):
     byname = Column(String(), default='')
     weapon_id = Column(Integer(), default=0)
     weapon = Column(String(), default='')
-    play_time = Column(DateTime())
-    create_time = Column(DateTime(), default=func.now())
-    update_time = Column(DateTime(), onupdate=func.now())
+    play_time = Column(String())
+    create_time = Column(String(), default=get_time_now_china_str())
+    update_time = Column(String(), onupdate=get_time_now_china_str())  # sqlalchemy自带的fun.now()会返回utc时间，而非本地时间，故弃用改为自定义函数
 
 
 class TopAll(Base_Main):
@@ -93,9 +90,9 @@ class TopAll(Base_Main):
     byname = Column(String(), default='')
     weapon_id = Column(Integer(), default=0)
     weapon = Column(String(), default='')
-    play_time = Column(DateTime())
-    create_time = Column(DateTime(), default=func.now())
-    update_time = Column(DateTime(), onupdate=func.now())
+    play_time = Column(String())
+    create_time = Column(String(), default=get_time_now_china_str())
+    update_time = Column(String(), onupdate=get_time_now_china_str())  # sqlalchemy自带的fun.now()会返回utc时间，而非本地时间，故弃用改为自定义函数
 
 
 class Weapon(Base_Main):
@@ -108,8 +105,8 @@ class Weapon(Base_Main):
     image2d_thumb = Column(String(), default='')
     image3d = Column(String(), default='')
     image3d_thumb = Column(String(), default='')
-    create_time = Column(DateTime(), default=func.now())
-    update_time = Column(DateTime(), onupdate=func.now())
+    create_time = Column(String(), default=get_time_now_china_str())
+    update_time = Column(String(), onupdate=get_time_now_china_str())  # sqlalchemy自带的fun.now()会返回utc时间，而非本地时间，故弃用改为自定义函数
 
 
 class TempImageTable(Base_Main):
@@ -120,8 +117,8 @@ class TempImageTable(Base_Main):
     name = Column(String(), default='')
     link = Column(String(), default='')
     file_name = Column(String(), default='')
-    create_time = Column(DateTime(), default=func.now())
-    update_time = Column(DateTime(), onupdate=func.now())
+    create_time = Column(String(), default=get_time_now_china_str())
+    update_time = Column(String(), onupdate=get_time_now_china_str())  # sqlalchemy自带的fun.now()会返回utc时间，而非本地时间，故弃用改为自定义函数
 
 
 class UserFriendTable(Base_Friends):
@@ -134,8 +131,8 @@ class UserFriendTable(Base_Friends):
     nickname = Column(String(), default='')
     game_name = Column(String(), default='')
     user_icon = Column(String(), default='')
-    create_time = Column(DateTime(), default=func.now())
-    update_time = Column(DateTime(), onupdate=func.now())
+    create_time = Column(String(), default=get_time_now_china_str())
+    update_time = Column(String(), onupdate=get_time_now_china_str())  # sqlalchemy自带的fun.now()会返回utc时间，而非本地时间，故弃用改为自定义函数
 
 
 Base_Main.metadata.create_all(engine)

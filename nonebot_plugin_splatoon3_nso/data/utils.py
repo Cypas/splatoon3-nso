@@ -21,6 +21,7 @@ class GlobalUserInfo:
         self.push = kwargs.get('push', 0)
         self.push_cnt = kwargs.get('push_cnt', 0)
         self.stat_key = kwargs.get('stat_key', None)
+        self.req_client = kwargs.get('req_client', None)
 
 
 async def model_get_or_set_temp_image(_type, name: str, link) -> TempImageTable:

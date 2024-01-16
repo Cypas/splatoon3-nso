@@ -1,59 +1,34 @@
 from datetime import datetime as dt, timedelta
 
 from .utils import DICT_RANK_POINT
+from ..s3s.splatoon import Splatoon
 from ..data.data_source import model_get_top_player, model_get_temp_image_path, model_get_all_weapon, model_get_top_all
-from ..s3s.utils import gen_graphql_body, translate_rid
 from ..utils.bot import *
 
 
-# 函数目前未使用
-def get_row_my_stats(my_team):
-    """获取一行我的战绩"""
-    p = {}
-    for _p in my_team['players']:
-        if _p.get('isMyself'):
-            p = _p
-            break
-
-    re = p['result']
-    if not re:
-        re = {"kill": 0, "death": 0, "assist": 0, "special": 0}
-    ak = re['kill']
-    k = re['kill'] - re['assist']
-    k_str = f'{k}+{re["assist"]}'
-    d = re['death']
-    if k != 0 and d != 0:
-        # 避免除0导致报错
-        ration = k / d if d else k / 1
-    else:
-        ration = 0
-
-    t = f"{ak:>2}|{k_str:>5}k| {d:>2}d|{ration:>4.1f}|{re['special']:>3}sp| {p['paint']:>4}p "
-    return t
-
-
-async def get_point(**kwargs):
-    """获取挑战点数和挑战进度"""
+async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splatoon = None):
+    """获取真格模式挑战点数和挑战进度"""
     try:
         point = 0
         b_process = ''
-        bankara_match = kwargs.get('bankara_match')
         if not bankara_match:
             return point, ''
 
-        b_info = kwargs['b_info']
-
         if bankara_match == 'OPEN':
             # open
-            point = b_info['bankaraMatch']['earnedUdemaePoint']
+            point = battle_detail['bankaraMatch']['earnedUdemaePoint']
             if point > 0:
                 point = f'+{point}'
         else:
             # challenge
-            splt = kwargs.get('splt')
-            data = gen_graphql_body(translate_rid['BankaraBattleHistoriesQuery'])
-            bankara_info = await splt._request(data)
-            hg = bankara_info['data']['bankaraBattleHistories']['historyGroups']['nodes'][0]
+            bankara_info = await splatoon.get_bankara_battles()
+            # 得确定对战位于哪一个group
+            battle_id = battle_detail['id']
+            groups = bankara_info['data']['bankaraBattleHistories']['historyGroups']['nodes']
+            group_idx = get_battle_group_idx(groups, battle_id)
+
+            # 取该组别信息
+            hg = bankara_info['data']['bankaraBattleHistories']['historyGroups']['nodes'][group_idx]
             point = hg['bankaraMatchChallenge']['earnedUdemaePoint'] or 0
             bankara_detail = hg['bankaraMatchChallenge'] or {}
             if point > 0:
@@ -61,11 +36,13 @@ async def get_point(**kwargs):
             if point == 0 and bankara_detail and (
                     len(hg['historyDetails']['nodes']) == 1 and
                     bankara_detail.get('winCount') + bankara_detail.get('loseCount') == 1):
-                # first battle, open ticket
-                udemae = b_info.get('udemae') or ''
+                # 挑战第一局比赛，花费点数购买入场券
+                udemae = hg[''].get('udemae') or ''
                 point = DICT_RANK_POINT.get(udemae[:2], 0)
 
-            b_process = f"{bankara_detail.get('winCount') or 0}-{bankara_detail.get('loseCount') or 0}"
+            win_count = bankara_detail.get('winCount') or 0
+            lose_count = bankara_detail.get('loseCount') or 0
+            b_process = f"{win_count}胜-{lose_count}负"
 
     except Exception as e:
         logger.exception(e)
@@ -73,6 +50,52 @@ async def get_point(**kwargs):
         b_process = ''
 
     return point, b_process
+
+
+async def get_x_power_and_process(battle_detail, splatoon: Splatoon):
+    """获取x赛分数和挑战进度"""
+    try:
+        power = ''
+        x_process = ''
+
+        x_res = await splatoon.get_x_battles()
+        # 得确定对战位于哪一个group
+        battle_id = battle_detail['id']
+        groups = x_res['data']['xBattleHistories']['historyGroups']['nodes']
+        group_idx = get_battle_group_idx(groups, battle_id)
+
+        hg = x_res['data']['xBattleHistories']['historyGroups']['nodes'][group_idx]
+        x_info = hg['xMatchMeasurement']
+        if x_info['state'] == 'COMPLETED':
+            last_x_power = battle_detail['xMatch'].get('lastXPower') or 0
+            cur_x_power = x_info.get('xPowerAfter') or 0
+            xp = cur_x_power - last_x_power
+            power = f'{xp:+.2f} ({cur_x_power:.2f})'
+        win_count = x_info.get('winCount') or 0
+        lose_count = x_info.get('loseCount') or 0
+        x_process = f"{win_count}胜-{lose_count}负"
+
+    except Exception as e:
+        logger.exception(e)
+        power = ''
+        x_process = ''
+
+    return power, x_process
+
+
+def get_battle_group_idx(groups, battle_id) -> int:
+    """真格挑战和x赛模式下如果查询输入了idx，需要再去判断其对战属于哪个group 返回其所在group的index"""
+    flag_exit = False  # 多层循环跳出标志
+    group_idx = 0
+    for g_idx, group in groups.items():
+        for b in group['historyDetails']['nodes']:
+            if b['id'] == battle_id:
+                group_idx = g_idx
+                flag_exit = True
+                break
+        if flag_exit:
+            break
+    return group_idx
 
 
 def set_statics(**kwargs):
@@ -119,7 +142,7 @@ def set_statics(**kwargs):
 
 
 def get_statics(data):
-    # 统计push期间战绩
+    # 获取push期间战绩
     point = 0
     if data.get('point'):
         point = data['point']
@@ -149,32 +172,6 @@ WIN_RATE: {data['WIN'] / data['TOTAL']:.2%}
     return msg
 
 
-async def get_x_power(**kwargs):
-    try:
-        power = ''
-        x_process = ''
-        battle_detail = kwargs.get('battle_detail')
-        splt = kwargs.get('splt')
-        b_info = kwargs['b_info']
-
-        data = gen_graphql_body(translate_rid['XBattleHistoriesQuery'])
-        res = await splt._request(data)
-        hg = res['data']['xBattleHistories']['historyGroups']['nodes'][0]
-        x_info = hg['xMatchMeasurement']
-        if x_info['state'] == 'COMPLETED':
-            last_x_power = battle_detail['xMatch'].get('lastXPower') or 0
-            cur_x_power = x_info.get('xPowerAfter') or 0
-            xp = cur_x_power - last_x_power
-            power = f'{xp:+.2f} ({cur_x_power:.2f})'
-        x_process = f"{x_info.get('winCount') or 0}-{x_info.get('loseCount') or 0}"
-
-    except Exception as e:
-        logger.exception(e)
-        power = ''
-        x_process = ''
-
-    return power, x_process
-
 async def get_top_all_name(name, player_code):
     """对top all榜单上有名的玩家额外渲染name"""
     top_all = model_get_top_all(player_code)
@@ -191,9 +188,11 @@ async def get_top_all_name(name, player_code):
         weapon = model_get_all_weapon() or {}
         if weapon.get(weapon_id):
             img_type = "battle_weapon_main"
-            weapon_main_img = await model_get_temp_image_path(img_type, weapon[weapon_id]['name'], weapon[weapon_id]['url'])
+            weapon_main_img = await model_get_temp_image_path(img_type, weapon[weapon_id]['name'],
+                                                              weapon[weapon_id]['url'])
             name += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
     return name
+
 
 async def get_top_user(player_code):
     """获取top玩家md信息"""
@@ -209,7 +208,8 @@ async def get_top_user(player_code):
         weapon = model_get_all_weapon() or {}
         if weapon.get(weapon_id):
             img_type = "battle_weapon_main"
-            weapon_main_img = await model_get_temp_image_path(img_type, weapon[weapon_id]['name'], weapon[weapon_id]['url'])
+            weapon_main_img = await model_get_temp_image_path(img_type, weapon[weapon_id]['name'],
+                                                              weapon[weapon_id]['url'])
             top_str += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
         return top_str
     return top_str

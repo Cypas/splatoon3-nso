@@ -1,7 +1,56 @@
 from .db_sqlite import *
 from .utils import model_get_or_set_temp_image, get_insert_or_update_obj, GlobalUserInfo
+from ..utils import get_or_init_client, get_msg_id
 
 global_user_info_dict: dict[str:GlobalUserInfo] = {}  # 用于缓存今日已使用过指令的用户，并为这些活跃用户定期更新token
+
+
+def dict_get_or_set_user_info(platform, user_id, **kwargs):
+    """获取 或 更新 用户信息
+    优先读取字典内信息，没有则查询数据库
+    """
+    global global_user_info_dict
+    key = get_msg_id(platform, user_id)
+    user_info = global_user_info_dict.get(key)
+    if not user_info:
+        # 不存在，从数据库获取信息再写入字典
+        user = model_get_or_set_user(platform, user_id)
+        if user:
+            user_info = GlobalUserInfo(
+                platform=user.platform,
+                user_id=user.user_id,
+                user_name=user.user_name,
+                session_token=user.session_token,
+                g_token=user.g_token,
+                bullet_token=user.bullet_token,
+                access_token=user.access_token,
+                game_name=user.game_name,
+                game_sp_id=user.game_sp_id,
+                push=0,
+                push_cnt=user.push_cnt or 0,
+                stat_key=user.stat_key,
+                req_client=get_or_init_client(platform, user_id)
+            )
+            global_user_info_dict.update({key: user_info})
+        else:
+            # 该用户未登录
+            user_info = GlobalUserInfo(
+                platform=platform,
+                user_id=user_id)
+
+    if len(kwargs) != 0:
+        # 更新字典
+        if not user_info:
+            user_info = GlobalUserInfo(platform=platform, user_id=user_id)
+        for k, v in kwargs.items():
+            if hasattr(user_info, k):
+                setattr(user_info, k, v)
+        global_user_info_dict.update({key: user_info})
+        # 更新数据库
+        user = model_get_or_set_user(platform, user_id, **kwargs)
+        if not user:
+            logger.debug(f"user info update error; {kwargs}")
+    return user_info
 
 
 async def model_get_temp_image_path(_type, name, link) -> str:
@@ -54,53 +103,6 @@ def model_get_all_user():
     session.commit()
     session.close()
     return new_users
-
-
-def dict_get_or_set_user_info(platform, user_id, **kwargs):
-    """获取 或 更新 用户信息
-    优先读取字典内信息，没有则查询数据库
-    """
-    global global_user_info_dict
-    key = f"{platform}-{user_id}"
-    user_info = global_user_info_dict.get(key)
-    if not user_info:
-        # 不存在，从数据库获取信息再写入字典
-        user = model_get_or_set_user(platform, user_id)
-        if user:
-            user_info = GlobalUserInfo(
-                platform=user.platform,
-                user_id=user.user_id,
-                user_name=user.user_name,
-                session_token=user.session_token,
-                g_token=user.g_token,
-                bullet_token=user.bullet_token,
-                access_token=user.access_token,
-                game_name=user.game_name,
-                game_sp_id=user.game_sp_id,
-                push=0,
-                push_cnt=user.push_cnt or 0,
-                stat_key=user.stat_key,
-            )
-            global_user_info_dict.update({key: user_info})
-        else:
-            # 该用户未登录
-            user_info = GlobalUserInfo(
-                platform=platform,
-                user_id=user_id)
-
-    if len(kwargs) != 0:
-        # 更新字典
-        if not user_info:
-            user_info = GlobalUserInfo(platform=platform, user_id=user_id)
-        for k, v in kwargs.items():
-            if hasattr(user_info, k):
-                setattr(user_info, k, v)
-        global_user_info_dict.update({key: user_info})
-        # 更新数据库
-        user = model_get_or_set_user(platform, user_id, **kwargs)
-        if not user:
-            logger.debug(f"user info update error; {kwargs}")
-    return user_info
 
 
 def model_get_login_user(player_code):

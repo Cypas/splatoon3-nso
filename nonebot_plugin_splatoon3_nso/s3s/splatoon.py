@@ -6,13 +6,9 @@ import httpx
 from loguru import logger
 
 from .utils import gen_graphql_body, translate_rid, GRAPHQL_URL
-from .iksm import get_gtoken, get_bullet, APP_USER_AGENT, SPLATNET3_URL, get_web_view_ver, get_nsoapp_version, \
-    call_f_api
+from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S, F_GEN_URL, F_GEN_URL_2
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
-from ..utils import AsHttpReq, DIR_RESOURCE, HttpReq
-
-F_GEN_URL = 'https://api.imink.app/f'
-F_GEN_URL_2 = 'https://nxapi-znca-api.fancy.org.uk/api/znca/f'
+from ..utils import AsHttpReq, DIR_RESOURCE, HttpReq, get_msg_id, get_or_init_client
 
 
 class UserDBInfo:
@@ -24,7 +20,7 @@ class UserDBInfo:
 
 
 class Splatoon:
-    def __init__(self, platform, user_id, user_name, session_token):
+    def __init__(self, platform, user_id, user_name, session_token, req_client):
         self.platform = platform
         self.user_id = user_id
         self.user_name = user_name
@@ -34,7 +30,10 @@ class Splatoon:
         self.bullet_token = ''
         self.g_token = ''
         self.access_token = ''
-        self.nso_app_version = get_nsoapp_version(F_GEN_URL)
+        s3s = S3S(platform, user_id)
+        self.s3s = s3s
+        self.nso_app_version = s3s.get_nsoapp_version()
+        self.req_client = req_client or get_or_init_client(platform, user_id)
 
         user = model_get_or_set_user(platform, user_id)
         if user:
@@ -61,9 +60,9 @@ class Splatoon:
             "", "", "", self.user_lang, self.user_country
         try:
             new_access_token, new_g_token, user_nickname, user_lang, user_country, _user_info = \
-                await get_gtoken(F_GEN_URL, self.session_token)
+                await self.s3s.get_gtoken(F_GEN_URL, self.session_token)
         except Exception as e:
-            msg_id = f"{self.platform}-{self.user_id}"
+            msg_id = get_msg_id(self.platform, self.user_id)
             logger.warning(f'{msg_id} refresh_gtoken_and_bullettoken error. {e} {self.session_token}')
             if self.user_db_info:
                 user = self.user_db_info
@@ -97,14 +96,19 @@ class Splatoon:
                 logger.warning('try f_gen_url_2 url')
                 try:
                     new_access_token, new_g_token, user_nickname, user_lang, user_country, _user_info = \
-                        await get_gtoken(F_GEN_URL_2, self.session_token)
+                        await self.s3s.get_gtoken(F_GEN_URL_2, self.session_token)
                 except Exception as e:
                     logger.warning(
                         f'f_gen_url_2 url also fail:{e} db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
 
-        # 获取bullettoken
-        new_bullet_token = await get_bullet(self.user_db_info.db_id, new_g_token, user_lang, user_country)
-        # 刷新值
+        try:
+            # 获取bullettoken
+            new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token, user_lang, user_country)
+        except Exception as e:
+            msg_id = get_msg_id(self.platform, self.user_id)
+            logger.warning(f'{msg_id} get g_token success,get bullet_token error,start try again.reason:{e}')
+            new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token, user_lang, user_country)
+        # 刷新值1
         if new_g_token and new_bullet_token:
             self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token)
             logger.info(f'{self.user_id} tokens updated.')
@@ -113,13 +117,13 @@ class Splatoon:
             logger.debug(f'new bullet_token: {new_bullet_token}')
         return True
 
-    def head_bullet(self, bullet_token):
+    def _head_bullet(self, bullet_token):
         """为含有bullet_token的请求拼装header"""
         graphql_head = {
             'Authorization': f'Bearer {bullet_token}',
             'Accept-Language': self.user_lang,
             'User-Agent': APP_USER_AGENT,
-            'X-Web-View-Ver': get_web_view_ver(),
+            'X-Web-View-Ver': S3S.get_web_view_ver(),
             'Content-Type': 'application/json',
             'Accept': '*/*',
             'Origin': SPLATNET3_URL,
@@ -133,7 +137,7 @@ class Splatoon:
         """主页(测试访问页面)"""
         data = gen_graphql_body(translate_rid["HomeQuery"])
         # t = time.time()
-        headers = self.head_bullet(self.bullet_token)
+        headers = self._head_bullet(self.bullet_token)
         cookies = dict(_gtoken=self.g_token)
         test = HttpReq.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
 
@@ -144,19 +148,31 @@ class Splatoon:
     async def _request(self, data):
         res = ''
         try:
-            t = time.time()
-            res = await AsHttpReq.post(GRAPHQL_URL, data=data,
-                                       headers=self.head_bullet(self.bullet_token), cookies=dict(_gtoken=self.g_token))
-            logger.debug(f'_request: {time.time() - t:.3f}s')
-            if res.status_code != 200:
-                logger.info(f'{self.user_id} tokens expired.')
+            if not self.bullet_token or not self.g_token:
+                # 首次请求如果为空时
+                logger.info(f'{self.user_id} tokens is None,start refresh tokens soon')
                 await self.refresh_gtoken_and_bullettoken()
-                logger.debug(f'after refresh_gtoken try again')
+                logger.debug(f'refresh tokens complete')
+
+            t = time.time()
+            res = await self.req_client.post(GRAPHQL_URL, data=data,
+                                             headers=self._head_bullet(self.bullet_token),
+                                             cookies=dict(_gtoken=self.g_token))
+            t2 = f'{time.time()  - t:.3f}'
+            logger.debug(f'_request: {t2}s')
+            if res.status_code != 200:
+                logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
+                try:
+                    await self.refresh_gtoken_and_bullettoken()
+                    logger.debug(f'refresh tokens complete，try again')
+                except Exception as e:
+                    logger.debug(f'refresh tokens fail,reason:{e}')
                 t = time.time()
-                res = await AsHttpReq.post(GRAPHQL_URL, data=data,
-                                           headers=self.head_bullet(self.bullet_token),
-                                           cookies=dict(_gtoken=self.g_token))
-                logger.debug(f'_request: {time.time() - t:.3f}s')
+                res = await self.req_client.post(GRAPHQL_URL, data=data,
+                                                 headers=self._head_bullet(self.bullet_token),
+                                                 cookies=dict(_gtoken=self.g_token))
+                t2 = f'{time.time() - t:.3f}'
+                logger.debug(f'_request: {t2}s')
                 return res.json()
             else:
                 return res.json()
@@ -173,6 +189,30 @@ class Splatoon:
     async def get_recent_battles(self):
         """最近对战查询"""
         data = gen_graphql_body(translate_rid['LatestBattleHistoriesQuery'])
+        res = await self._request(data)
+        return res
+
+    async def get_last_one_battle(self):
+        """最新一局对战id查询"""
+        data = gen_graphql_body(translate_rid['PagerLatestVsDetailQuery'])
+        res = await self._request(data)
+        return res
+
+    async def get_bankara_battles(self):
+        """蛮颓对战查询"""
+        data = gen_graphql_body(translate_rid['BankaraBattleHistoriesQuery'])
+        res = await self._request(data)
+        return res
+
+    async def get_x_battles(self):
+        """x对战查询"""
+        data = gen_graphql_body(translate_rid['XBattleHistoriesQuery'])
+        res = await self._request(data)
+        return res
+
+    async def get_test(self):
+        """测试内容查询"""
+        data = gen_graphql_body(translate_rid['CoopStatistics'])
         res = await self._request(data)
         return res
 
@@ -194,34 +234,30 @@ class Splatoon:
         res = await self._request(data)
         return res
 
+    async def get_coop_statistics(self):
+        """打工统计数据(全部boss击杀数量)"""
+        data = gen_graphql_body(translate_rid['CoopStatistics'])
+        res = await self._request(data)
+        return res
+
+
     async def get_summary(self):
-        """个人历史总览"""
+        """"""
         data = gen_graphql_body(translate_rid['HistorySummary'])
         res = await self._request(data)
         return res
 
     async def get_all_res(self):
-        """打工记录总览"""
+        """"""
         data = gen_graphql_body(translate_rid['TotalQuery'])
         res = await self._request(data)
         return res
-
-    @staticmethod
-    async def app_do_req(method='POST', url='', headers=None, json=None):
-        t = time.time()
-        if method == 'POST':
-            res = await AsHttpReq.post(url, headers=headers, json=json)
-        elif method == 'GET':
-            res = await AsHttpReq.get(url, headers=headers, json=json)
-        ret = res.json()
-        logger.debug(f">> {time.time() - t:.3f}s {method} {url}")
-        return ret
 
     def app_get_access_token(self):
         """get nso_access_token"""
         return self.access_token
 
-    def head_access(self, app_access_token):
+    def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
         graphql_head = {
             'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/7.1.2)',
@@ -241,11 +277,11 @@ class Splatoon:
         if not app_access_token:
             return
 
-        headers = self.head_access(app_access_token)
+        headers = self._head_access(app_access_token)
         json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
         url = "https://api-lp1.znc.srv.nintendo.net/v3/Friend/List"
 
-        r = self.app_do_req(method='POST', url=url, headers=headers, json=json_body)
+        r = await self.req_client.post(url, headers=headers, json=json_body)
         return r
 
     async def app_ns_myself(self):
@@ -255,11 +291,11 @@ class Splatoon:
         if not app_access_token:
             return
 
-        headers = self.head_access(app_access_token)
+        headers = self._head_access(app_access_token)
         json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
         url = "https://api-lp1.znc.srv.nintendo.net/v3/User/ShowSelf"
 
-        r = self.app_do_req(method='POST', url=url, headers=headers, json=json_body)
+        r = await self.req_client.post(url, headers=headers, json=json_body)
         logger.debug(r)
         name = r['result']['name']
         my_sw_code = r['result']['links']['friendCode']['id']
