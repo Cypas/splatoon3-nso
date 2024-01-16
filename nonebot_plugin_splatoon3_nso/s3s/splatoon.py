@@ -2,13 +2,12 @@ import time
 import uuid
 import os
 
-import httpx
 from loguru import logger
 
 from .utils import gen_graphql_body, translate_rid, GRAPHQL_URL
 from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S, F_GEN_URL, F_GEN_URL_2
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
-from ..utils import AsHttpReq, DIR_RESOURCE, HttpReq, get_msg_id, get_or_init_client
+from ..utils import DIR_RESOURCE, HttpReq, get_msg_id, get_or_init_client
 
 
 class UserDBInfo:

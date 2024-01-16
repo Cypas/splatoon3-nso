@@ -6,7 +6,7 @@ from ..data.data_source import model_get_temp_image_path
 from ..utils.bot import *
 
 
-async def get_coop_msg_md(coop_info, coop_detail, mask=False):
+async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False):
     """获取打工的md文本"""
     c_point = coop_info.get('coop_point')
     c_eggs = coop_info.get('coop_highest_eggs')
@@ -49,7 +49,13 @@ async def get_coop_msg_md(coop_info, coop_detail, mask=False):
             s += f' 🥈{scale["silver"]}'
         if scale and scale.get('bronze'):
             s += f' 🥉{scale["bronze"]}'
-        wave_msg += f"EX |{detail['bossResult']['boss']['name']} ({w['goldenPopCount']}) |{r} {s}||\n"
+        boss_name = detail['bossResult']['boss']['name']
+        defeat = "0"
+        if coop_defeat:
+            defeat = coop_defeat["defeat_boss"].get(boss_name, "0")
+        # golden_pop_count = w['goldenPopCount']
+        # 原来辰龙后面括号是显示出现金蛋数量，但显示为总击杀数量会更合理
+        wave_msg += f"EX |{boss_name} (总击杀{defeat}) |{r} {s}||"
 
     # 蛋数统计  本局蛋数(当期最大蛋数)
     if total_deliver_cnt and c_eggs:
@@ -73,14 +79,16 @@ async def get_coop_msg_md(coop_info, coop_detail, mask=False):
 |  |   ||  ||||||
 | --: |--:|--:|--:|--:|:--|--|--|--|
 | 击杀 |蛋数|死亡|红蛋|救人|玩家<td colspan="2">大招</td>|武器|
-{await coop_row_user(my,wave_results, is_myself=True)}
+{await coop_row_user(my, wave_results, is_myself=True)}
 """
     for p in detail['memberResults']:
-        msg += f"""{await coop_row_user(p,wave_results, mask=mask)}\n"""
-    msg += '''\n|        | ||
-|:--:|:--:|:--|
-|全队(自己)|出现|boss|
+        msg += f"""{await coop_row_user(p, wave_results, mask=mask)}\n"""
+    msg += '''\n|||||
+|:--:|:--:|:--:|:--|
+|全队(自己)|出现|总击杀|boss|
 '''
+
+    # 遍历本局击杀boss数
     for e in detail['enemyResults']:
         nice = ''
         if e.get('popCount', 0) <= int(str(e.get('teamDefeatCount') or 0)):
@@ -90,16 +98,20 @@ async def get_coop_msg_md(coop_info, coop_detail, mask=False):
         if e.get('defeatCount'):
             boss_cnt = f'{boss_cnt}({e["defeatCount"]})'
         img_type = "coop_boss"
-        img_name = (e.get('enemy') or {}).get('name') or ''
+        boss_name = (e.get('enemy') or {}).get('name') or ''
         img_url = e['enemy']['image']['url']
-        img = await model_get_temp_image_path(img_type, img_name, img_url)
+        img = await model_get_temp_image_path(img_type, boss_name, img_url)
         img_str = f"<img height='18' src='{img}'/>"
-        boss_name = f"{img_str} {img_name}"
+        boss_name_str = f"{img_str} {boss_name}"
         if nice:
             boss_cnt = f'<span style="color: green">{boss_cnt}</span>'
             boss_pop = f'<span style="color: green">{boss_pop}</span>'
-            boss_name = f'<span style="color: green">{boss_name}</span>'
-        msg += f"""|{boss_cnt} |{boss_pop} | {boss_name}|\n"""
+            boss_name_str = f'<span style="color: green">{boss_name_str}</span>'
+        defeat = "0"
+        if coop_defeat:
+            defeat = coop_defeat["defeat_enemy"].get(boss_name, "0")
+
+        msg += f"""|{boss_cnt} |{boss_pop} | {defeat} | {boss_name_str}|\n"""
 
     try:
         date_play = dt.strptime(detail['playedTime'], '%Y-%m-%dT%H:%M:%SZ') + timedelta(hours=8)
@@ -159,6 +171,3 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False):
         f"{p['deliverCount']} |{p['rescueCount']}r| {uniform} {p_name}|{weapon}|"
 
     return t
-
-
-

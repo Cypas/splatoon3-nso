@@ -87,7 +87,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
 
     # res = await splatoon.get_test()
     # res = await splatoon.get_battle_detail("VnNIaXN0b3J5RGV0YWlsLXUtYTQ3ajZtbm1jbWp5eDJoejdsdW06QkFOS0FSQToyMDI0MDExMlQwMjAyNDZfN2M5N2IyNWEtYWMzMi00OWQ5LWEyODAtYTE0YzllOTVmMTQ5")
-    # res = await splatoon.get_x_battles()
+    # res = await splatoon.get_coop_statistics()
     # data = translate_rid.get("BankaraBattleHistoriesQuery")
     # res = await splatoon._request(data)
 
@@ -112,7 +112,6 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
     #
     # tt3_date = time.time()
     # tt3 = f'{tt3_date - tt2_date:.3f}'
-
 
     if get_coop:
         get_battle = False
@@ -250,9 +249,32 @@ async def get_last_msg(splatoon, _id, extra_info, is_battle=True, get_pic=False,
             msg = await get_battle_msg_md(extra_info, battle_detail, splatoon=splatoon, get_pic=get_pic, mask=mask)
         else:
             coop_detail = await splatoon.get_coop_detail(_id)
-            msg = await get_coop_msg_md(extra_info, coop_detail, mask=mask)
+            # 查询全部boss击杀数量
+            coop_statistics_res = await splatoon.get_coop_statistics()
+            coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
+            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask)
 
     except Exception as e:
         logger.exception(e)
         msg = f'get last {"battle" if is_battle else "coop"} failed, please try again later.'
     return msg
+
+
+def get_coop_defeat_statistics(coop_statistics_res) -> dict:
+    """获取boss击杀统计"""
+    coop_statistics_res = coop_statistics_res["data"]["coopRecord"]
+    defeat_enemy_records = coop_statistics_res["defeatEnemyRecords"]
+    defeat_boss_records = coop_statistics_res["defeatBossRecords"]
+
+    def arrange_defeat(nodes: list) -> dict:
+        """整理击杀数据"""
+        records = {}
+        for node in nodes:
+            k = node["enemy"]["name"]
+            v = str(node["defeatCount"])
+            records.update({k: v})
+        return records
+
+    coop_defeat_statistics = {"defeat_enemy": arrange_defeat(defeat_enemy_records),
+                              "defeat_boss": arrange_defeat(defeat_boss_records)}
+    return coop_defeat_statistics
