@@ -230,7 +230,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
         return msg, is_playing
 
 
-async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False, mask=False):
+async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False, mask=False, push_st = None):
     # 获取最后对战或打工的md文本
     try:
         if is_battle:
@@ -247,13 +247,13 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                 splatoon.set_user_info(game_sp_id=game_sp_id, game_name=game_name)
 
             msg = await get_battle_msg_md(extra_info, battle_detail, idx=idx, splatoon=splatoon, get_equip=get_equip,
-                                          mask=mask)
+                                          mask=mask, push_st=push_st)
         else:
             coop_detail = await splatoon.get_coop_detail(_id)
             # 查询全部boss击杀数量
             coop_statistics_res = await splatoon.get_coop_statistics()
             coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
-            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask)
+            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask, push_st=push_st)
 
     except Exception as e:
         logger.exception(e)

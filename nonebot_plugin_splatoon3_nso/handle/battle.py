@@ -86,15 +86,19 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             open_power = (battle_detail.get('festMatch') or {}).get('myFestPower') or 0
 
         if open_power:
+            # 蛮颓开放
             str_open_power = f'战力: {open_power:.2f}'
             # push_st = {}
             max_open_power = 0
-            # 统计
+
+            last_power = None
             if push_st:
+                # 统计置分
                 max_open_power = push_st.battle.max_open_power
-            max_open_power = max(max_open_power, open_power)
-            last_power = push_st.battle.open_power
-            get_prev = None
+                max_open_power = max(max_open_power, open_power)
+                last_power = push_st.battle.open_power
+            get_prev = False
+            # 获取过去一局数据
             if not last_power:
                 get_prev = True
                 prev_id = (battle_detail.get('previousHistoryDetail') or {}).get('id')
@@ -114,17 +118,17 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
 
             if last_power:
                 diff = open_power - last_power
-                if diff:
-                    str_open_power = f"战力: ({diff:+.2f}) {open_power:.2f}"
-            if max_open_power and not get_prev:
-                str_max_open_power = f', MAX: {max_open_power:.2f}'
-            push_st.battle.open_power = open_power
-            push_st.battle.max_open_power = max_open_power
+                str_open_power = f"战力: ({diff:+.2f}) {open_power:.2f}"
+            if push_st:
+                if max_open_power and not get_prev:
+                    str_max_open_power = f', MAX: {max_open_power:.2f}'
+                push_st.battle.open_power = open_power
+                push_st.battle.max_open_power = max_open_power
 
-        # 开放重新定分置零
-        if (not open_power) and (judgement in ('WIN', 'LOST')) and (bool(push_st.battle.max_open_power)):
-            push_st.battle.open_power = 0
-            push_st.battle.max_open_power = 0
+                # 开放重新定分置零
+                if (not open_power) and (judgement in ('WIN', 'LOST')) and push_st.battle.max_open_power:
+                    push_st.battle.open_power = 0
+                    push_st.battle.max_open_power = 0
 
     title += "##### "
     str_open_power_inline = ''
@@ -177,6 +181,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             # 2-1 9+2k/8d, 3连胜
             title += f'\n##### {str_static}'
 
+    title += "\n"
     msg = f"{title}{body}{footer}"
 
     return msg

@@ -55,11 +55,26 @@ async def _(bot: Bot, event: Event):
         'push_statistics': PushStatistics(),
     }
 
+    """
+    func：Job执行的函数
+    trigger：apscheduler定义的触发器，用于确定Job的执行时间，根据设置的trigger规则，计算得到下次执行此job的时间， 满足时将会执行
+    args：Job执行函数需要的位置参数
+    kwargs：Job执行函数需要的关键字参数
+    id：指定作业的唯一ID
+    name：指定作业的名字
+    misfire_grace_time：Job的延迟执行时间，例如Job的计划执行时间是21:00:00，但因服务重启或其他原因导致21:00:31才执行，如果设置此key为40,则该job会继续执行，否则将会丢弃此job
+    coalesce：Job是否合并执行，是一个bool值。例如scheduler停止20s后重启启动，而job的触发器设置为5s执行一次，因此此job错过了4个执行时间，如果设置为是，则会合并到一次执行，否则会逐个执行
+    max_instances：执行此job的最大实例数，executor执行job时，根据job的id来计算执行次数，根据设置的最大实例数来确定是否可执行
+    next_run_time：Job下次的执行时间，创建Job时可以指定一个时间[datetime],不指定的话则默认根据trigger获取触发时间
+    executor：apscheduler定义的执行器，job创建时设置执行器的名字，根据字符串你名字到scheduler获取到执行此job的 执行器，执行job指定的函数
+
+    """
     scheduler.add_job(
         push_latest_battle, 'interval', seconds=PUSH_INTERVAL, next_run_time=dt.now() + timedelta(seconds=3),
         id=job_id, args=[bot, event, job_data],
         misfire_grace_time=PUSH_INTERVAL - 1, coalesce=True, max_instances=1
     )
+    # await push_latest_battle(bot, event, job_data)
     msg = f'Start push! check new data(battle or coop) every {PUSH_INTERVAL} seconds. /stop_push to stop'
     if isinstance(bot, (V12_Bot, Kook_Bot)):
         msg = f'开启战绩推送模式，每{PUSH_INTERVAL}秒钟查询一次最新数据(对战或打工)\n/stop_push 停止推送'
@@ -102,7 +117,6 @@ async def _(bot: Bot, event: Event):
         push_statistics: PushStatistics = job_data.get("push_statistics")
         if push_statistics:
             msg += push_statistics.get_battle_st_msg()
-            msg += "\n\n"
             msg += push_statistics.get_coop_st_msg()
 
     await bot_send(bot, event, msg)
@@ -118,6 +132,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
     msg_id = job_data.get('msg_id')
     push_cnt = job_data.get('this_push_cnt', 0)
     last_battle_id = job_data.get('last_battle_id')
+    push_st = job_data.get('push_statistics')
 
     user = dict_get_or_set_user_info(platform, user_id)
 
@@ -143,13 +158,12 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
             if isinstance(bot, (V12_Bot, Kook_Bot)):
                 msg = '30分钟内没有游戏记录，停止推送。'
                 if not user.stat_key:
-                    msg += '''\n/set_api_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工)\n'''
+                    msg += "\n/set_api_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工)\n"
 
             # 获取统计数据
             push_statistics: PushStatistics = job_data.get("push_statistics")
             if push_statistics:
                 msg += push_statistics.get_battle_st_msg()
-                msg += "\n\n"
                 msg += push_statistics.get_coop_st_msg()
             logger.info(f'push auto end,{user.game_name}, {msg}')
 
@@ -164,7 +178,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
     logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
     job_data['last_battle_id'] = battle_id
 
-    msg = await get_last_msg(splatoon, battle_id, _info, is_battle)
+    msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_st=push_st)
 
     image_width = 720
     r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)

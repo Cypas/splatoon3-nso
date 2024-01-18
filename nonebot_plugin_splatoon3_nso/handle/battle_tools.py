@@ -359,9 +359,9 @@ class PushStatistics:
                 c.boss += 1
                 scale = coop_detail.get('scale')
                 if scale:
-                    c.gold += int(scale.get("gold"), 0)
-                    c.silver += int(scale.get("silver"), 0)
-                    c.bronze += int(scale.get("bronze"), 0)
+                    c.gold += int(scale.get("gold", 0))
+                    c.silver += int(scale.get("silver", 0))
+                    c.bronze += int(scale.get("bronze", 0))
                 if coop_detail['bossResult']['hasDefeatBoss']:
                     c.boss_kill += 1
 
@@ -381,10 +381,7 @@ class PushStatistics:
             # 没有数据
             return ""
 
-        msg = f"""
-对战数据统计:
-```
-"""
+        msg = "对战数据统计:\n```\n"
         if not b.total:
             return ""
         else:
@@ -425,9 +422,7 @@ class PushStatistics:
             msg += f"kd比：{k_rate}，"
             msg += f"大招：{b.s}，"
             msg += f"涂地面积：{b.p}p，"
-        msg += f"""
-        ```
-        """
+        msg += "\n```\n"
 
         return msg
 
@@ -438,10 +433,7 @@ class PushStatistics:
             # 没有数据
             return ""
 
-        msg = f"""
-        打工数据统计:
-        ```
-        """
+        msg = "打工数据统计:\n```\n"
         if not c.total:
             return ""
         else:
@@ -468,8 +460,6 @@ class PushStatistics:
                 msg += f"银鳞片：{c.silver}，"
                 msg += f"铜鳞片：{c.bronze}，"
 
-        msg += f"""
-        ```
-        """
+        msg += "\n```"
 
         return msg
