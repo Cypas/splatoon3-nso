@@ -37,7 +37,6 @@ async def notify_to_channel(_msg, _type='msg', **kwargs):
                 logger.warning(f'kook频道通知消息失败: {e}')
 
 
-
 async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
     """综合发信函数，发送图片需要添加参数 photo={img_data}"""
     img_data = ''

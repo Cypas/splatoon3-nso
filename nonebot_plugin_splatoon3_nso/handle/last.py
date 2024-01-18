@@ -1,13 +1,12 @@
 import json
-import time
 from datetime import datetime as dt, timedelta
 
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
 from .send_msg import bot_send
 from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time
-from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
-from ..s3s.splatnet_image import get_app_screenshot, init_browser
+from ..data.data_source import dict_get_or_set_user_info
+from ..s3s.splatnet_image import get_app_screenshot
 from ..s3s.splatoon import Splatoon
 from ..s3s.utils import SPLATNET3_URL
 from ..utils.bot import *
@@ -23,7 +22,7 @@ async def _(bot: Bot, event: Event):
 
     get_battle = False
     get_coop = False
-    get_pic = False
+    get_equip = False
     get_ss = False
     mask = False
     idx = 0
@@ -36,8 +35,8 @@ async def _(bot: Bot, event: Event):
             get_battle = True
         if 'c' in cmd_lst or 'coop' in cmd_lst:
             get_coop = True
-        if 'p' in cmd_lst or 'pic' in cmd_lst:
-            get_pic = True
+        if 'e' in cmd_lst or 'equip' in cmd_lst:
+            get_equip = True
         if 'ss' in cmd_lst or 'screenshot' in cmd_lst:
             get_ss = True
         if 'm' in cmd_lst or 'mask' in cmd_lst:
@@ -49,11 +48,11 @@ async def _(bot: Bot, event: Event):
                 break
 
     image_width = 720
-    if get_pic:
+    if get_equip:
         image_width = 1000
     msg, is_playing = await get_last_battle_or_coop(platform, user_id, get_battle=get_battle,
                                                     get_coop=get_coop,
-                                                    get_pic=get_pic,
+                                                    get_equip=get_equip,
                                                     idx=idx,
                                                     get_screenshot=get_ss, mask=mask)
     photo = None
@@ -77,7 +76,7 @@ async def _(bot: Bot, event: Event):
                 await bot_send(bot, event, msg)
 
 
-async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=False, get_coop=False, get_pic=False,
+async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=False, get_coop=False, get_equip=False,
                                   idx=0, get_screenshot=False, mask=False):
     """获取最近全部对战或打工数据"""
     user = dict_get_or_set_user_info(platform, user_id)
@@ -118,30 +117,31 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
 
     if not get_coop:
         # idx为0情况下直接获取最新对战id
-        if idx == 0:
-            # 获取最新一场对战的id
-            res = await splatoon.get_last_one_battle()
-            if not res:
-                # 再次尝试一次
-                res = await splatoon.get_last_one_battle()
-                if not res:
-                    return f'`网络错误，请稍后再试.`', False
-            b_info = res['data']['vsResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
-            # 这个b_info实际上不完整，可用信息只有battle_id和mode，但响应速度整体都低于查询最近对战信息
-            battle_id = b_info['id']
-            battle_t = get_battle_time_or_coop_time(battle_id)
-        else:
-            # 获取最近全部对战
+        # if idx == 0:
+        # # 获取最新一场对战的id
+        # res = await splatoon.get_last_one_battle()
+        # if not res:
+        #     # 再次尝试一次
+        #     res = await splatoon.get_last_one_battle()
+        #     if not res:
+        #         return f'`网络错误，请稍后再试.`', False
+        # b_info = res['data']['vsResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
+        # # 这个b_info实际上不完整，可用信息只有battle_id和mode，但响应速度整体都低于查询最近对战信息
+        # battle_id = b_info['id']
+        # battle_t = get_battle_time_or_coop_time(battle_id)
+        # else:
+
+        # 获取最近全部对战
+        res = await splatoon.get_recent_battles()
+        if not res:
+            # 再次尝试一次
             res = await splatoon.get_recent_battles()
             if not res:
-                # 再次尝试一次
-                res = await splatoon.get_recent_battles()
-                if not res:
-                    return f'`网络错误，请稍后再试.`', False
+                return f'`网络错误，请稍后再试.`', False
 
-            b_info = res['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]
-            battle_id = b_info['id']
-            battle_t = get_battle_time_or_coop_time(battle_id)
+        b_info = res['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]
+        battle_id = b_info['id']
+        battle_t = get_battle_time_or_coop_time(battle_id)
 
     if not get_battle:
         # 获取最近全部打工
@@ -211,7 +211,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
             user_info = json.loads(user.user_info)
         except:
             user_info = {}
-        msg = await get_last_msg(splatoon, battle_id, b_info, is_battle=True, get_pic=get_pic, mask=mask)
+        msg = await get_last_msg(splatoon, battle_id, b_info, idx=idx, is_battle=True, get_equip=get_equip, mask=mask)
         return msg, is_playing
     else:
         # 获取打工数据
@@ -226,11 +226,11 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
                 pic = None
             return pic, is_playing
 
-        msg = await get_last_msg(splatoon, coop_id, coop_info, is_battle=False, get_pic=get_pic, mask=mask)
+        msg = await get_last_msg(splatoon, coop_id, coop_info, idx=idx, is_battle=False, get_equip=get_equip, mask=mask)
         return msg, is_playing
 
 
-async def get_last_msg(splatoon, _id, extra_info, is_battle=True, get_pic=False, mask=False):
+async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False, mask=False):
     # 获取最后对战或打工的md文本
     try:
         if is_battle:
@@ -246,7 +246,8 @@ async def get_last_msg(splatoon, _id, extra_info, is_battle=True, get_pic=False,
                 game_sp_id, game_name = get_game_sp_id_and_name(p)
                 splatoon.set_user_info(game_sp_id=game_sp_id, game_name=game_name)
 
-            msg = await get_battle_msg_md(extra_info, battle_detail, splatoon=splatoon, get_pic=get_pic, mask=mask)
+            msg = await get_battle_msg_md(extra_info, battle_detail, idx=idx, splatoon=splatoon, get_equip=get_equip,
+                                          mask=mask)
         else:
             coop_detail = await splatoon.get_coop_detail(_id)
             # 查询全部boss击杀数量

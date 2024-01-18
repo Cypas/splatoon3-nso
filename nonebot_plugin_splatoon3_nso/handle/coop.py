@@ -1,12 +1,13 @@
 import base64
 from datetime import datetime as dt, timedelta
 
+from .battle_tools import PushStatistics
 from .utils import get_user_name_color, get_game_sp_id_and_name
 from ..data.data_source import model_get_temp_image_path
 from ..utils.bot import *
 
 
-async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False):
+async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, push_st: PushStatistics = None):
     """获取打工的md文本"""
     c_point = coop_info.get('coop_point')
     c_eggs = coop_info.get('coop_highest_eggs')
@@ -65,13 +66,13 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False):
     king_smell = detail.get("smellMeter")
     king_str = f'{king_smell}/5' if king_smell else ''
     # 段位
-    h_grade = detail['afterGrade']['name'] if detail.get('afterGrade') else ''
-    h_point = detail['afterGradePoint'] or ''
+    lv_grade = detail['afterGrade']['name'] if detail.get('afterGrade') else ''
+    lv_point = detail['afterGradePoint'] or ''
     # 打工地图
     coop_stage = detail['coopStage']['name']
 
     msg = f"""
-#### 段位:{h_grade} {h_point}  危险度:{detail['dangerRate']:.0%} {'🎉Clear!! ' if win else '😭Failure'}
+#### 段位:{lv_grade} {lv_point}  危险度:{detail['dangerRate']:.0%} {'🎉Clear!! ' if win else '😭Failure'}
 ### {coop_stage}  点数+{detail['jobPoint']}({c_point}p) boss槽:{king_str}
 {wave_msg}
 
@@ -112,6 +113,11 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False):
             defeat = coop_defeat["defeat_enemy"].get(boss_name, "0")
 
         msg += f"""|{boss_cnt} |{boss_pop} | {defeat} | {boss_name_str}|\n"""
+
+    # push mode
+    if push_st:
+        # 统计push数据
+        push_st.set_coop_st(detail)
 
     try:
         date_play = dt.strptime(detail['playedTime'], '%Y-%m-%dT%H:%M:%SZ') + timedelta(hours=8)

@@ -8,6 +8,8 @@ from ..data.data_source import global_user_info_dict, model_get_temp_image_path,
 from ..utils import DIR_RESOURCE
 from ..utils.bot import *
 
+PUSH_INTERVAL = 15  # push推送循环时间
+
 # 真格入场券点数
 DICT_RANK_POINT = {
     'C-': 0,
@@ -61,6 +63,16 @@ def get_battle_time_or_coop_time(_id):
     """通过对战的比赛id获取对战或打工开始的时间"""
     start_time = base64.b64decode(_id).decode('utf-8').split('_')[0].split(':')[-1]
     return start_time
+
+
+def get_battle_true_id(_id):
+    """通过对战的比赛id获取里面的真实对战id"""
+    """同一场对战在不同列表进行查询，得到的battle_id其实不一样，
+    如VsHistoryDetail-u-autukldyq7y5tqlkanmm:RECENT:20240117T044929_a35df573-075d-4d68-ba85-b2db855c98d8
+    和VsHistoryDetail-u-autukldyq7y5tqlkanmm:XMATCH:20240117T044929_a35df573-075d-4d68-ba85-b2db855c98d8
+    """
+    battle_true_id = base64.b64decode(_id).decode('utf-8').split(':')[-1]
+    return battle_true_id
 
 
 async def get_user_name_color(player_name, player_code):
