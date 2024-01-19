@@ -43,8 +43,8 @@ class ReqClient:
         self.client = httpx.AsyncClient(proxies=proxies)
         self._type = _type  # 标记client的作用
 
-    def close(self, msg_id):
-        """关闭login client"""
+    def close(self):
+        """关闭client"""
         self.client.aclose()
 
     async def get(self, url, **kwargs) -> Response:

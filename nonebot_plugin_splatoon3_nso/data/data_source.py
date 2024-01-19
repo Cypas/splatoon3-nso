@@ -24,7 +24,7 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
                 g_token=user.g_token,
                 bullet_token=user.bullet_token,
                 access_token=user.access_token,
-                game_name=user.game_name,
+                game_name=user.game_name or "",
                 game_sp_id=user.game_sp_id,
                 push=0,
                 push_cnt=user.push_cnt or 0,
@@ -93,6 +93,14 @@ def model_get_or_set_user(platform, user_id, **kwargs) -> UserTable:
     except Exception as e:
         logger.error(f'get_or_set_user error: {e}')
         return None
+
+
+def model_delete_user(platform, user_id):
+    """删除用户"""
+    session = DBSession()
+    session.query(UserTable).filter(UserTable.platform == platform, UserTable.user_id == user_id).delete()
+    session.commit()
+    session.close()
 
 
 def model_get_all_user():

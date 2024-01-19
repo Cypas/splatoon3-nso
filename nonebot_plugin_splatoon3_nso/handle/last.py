@@ -11,11 +11,11 @@ from ..s3s.splatoon import Splatoon
 from ..s3s.utils import SPLATNET3_URL
 from ..utils.bot import *
 
-last = on_command("last", priority=10, block=True)
+matcher_last = on_command("last", priority=10, block=True)
 
 
-@last.handle(parameterless=[Depends(_check_session_handler)])
-async def _(bot: Bot, event: Event):
+@matcher_last.handle(parameterless=[Depends(_check_session_handler)])
+async def last(bot: Bot, event: Event):
     """获取上一局对战或打工数据图"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()

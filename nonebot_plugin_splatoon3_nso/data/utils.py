@@ -77,6 +77,7 @@ def get_insert_or_update_obj(cls, filter_dict, **kw):
     if len(filter_dict) > 0:
         for k, v in filter_dict.items():
             query = query.filter(text(str(k) + "='" + str(v) + "'"))
+            query.filter_by()
         row = query.first()
     else:
         # 没有提供筛选

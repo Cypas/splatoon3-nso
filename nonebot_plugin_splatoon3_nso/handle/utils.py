@@ -54,9 +54,15 @@ def get_dict_lang(lang):
 
 def get_game_sp_id_and_name(p):
     """通过对战的成员id获取game_sp_id和name"""
-    player_sp_id = (base64.b64decode(p['id']).decode('utf-8') or '').split(':u-')[-1]
-    player_name = p['name']
-    return player_sp_id, player_name
+    game_sp_id = (base64.b64decode(p['id']).decode('utf-8') or '').split(':u-')[-1]
+    game_name = p['name']
+    return game_sp_id, game_name
+
+
+def get_game_sp_id(battle_id):
+    """通过对战id获取game_sp_id"""
+    game_sp_id = (base64.b64decode(battle_id).decode('utf-8') or '').split(':u-')[-1]
+    return game_sp_id
 
 
 def get_battle_time_or_coop_time(_id):
@@ -76,6 +82,7 @@ def get_battle_true_id(_id):
 
 
 async def get_user_name_color(player_name, player_code):
+    """取用户名颜色"""
     login = model_get_login_user(player_code)
 
     # 登录用户绿色
@@ -106,3 +113,64 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
         elif isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot, QQ_Bot)):
             _msg = '无权限查看，请先 /login 登录'
         await matcher.finish(_msg)
+
+
+async def get_event_info(bot, event):
+    """解析event结构获取group，name等信息"""
+    data = {'platform': bot.adapter.get_name(),
+            'user_id': event.get_user_id(),
+            }
+    _event = event.dict() or {}
+    if isinstance(bot, Tg_Bot):
+        name = _event.get('from_', {}).get('first_name', '')
+        if _event.get('from_', {}).get('last_name'):
+            name += ' ' + _event.get('from_', {}).get('last_name')
+        if not name:
+            name = _event.get('from_', {}).get('username') or ''
+        data.update({
+            'user_name': name,
+        })
+        # if 'group' in _event.get('chat', {}).get('type', ''):
+        #     data.update({
+        #         'group_id': _event['chat']['id'],
+        #         'group_name': _event.get('chat', {}).get('title', ''),
+        #     })
+    elif isinstance(bot, Kook_Bot):
+        data.update({
+            'user_name': _event.get('event', {}).get('author', {}).get('username') or '',
+        })
+        # if 'group' in event.get_event_name():
+        #     server_id = _event.get('event', {}).get('guild_id')
+        #     server_name = ''
+        #     channel_id = _event.get('target_id') or ''
+        #     channel_name = _event.get('event', {}).get('channel_name', '')
+        #     try:
+        #         res = await bot.guild_view(guild_id=server_id)
+        #         server_name = res.name
+        #         if server_name:
+        #             server_name += '-'
+        #     except Exception as ex:
+        #         logger.warning(f'get guild ({server_id}) ex: {ex}')
+        #     data.update({
+        #         'group_id': server_id or channel_id,
+        #         'group_name': f'{server_name}{channel_name}',
+        #     })
+    elif isinstance(bot, QQ_Bot):
+        if _event.get('guild_id'):
+            # qq 频道
+            data.update({
+                'user_name': _event.get('author', {}).get('username'),
+            })
+
+        else:
+            # qq 群
+            data.update({
+                'user_name': 'QQ群',
+            })
+        # if 'group' in event.get_event_name():
+        # qq 都在群里使用
+        # data.update({
+        #     'group_id': _event.get('guild_id') or _event.get('group_openid') or '',
+        #     'group_name': _event.get('guild_id') or _event.get('group_openid') or '',
+        # })
+    return data

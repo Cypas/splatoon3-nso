@@ -12,11 +12,11 @@ from ..utils.bot import *
 require("nonebot_plugin_apscheduler")
 from nonebot_plugin_apscheduler import scheduler
 
-start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, priority=10, block=True)
+matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, priority=10, block=True)
 
 
-@start_push.handle(parameterless=[Depends(_check_session_handler)])
-async def _(bot: Bot, event: Event):
+@matcher_start_push.handle(parameterless=[Depends(_check_session_handler)])
+async def start_push(bot: Bot, event: Event):
     """开始推送"""
     if isinstance(bot, QQ_Bot):
         await bot_send(bot, event, 'q群不支持该功能，该功能可在其他平台使用')
@@ -30,7 +30,7 @@ async def _(bot: Bot, event: Event):
         await bot_send(bot, event, '已开启推送，无需重复触发')
         return
     # push计数+1
-    dict_get_or_set_user_info(platform, user_id, push=1, push_cnt=user.push_cnt + 1)
+    user = dict_get_or_set_user_info(platform, user_id, push=1, push_cnt=user.push_cnt + 1)
 
     # 添加定时任务
     group_id = ''
@@ -47,7 +47,7 @@ async def _(bot: Bot, event: Event):
         'user_id': user_id,
         'msg_id': msg_id,
         'this_push_cnt': 0,
-        'game_name': user.game_name,
+        'game_name': user.game_name or "",
         'group_id': group_id,
         'job_id': job_id,
         'last_battle_id': "",
@@ -77,15 +77,15 @@ async def _(bot: Bot, event: Event):
     # await push_latest_battle(bot, event, job_data)
     msg = f'Start push! check new data(battle or coop) every {PUSH_INTERVAL} seconds. /stop_push to stop'
     if isinstance(bot, (V12_Bot, Kook_Bot)):
-        msg = f'开启战绩推送模式，每{PUSH_INTERVAL}秒钟查询一次最新数据(对战或打工)\n/stop_push 停止推送'
+        msg = f'开始推送战绩，每{PUSH_INTERVAL}秒钟查询一次最新数据(对战或打工)\n/stop_push 停止推送'
     await bot_send(bot, event, msg)
 
 
-stop_push = on_command("stop_push", aliases={'stop', 'st', 'stp'}, priority=10, block=True)
+matcher_stop_push = on_command("stop_push", aliases={'stop', 'st', 'stp'}, priority=10, block=True)
 
 
-@stop_push.handle(parameterless=[Depends(_check_session_handler)])
-async def _(bot: Bot, event: Event):
+@matcher_stop_push.handle(parameterless=[Depends(_check_session_handler)])
+async def stop_push(bot: Bot, event: Event):
     """停止推送"""
     if isinstance(bot, QQ_Bot):
         await bot_send(bot, event, 'q群不支持该功能，该功能可在其他平台使用')
