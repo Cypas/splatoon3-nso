@@ -2,6 +2,7 @@
 # https://github.com/frozenpandaman/s3s
 # License: GPLv3
 import httpx
+import requests
 from loguru import logger
 import base64, hashlib, json, os, re, sys
 from bs4 import BeautifulSoup
@@ -155,22 +156,22 @@ class S3S:
             'DNT': '1',
             'Accept-Encoding': 'gzip,deflate,br',
         }
-
+        # 这里获取的auth_state 和 auth_code_challenge 都是bytes，request请求中会自动转换为str，httpx却没有这层处理，需要自己手动加上
         body = {
-            'state': auth_state,
+            'state': auth_state.decode('utf-8'),
             'redirect_uri': 'npf71b963c1b7b6d119://auth',
             'client_id': '71b963c1b7b6d119',
             'scope': 'openid user user.birthday user.mii user.screenName',
             'response_type': 'session_token_code',
-            'session_token_code_challenge': auth_code_challenge.replace(b"=", b""),
+            'session_token_code_challenge': auth_code_challenge.replace(b"=", b"").decode('utf-8'),
             'session_token_code_challenge_method': 'S256',
             'theme': 'login_form'
         }
 
-        url = 'https://accounts.nintendo.com/connect/1.0.0/authorize'
+        url = "https://accounts.nintendo.com/connect/1.0.0/authorize"
 
-        r = await self.req_client.get(url, headers=app_head, params=body)
-
+        # follow_redirects 参数 允许重定向，在request中默认是开启的，httpx默认关闭，需要主动开启
+        r = await self.req_client.get(url, headers=app_head, params=body, follow_redirects=True)
         post_login = r.history[0].url
 
         print(
@@ -187,7 +188,8 @@ class S3S:
                 if use_account_url == "skip":
                     return "skip"
                 session_token_code = re.search('de=(.*)&', use_account_url)
-                return self.get_session_token(session_token_code.group(1), auth_code_verifier)
+                session_token = await self.get_session_token(session_token_code.group(1), auth_code_verifier)
+                return session_token
             except KeyboardInterrupt:
                 print("\nBye!")
                 return "skip"
@@ -212,16 +214,16 @@ class S3S:
             'Accept-Language': 'en-US',
             'Accept': 'application/json',
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': '540',
             'Host': 'accounts.nintendo.com',
             'Connection': 'Keep-Alive',
             'Accept-Encoding': 'gzip'
         }
 
+        # 这里同样的auth_code_verifier同样为byte，需要手动转为str
         body = {
             'client_id': '71b963c1b7b6d119',
             'session_token_code': session_token_code,
-            'session_token_code_verifier': auth_code_verifier.replace(b"=", b"")
+            'session_token_code_verifier': auth_code_verifier.replace(b"=", b"").decode('utf-8')
         }
 
         url = 'https://accounts.nintendo.com/connect/1.0.0/api/session_token'

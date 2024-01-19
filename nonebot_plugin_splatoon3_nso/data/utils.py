@@ -21,6 +21,7 @@ class GlobalUserInfo:
         self.push = kwargs.get('push', 0)
         self.push_cnt = kwargs.get('push_cnt', 0)
         self.stat_key = kwargs.get('stat_key', None)
+        self.ns_friend_code = kwargs.get('ns_friend_code', None)
         self.req_client = kwargs.get('req_client', None)
 
 
@@ -91,4 +92,5 @@ def get_insert_or_update_obj(cls, filter_dict, **kw):
     for k, v in kw.items():
         if hasattr(res, k):
             setattr(res, k, v)
+    session.close()
     return res

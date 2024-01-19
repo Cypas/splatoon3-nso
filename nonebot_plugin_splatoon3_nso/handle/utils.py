@@ -136,6 +136,8 @@ async def get_event_info(bot, event):
         #         'group_name': _event.get('chat', {}).get('title', ''),
         #     })
     elif isinstance(bot, Kook_Bot):
+        Kook_ME
+
         data.update({
             'user_name': _event.get('event', {}).get('author', {}).get('username') or '',
         })

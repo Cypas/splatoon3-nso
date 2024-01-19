@@ -5,10 +5,10 @@ from datetime import datetime as dt, timedelta
 from .utils import _check_session_handler, get_event_info, get_game_sp_id
 from .send_msg import bot_send, notify_to_channel
 from ..config import plugin_config
-from ..data.data_source import dict_get_or_set_user_info, model_delete_user
+from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
-from ..utils import get_msg_id, DIR_RESOURCE
+from ..utils import get_msg_id, DIR_RESOURCE, get_or_init_client
 from ..utils.bot import *
 
 MSG_PRIVATE = "请私信机器人完成登录操作"
@@ -54,7 +54,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             logger.error(f'login error: {e}')
 
     s3s = S3S(platform, user_id)
-    url, auth_code_verifier = s3s.log_in()
+    url, auth_code_verifier = await s3s.log_in()
     global_login_status_dict.update(
         {msg_id: {"auth_code_verifier": auth_code_verifier,
                   "s3s": s3s,
@@ -76,11 +76,14 @@ Log in, right click the "Select this account" button, copy the link address, and
 '''
         if msg:
             await bot.send(event, message=msg)
-            await bot.send(event, message='我是分割线'.center(120, '-'))
+            await bot.send(event, message='我是分割线'.center(20, '-'))
             await bot.send(event, message=url)
 
 
-@on_startswith("npf", priority=10).handle()
+matcher_login_in_2 = on_startswith("npf", priority=10)
+
+
+@matcher_login_in_2.handle()
 async def login_in_2(bot: Bot, event: Event):
     text = event.get_plaintext()
     platform = bot.adapter.get_name()
@@ -100,8 +103,8 @@ async def login_in_2(bot: Bot, event: Event):
         await bot.send(event, message=err_msg)
         return
 
-    session_token = s3s.login_in_2(use_account_url=text, auth_code_verifier=auth_code_verifier)
-    if session_token == 'skip':
+    session_token = await s3s.login_in_2(use_account_url=text, auth_code_verifier=auth_code_verifier)
+    if not session_token or session_token == 'skip':
         logger.info(err_msg)
         await bot.send(event, message=err_msg)
         return
@@ -113,7 +116,8 @@ async def login_in_2(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=user_name)
     # 刷新token
     await bot.send(event, message="登录中，正在刷新token，请等待大约10s")
-    splatoon = Splatoon(platform, user.user_id, user.user_name, user.session_token, user.req_client)
+    req_client = get_or_init_client(platform, user_id)
+    splatoon = Splatoon(platform, user.user_id, user.user_name, user.session_token, req_client)
     await splatoon.refresh_gtoken_and_bullettoken()
 
     msg = f"""
@@ -161,7 +165,9 @@ async def clear_db_info(bot: Bot, event: Event):
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
+    msg_id = get_msg_id(platform, user_id)
     model_delete_user(platform, user_id)
+    global_user_info_dict.pop(msg_id)
 
     msg = "All your data cleared! 已清空账号数据!"
     logger.info(msg)
@@ -185,8 +191,10 @@ async def get_login_code(bot: Bot, event: Event):
     login_code = secrets.token_urlsafe(20)
     login_code_info = {"platform": platform, "user_id": user_id, "create_time": int(time.time())}
     global_login_code_dict.update({login_code: login_code_info})
-    msg = f'请在Q群内艾特机器人并发送下行指令完成跨平台绑定\n该绑定码为一次性的随机字符串，有效期10分钟，不用担心别人重复使用\n\n/set_login {login_code}'
+    msg = f'请在Q群内艾特机器人并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用'
     await bot_send(bot, event, message=msg)
+    await bot.send(event, message='我是分割线'.center(20, '-'))
+    await bot_send(bot, event, message=f'/set_login {login_code}')
 
 
 @on_command("set_login", priority=10, block=True).handle()

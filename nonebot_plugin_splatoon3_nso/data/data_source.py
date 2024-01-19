@@ -29,6 +29,7 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
                 push=0,
                 push_cnt=user.push_cnt or 0,
                 stat_key=user.stat_key,
+                ns_friend_code=user.ns_friend_code,
                 req_client=get_or_init_client(platform, user_id)
             )
             global_user_info_dict.update({key: user_info})
@@ -91,7 +92,7 @@ def model_get_or_set_user(platform, user_id, **kwargs) -> UserTable:
         return user
 
     except Exception as e:
-        logger.error(f'get_or_set_user error: {e}')
+        logger.error(f'model_get_or_set_user error: {e}')
         return None
 
 
