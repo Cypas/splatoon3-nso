@@ -137,7 +137,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
     user = dict_get_or_set_user_info(platform, user_id)
 
     push_cnt += 1
-    job_data['this_push_cnt'] = push_cnt
+    job_data.update({"this_push_cnt": push_cnt})
     if push_cnt * PUSH_INTERVAL % 600 == 0:
         # show log every 10 minutes
         logger.info(f'push_latest_battle: {user.game_name}, {job_id}')
@@ -165,7 +165,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
             if push_statistics:
                 msg += push_statistics.get_battle_st_msg()
                 msg += push_statistics.get_coop_st_msg()
-            logger.info(f'push auto end,{user.game_name}, {msg}')
+            logger.info(f'push auto end,user：{msg_id},gamer：{user.game_name}, push cycle count:{push_cnt}')
 
             await bot_send(bot, event, message=msg, skip_log_cmd=True)
 
@@ -176,7 +176,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
     # 获取新对战信息
     splatoon = Splatoon(platform, user.user_id, user.user_name, user.session_token, user.req_client)
     logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
-    job_data['last_battle_id'] = battle_id
+    job_data.update({"last_battle_id": battle_id})
 
     msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_st=push_st)
 
@@ -189,4 +189,4 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
             message_id = r.message_id
             if job_data.get('last_group_msg_id'):
                 await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_group_msg_id'])
-        job_data['last_group_msg_id'] = message_id
+        job_data.update({"last_group_msg_id": message_id})

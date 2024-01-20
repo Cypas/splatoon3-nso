@@ -400,13 +400,21 @@ class PushStatistics:
             msg += "\n"
             # 分数
             if b.b_point_change:
-                msg += f"蛮颓分数变更：{b.b_point_change}\n"
+                if b.b_point_change >= 0:
+                    b_point_change_str = f"+{b.b_point_change}分"
+                else:
+                    b_point_change_str = f"{b.b_point_change}分"
+                msg += f"蛮颓分数变更：{b_point_change_str}\n"
             if b.x_point_change:
-                msg += f"x赛分数变更：{b.x_point_change}\n"
+                if b.x_point_change >= 0:
+                    x_point_change_str = f"+{b.x_point_change}分"
+                else:
+                    x_point_change_str = f"{b.x_point_change}分"
+                msg += f"x赛分数变更：{x_point_change_str}\n"
             if b.open_power:
-                msg += f"开放/活动组队 分数：{b.open_power}\n"
-            if b.max_open_power:
-                msg += f"开放/活动组队 最高分数：{b.max_open_power}\n"
+                msg += f"开放/活动组队 分数：{b.open_power:.2f},"
+                if b.max_open_power:
+                    msg += f"最高分数：{b.max_open_power:.2f}\n"
             # 击杀
             # kd比  避免除数和被除数为0的情况
             if b.d == 0:
@@ -419,7 +427,7 @@ class PushStatistics:
             msg += f"击杀：{b.k}，"
             msg += f"助攻：{b.a}，"
             msg += f"死亡：{b.d}，"
-            msg += f"kd比：{k_rate}，"
+            msg += f"kd比：{k_rate:.2f}，"
             msg += f"大招：{b.s}，"
             msg += f"涂地面积：{b.p}p，"
         msg += "\n```\n"
@@ -459,7 +467,8 @@ class PushStatistics:
                 msg += f"金鳞片：{c.gold}，"
                 msg += f"银鳞片：{c.silver}，"
                 msg += f"铜鳞片：{c.bronze}，"
+                msg += "\n"
 
-        msg += "\n```"
+        msg += "```"
 
         return msg

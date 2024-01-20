@@ -53,7 +53,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
         img_data = kwargs.get('photo')
 
     if img_data:
-        await send_img(bot, event, img_data)
+        await send_msg(bot, event, img_data)
 
         # if not kwargs.get('skip_log_cmd'):
         #     await log_cmd_to_db(bot, event)
@@ -68,7 +68,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
                     for l in coop_lst:
                         if '打工次数' in l or '头目鲑鱼' in l:
                             message += '\n' + l
-                    message += '```'
+                    # message += '```'
         try:
             if isinstance(bot, QQ_Bot):
                 message = message.replace('```', '').replace('\_', '_').strip().strip('`')
@@ -80,63 +80,64 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
         #     await log_cmd_to_db(bot, event)
 
 
-async def send_msg(bot: Bot, event: Event, msg):
+async def send_msg(bot: Bot, event: Event, msg: str | bytes):
     """公用send_msg"""
     # 指定回复模式
     reply_mode = plugin_config.splatoon3_reply_mode
-    if isinstance(bot, V11_Bot):
-        await bot.send(event, message=V11_MsgSeg.text(msg), reply_message=reply_mode)
-    elif isinstance(bot, V12_Bot):
-        await bot.send(event, message=V12_MsgSeg.text(msg), reply_message=reply_mode)
-    elif isinstance(bot, Tg_Bot):
-        if reply_mode:
-            await bot.send(event, msg, reply_to_message_id=event.dict().get("message_id"))
-        else:
-            await bot.send(event, msg)
-    elif isinstance(bot, Kook_Bot):
-        await bot.send(event, message=Kook_MsgSeg.text(msg), reply_sender=reply_mode)
-    elif isinstance(bot, QQ_Bot):
-        await bot.send(event, message=QQ_MsgSeg.text(msg))
 
+    if isinstance(msg, str):
+        # 文字消息
+        if isinstance(bot, V11_Bot):
+            await bot.send(event, message=V11_MsgSeg.text(msg), reply_message=reply_mode)
+        elif isinstance(bot, V12_Bot):
+            await bot.send(event, message=V12_MsgSeg.text(msg), reply_message=reply_mode)
+        elif isinstance(bot, Tg_Bot):
+            if reply_mode:
+                await bot.send(event, msg, reply_to_message_id=event.dict().get("message_id"))
+            else:
+                await bot.send(event, msg)
+        elif isinstance(bot, Kook_Bot):
+            await bot.send(event, message=Kook_MsgSeg.text(msg), reply_sender=reply_mode)
+        elif isinstance(bot, QQ_Bot):
+            await bot.send(event, message=QQ_MsgSeg.text(msg))
 
-async def send_img(bot: Bot, event: Event, img: bytes):
-    """公用send_img"""
-    # 指定回复模式
-    reply_mode = plugin_config.splatoon3_reply_mode
-    if isinstance(bot, V11_Bot):
-        try:
-            await bot.send(event, message=V11_MsgSeg.image(file=img, cache=False), reply_message=reply_mode)
-        except Exception as e:
-            logger.warning(f"QQBot send error: {e}")
-    elif isinstance(bot, V12_Bot):
-        # onebot12协议需要先上传文件获取file_id后才能发送图片
-        try:
-            resp = await bot.upload_file(type="data", name="temp.png", data=img)
-            file_id = resp["file_id"]
-            if file_id:
-                await bot.send(event, message=V12_MsgSeg.image(file_id=file_id), reply_message=reply_mode)
-        except Exception as e:
-            logger.warning(f"QQBot send error: {e}")
-    elif isinstance(bot, Tg_Bot):
-        if reply_mode:
-            await bot.send(event, Tg_File.photo(img), reply_to_message_id=event.dict().get("message_id"))
-        else:
-            await bot.send(event, Tg_File.photo(img))
-    elif isinstance(bot, Kook_Bot):
-        url = await bot.upload_file(img)
-        await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
-    elif isinstance(bot, QQ_Bot):
-        if not isinstance(event, GroupAtMessageCreateEvent):
-            await bot.send(event, message=QQ_MsgSeg.file_image(img))
-        else:
-            # 目前q群只支持url图片，得想办法上传图片获取url
-            kook_bot = None
-            bots = nonebot.get_bots()
-            for k, b in bots.items():
-                if isinstance(b, Kook_Bot):
-                    kook_bot = b
-                    break
-            if kook_bot is not None:
-                # 使用kook的接口传图片
-                url = await kook_bot.upload_file(img)
-                await bot.send(event, message=QQ_MsgSeg.image(url))
+    elif isinstance(msg, bytes):
+        # 图片
+        img = msg
+        if isinstance(bot, V11_Bot):
+            try:
+                await bot.send(event, message=V11_MsgSeg.image(file=img, cache=False), reply_message=reply_mode)
+            except Exception as e:
+                logger.warning(f"QQBot send error: {e}")
+        elif isinstance(bot, V12_Bot):
+            # onebot12协议需要先上传文件获取file_id后才能发送图片
+            try:
+                resp = await bot.upload_file(type="data", name="temp.png", data=img)
+                file_id = resp["file_id"]
+                if file_id:
+                    await bot.send(event, message=V12_MsgSeg.image(file_id=file_id), reply_message=reply_mode)
+            except Exception as e:
+                logger.warning(f"QQBot send error: {e}")
+        elif isinstance(bot, Tg_Bot):
+            if reply_mode:
+                await bot.send(event, Tg_File.photo(img), reply_to_message_id=event.dict().get("message_id"))
+            else:
+                await bot.send(event, Tg_File.photo(img))
+        elif isinstance(bot, Kook_Bot):
+            url = await bot.upload_file(img)
+            await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
+        elif isinstance(bot, QQ_Bot):
+            if not isinstance(event, GroupAtMessageCreateEvent):
+                await bot.send(event, message=QQ_MsgSeg.file_image(img))
+            else:
+                # 目前q群只支持url图片，得想办法上传图片获取url
+                kook_bot = None
+                bots = nonebot.get_bots()
+                for k, b in bots.items():
+                    if isinstance(b, Kook_Bot):
+                        kook_bot = b
+                        break
+                if kook_bot is not None:
+                    # 使用kook的接口传图片
+                    url = await kook_bot.upload_file(img)
+                    await bot.send(event, message=QQ_MsgSeg.image(url))

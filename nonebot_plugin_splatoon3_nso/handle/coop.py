@@ -79,7 +79,7 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
 #### {total_deliver_cnt}
 |  |   ||  ||||||
 | --: |--:|--:|--:|--:|:--|--|--|--|
-| 击杀 |蛋数|死亡|红蛋|救人|玩家<td colspan="2">大招</td>|武器|
+| 击杀 |蛋数|死亡|救人|红蛋|玩家<td colspan="2">大招</td>|武器|
 {await coop_row_user(my, wave_results, is_myself=True)}
 """
     for p in detail['memberResults']:
@@ -174,6 +174,6 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False):
         p_name = f'<b>{p_name}</b>'
 
     t = f"|x{p['defeatEnemyCount']}| {p['goldenDeliverCount']} |{p['rescuedCount']}d |" \
-        f"{p['deliverCount']} |{p['rescueCount']}r| {uniform} {p_name}|{weapon}|"
+        f"{p['rescueCount']}r|{p['deliverCount']} | {uniform} {p_name}|{weapon}|"
 
     return t
