@@ -32,14 +32,14 @@ async def start_push(bot: Bot, event: Event):
     # push计数+1
     user = dict_get_or_set_user_info(platform, user_id, push=1, push_cnt=user.push_cnt + 1)
 
-    # 添加定时任务
-    group_id = ''
-    _event = event.dict() or {}
-    if _event.get('chat', {}).get('type') == 'group':
-        group_id = _event['chat']['id']
-    if _event.get('group_id'):
-        group_id = _event['group_id']
+    # 看来源是否是群聊
+    channel_id = ""
+    if isinstance(event, Tg_CME):
+        channel_id = event.chat.id
+    elif isinstance(event, Kook_CME):
+        channel_id = event.group_id
 
+    # 添加定时任务
     job_id = f'{msg_id}_push'
     logger.info(f'add push_job {job_id}')
     job_data = {
@@ -48,10 +48,10 @@ async def start_push(bot: Bot, event: Event):
         'msg_id': msg_id,
         'this_push_cnt': 0,
         'game_name': user.game_name or "",
-        'group_id': group_id,
+        'channel_id': channel_id,
         'job_id': job_id,
         'last_battle_id': "",
-        'last_group_msg_id': "",
+        'last_channel_msg_id': "",
         'push_statistics': PushStatistics(),
     }
 
@@ -138,9 +138,9 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
 
     push_cnt += 1
     job_data.update({"this_push_cnt": push_cnt})
-    if push_cnt * PUSH_INTERVAL % 600 == 0:
-        # show log every 10 minutes
-        logger.info(f'push_latest_battle: {user.game_name}, {job_id}')
+    # if push_cnt * PUSH_INTERVAL % 600 == 0:
+    #     # show log every 10 minutes
+    #     logger.info(f'push_latest_battle: {user.game_name}, {job_id}')
 
     try:
         res = await get_last_battle_or_coop(platform, user_id, for_push=True)
@@ -183,10 +183,10 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
     image_width = 720
     r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)
     # tg撤回上一条push的消息
-    if job_data.get('group_id') and r:
+    if job_data.get('channel_id') and r:
         message_id = ''
         if isinstance(bot, Tg_Bot):
             message_id = r.message_id
-            if job_data.get('last_group_msg_id'):
-                await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_group_msg_id'])
-        job_data.update({"last_group_msg_id": message_id})
+            if job_data.get('last_channel_msg_id'):
+                await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_channel_msg_id'])
+        job_data.update({"last_channel_msg_id": message_id})
