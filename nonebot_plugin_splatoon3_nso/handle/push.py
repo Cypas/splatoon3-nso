@@ -77,7 +77,7 @@ async def start_push(bot: Bot, event: Event):
     # await push_latest_battle(bot, event, job_data)
     msg = f'Start push! check new data(battle or coop) every {PUSH_INTERVAL} seconds. /stop_push to stop'
     if isinstance(bot, (V12_Bot, Kook_Bot)):
-        msg = f'开始推送战绩，每{PUSH_INTERVAL}秒钟查询一次最新数据(对战或打工)\n/stop_push 停止推送'
+        msg = f'开始推送战绩，每{PUSH_INTERVAL}秒查询一次最新数据(对战或打工)\n/stop_push 停止推送'
     await bot_send(bot, event, msg)
 
 
@@ -142,21 +142,29 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
     #     # show log every 10 minutes
     #     logger.info(f'push_latest_battle: {user.game_name}, {job_id}')
 
+    logger.info(f"push_cnt:{push_cnt}")
+    logger.info(f"last_battle_id:{last_battle_id}")
+
     try:
         res = await get_last_battle_or_coop(platform, user_id, for_push=True)
-        battle_id, _info, is_battle = res
+        battle_id, _info, is_battle, is_playing = res
     except Exception as e:
         logger.debug(f'push_latest_battle error: {e}')
         return
 
+    # 第一次push时不处理最后一次超过20分钟的记录
+    if not last_battle_id and not is_playing:
+        job_data.update({"last_battle_id": battle_id})
+        return
+
     # 如果battle_id未改变
     if last_battle_id == battle_id:
-        if push_cnt * PUSH_INTERVAL / 60 > 30:
+        if not is_playing:
             scheduler.remove_job(job_id)
             dict_get_or_set_user_info(platform, user_id, push=0)
-            msg = 'No game record for 30 minutes, stop push.'
+            msg = 'No game record for 20 minutes, stop push.'
             if isinstance(bot, (V12_Bot, Kook_Bot)):
-                msg = '30分钟内没有游戏记录，停止推送。'
+                msg = '20分钟内没有游戏记录，停止推送。'
                 if not user.stat_key:
                     msg += "\n/set_api_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工)\n"
 
@@ -169,7 +177,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
 
             await bot_send(bot, event, message=msg, skip_log_cmd=True)
 
-            msg = f"#{msg_id} {user.game_name or ''}\n 30分钟内没有游戏记录，停止推送。"
+            msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，线程循环次数{push_cnt}"
             await notify_to_channel(msg)
             return
         return

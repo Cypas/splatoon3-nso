@@ -273,7 +273,6 @@ class S3S:
                 'Accept-Encoding': 'gzip'
             }
         except:
-            logger.warning("Not a valid authorization request. Please delete config.txt and try again.")
             logger.warning("Error from Nintendo (in api/token step):")
             logger.warning(json.dumps(id_response))
             if id_response.get('error') == 'invalid_grant':

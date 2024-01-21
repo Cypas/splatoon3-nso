@@ -189,7 +189,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
     str_time = max(battle_t, coop_t)
     str_time = str_time.replace('T', ' ').replace('Z', '')
     dt_time = dt.strptime(str_time, '%Y%m%d %H%M%S')
-    if dt.utcnow() - dt_time <= timedelta(hours=1):
+    if dt.utcnow() - dt_time <= timedelta(minutes=20):
         is_playing = True
     else:
         is_playing = False
@@ -197,7 +197,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
     if get_battle:
         # 获取对战数据
         if for_push:
-            return battle_id, b_info, True
+            return battle_id, b_info, True, is_playing
         if get_screenshot:
             try:
                 url = f"{SPLATNET3_URL}/history/detail/{battle_id}?lang=zh-CN"
@@ -207,16 +207,12 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
                 pic = None
             return pic, is_playing
 
-        try:
-            user_info = json.loads(user.user_info)
-        except:
-            user_info = {}
         msg = await get_last_msg(splatoon, battle_id, b_info, idx=idx, is_battle=True, get_equip=get_equip, mask=mask)
         return msg, is_playing
     else:
         # 获取打工数据
         if for_push:
-            return coop_id, coop_info, False
+            return coop_id, coop_info, False, is_playing
         if get_screenshot:
             try:
                 url = f"{SPLATNET3_URL}/coop/{coop_id}?lang=zh-CN"
@@ -230,7 +226,8 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
         return msg, is_playing
 
 
-async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False, mask=False, push_st = None):
+async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False, mask=False,
+                       push_st=None):
     # 获取最后对战或打工的md文本
     try:
         if is_battle:
