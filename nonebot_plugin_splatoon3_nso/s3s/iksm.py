@@ -3,9 +3,10 @@
 # License: GPLv3
 import httpx
 import requests
-from loguru import logger
 import base64, hashlib, json, os, re, sys
 from bs4 import BeautifulSoup
+from nonebot import logger
+
 from ..utils import BOT_VERSION, get_or_init_client, AsHttpReq, HttpReq, ReqClient
 from .utils import SPLATNET3_URL, GRAPHQL_URL
 
@@ -28,6 +29,11 @@ APP_USER_AGENT = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) ' \
 class S3S:
     def __init__(self, platform, user_id):
         self.req_client: ReqClient = get_or_init_client(platform, user_id)
+        self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
+        self.user_nickname = ""
+        self.user_lang = 'zh-CN'
+        self.user_country = 'JP'
+        self.f_gen_url = F_GEN_URL
 
     @staticmethod
     def get_nsoapp_version(f_gen_url=None):
@@ -232,16 +238,9 @@ class S3S:
 
         return json.loads(r.text)["session_token"]
 
-    async def get_gtoken(self, f_gen_url, session_token):
-        """Provided the session_token, returns a GameWebToken and account info.
-        only_nso_access_token: 仅获取nso_access_token
-        """
-
-        if not session_token:
-            raise ValueError('invalid_grant')
-
-        nsoapp_version = self.get_nsoapp_version(f_gen_url)
-
+    async def _get_id_token_and_user_info(self, session_token):
+        """get_gtoken第一步"""
+        # get_id_token
         app_head = {
             'Host': 'accounts.nintendo.com',
             'Accept-Encoding': 'gzip',
@@ -250,68 +249,74 @@ class S3S:
             'Connection': 'Keep-Alive',
             'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 7.1.2)'
         }
-
         body = {
             'client_id': '71b963c1b7b6d119',
             'session_token': session_token,
             'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer-session-token'
         }
-
         url = "https://accounts.nintendo.com/connect/1.0.0/api/token"
-        r = await self.req_client.post(url, headers=app_head, json=body)
-        id_response = json.loads(r.text)
+        try:
+            r = await self.req_client.post(url, headers=app_head, json=body)
+            id_response = json.loads(r.text)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            raise ValueError('NetConnectError')
+        except Exception as e:
+            raise e
+
+        if id_response.get('error') == 'invalid_grant':
+            raise ValueError('invalid_grant')
+        id_access_token = id_response.get("access_token")
+        id_token = id_response.get("id_token")
+        if not id_access_token:
+            raise ValueError(f"resp error:{json.dumps(id_response)}")
 
         # get user info
-        try:
-            app_head = {
-                'User-Agent': 'NASDKAPI; Android',
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Authorization': f'Bearer {id_response["access_token"]}',
-                'Host': 'api.accounts.nintendo.com',
-                'Connection': 'Keep-Alive',
-                'Accept-Encoding': 'gzip'
-            }
-        except:
-            logger.warning("Error from Nintendo (in api/token step):")
-            logger.warning(json.dumps(id_response))
-            if id_response.get('error') == 'invalid_grant':
-                raise ValueError('invalid_grant')
-            return
+        app_head = {
+            'User-Agent': 'NASDKAPI; Android',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {id_access_token}',
+            'Host': 'api.accounts.nintendo.com',
+            'Connection': 'Keep-Alive',
+            'Accept-Encoding': 'gzip'
+        }
 
         url = "https://api.accounts.nintendo.com/2.0.0/users/me"
-        r = await self.req_client.get(url, headers=app_head)
+        try:
+            r = await self.req_client.get(url, headers=app_head)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            raise ValueError('NetConnectError')
+        except Exception as e:
+            raise e
         user_info = json.loads(r.text)
 
-        user_nickname = user_info["nickname"]
-        user_lang = user_info["language"]
-        user_country = user_info["country"]
-        user_id = user_info["id"]
+        return id_token, user_info
 
+    async def _get_access_token(self, id_token, user_info):
+        """get_gtoken第二步"""
         # get access token
-        body = {}
+        self.user_nickname = user_info["nickname"]
+        self.user_lang = user_info["language"]
+        self.user_country = user_info["country"]
+        self.r_user_id = user_info["id"]
+        birthday = user_info["birthday"]
+
         try:
-            access_token = id_response["id_token"]
-            f, uuid, timestamp = await self.call_f_api(access_token, 1, f_gen_url, user_id)
+            f, uuid, timestamp = await self.call_f_api(id_token, 1, self.f_gen_url, self.r_user_id)
+        except Exception as e:
+            raise ValueError(str(e))
 
-            parameter = {
-                'f': f,
-                'language': user_lang,
-                'naBirthday': user_info["birthday"],
-                'naCountry': user_country,
-                'naIdToken': access_token,
-                'requestId': uuid,
-                'timestamp': timestamp
-            }
-        except SystemExit:
-            return
-        except:
-            logger.warning("Error(s) from Nintendo:")
-            logger.warning(f"response:{json.dumps(id_response)}")
-            logger.warning(f"user_info:{json.dumps(user_info)}")
-            return
-        body["parameter"] = parameter
-
+        parameter = {
+            'f': f,
+            'language': self.user_lang,
+            'naBirthday': birthday,
+            'naCountry': self.user_country,
+            'naIdToken': id_token,
+            'requestId': uuid,
+            'timestamp': timestamp
+        }
+        body = {"parameter": parameter}
+        nsoapp_version = self.get_nsoapp_version()
         app_head = {
             'X-Platform': 'Android',
             'X-ProductVersion': nsoapp_version,
@@ -322,8 +327,16 @@ class S3S:
         }
 
         url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
-        r = await self.req_client.post(url, headers=app_head, json=body)
-        splatoon_token = json.loads(r.text)
+        try:
+            r = await self.req_client.post(url, headers=app_head, json=body)
+            splatoon_token = json.loads(r.text)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            raise ValueError('NetConnectError')
+        except Exception as e:
+            raise e
+
+        if not splatoon_token:
+            raise ValueError(f"resp error:{json.dumps(splatoon_token)}")
 
         try:
             # access_token过期时间7200s 即2h
@@ -332,7 +345,7 @@ class S3S:
         except:
             # retry once if 9403/9599 error from nintendo
             try:
-                f, uuid, timestamp = await self.call_f_api(access_token, 1, f_gen_url, user_id)
+                f, uuid, timestamp = await self.call_f_api(id_token, 1, self.f_gen_url, self.r_user_id)
                 body["parameter"]["f"] = f
                 body["parameter"]["requestId"] = uuid
                 body["parameter"]["timestamp"] = timestamp
@@ -344,15 +357,17 @@ class S3S:
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
                 coral_user_id = splatoon_token["result"]["user"]["id"]
             except:
-                logger.warning("Error from Nintendo (in Account/Login step):")
-                logger.warning(json.dumps(splatoon_token))
-                logger.warning(
-                    "Try re-running the script. Or, if the NSO app has recently been updated, you may temporarily change `USE_OLD_NSOAPP_VER` to True at the top of iksm.py for a workaround.")
-                return
+                raise ValueError(f"resp error:{json.dumps(splatoon_token)}")
 
-            f, uuid, timestamp = await self.call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
+            f, uuid, timestamp = await self.call_f_api(access_token, 2, self.f_gen_url, self.r_user_id,
+                                                       coral_user_id=coral_user_id)
 
-        # get web service token
+        return access_token, f, uuid, timestamp, coral_user_id
+
+    async def _get_g_token(self, access_token, f, uuid, timestamp, coral_user_id):
+        """get_gtoken第三步"""
+        # get gtoken ,即 web service token
+        nsoapp_version = self.get_nsoapp_version()
         app_head = {
             'X-Platform': 'Android',
             'X-ProductVersion': nsoapp_version,
@@ -361,8 +376,6 @@ class S3S:
             'Accept-Encoding': 'gzip',
             'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/7.1.2)'
         }
-
-        body = {}
         parameter = {
             'f': f,
             'id': 4834290508791808,
@@ -370,18 +383,23 @@ class S3S:
             'requestId': uuid,
             'timestamp': timestamp
         }
-        body["parameter"] = parameter
-
+        body = {"parameter": parameter}
         url = "https://api-lp1.znc.srv.nintendo.net/v2/Game/GetWebServiceToken"
-        r = await self.req_client.post(url, headers=app_head, json=body)
-        web_service_resp = json.loads(r.text)
+        try:
+            r = await self.req_client.post(url, headers=app_head, json=body)
+            web_service_resp = json.loads(r.text)
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            raise ValueError('NetConnectError')
+        except Exception as e:
+            raise e
 
         try:
             web_service_token = web_service_resp["result"]["accessToken"]
         except:
             # retry once if code 9403/9599 error from nintendo
             try:
-                f, uuid, timestamp = await self.call_f_api(access_token, 2, f_gen_url, user_id, coral_user_id=coral_user_id)
+                f, uuid, timestamp = await self.call_f_api(access_token, 2, self.f_gen_url, self.r_user_id,
+                                                           coral_user_id=coral_user_id)
                 body["parameter"]["f"] = f
                 body["parameter"]["requestId"] = uuid
                 body["parameter"]["timestamp"] = timestamp
@@ -390,32 +408,51 @@ class S3S:
                 web_service_resp = json.loads(r.text)
                 web_service_token = web_service_resp["result"]["accessToken"]
             except:
-                logger.warning("Error from Nintendo (in Game/GetWebServiceToken step):")
                 logger.warning(json.dumps(web_service_resp))
                 if web_service_resp.get('errorMessage') == 'Membership required error.':
-                    logger.warning(user_info)
-                    nickname = user_info.get('nickname')
-                    raise ValueError(f'Membership required error.|{nickname}')
+                    raise ValueError(f'Membership required error.')
                 return
-        # web_service_token 有效期为10800秒 3h
-        return access_token, web_service_token, user_nickname, user_lang, user_country, user_info
 
-    async def get_bullet(self, user_id, web_service_token, user_lang, user_country):
+        # web_service_token 有效期为10800秒 3h
+        return web_service_token
+
+    async def get_gtoken(self, session_token):
+        """Provided the session_token, returns a GameWebToken and account info."""
+        # get_id_tokenaccess_token, f, uuid, timestamp, coral_user_id
+        try:
+            id_token, user_info = await self._get_id_token_and_user_info(session_token)
+        except Exception as e:
+            logger.warning(f"get_id_token_and_user_info error:{e}")
+            raise e
+        try:
+            access_token, f, uuid, timestamp, coral_user_id = await self._get_access_token(id_token, user_info)
+        except Exception as e:
+            logger.warning(f"get_access_token error:{e}")
+            raise e
+        try:
+            g_token = await self._get_g_token(access_token, f, uuid, timestamp, coral_user_id)
+        except Exception as e:
+            logger.warning(f"get_g_token error:{e}")
+            raise e
+
+        return access_token, g_token, self.user_nickname, self.user_lang, self.user_country
+
+    async def get_bullet(self, user_id, g_token):
         """Given a gtoken, returns a bulletToken."""
 
         app_head = {
             'Content-Length': '0',
             'Content-Type': 'application/json',
-            'Accept-Language': user_lang,
+            'Accept-Language': self.user_lang,
             'User-Agent': APP_USER_AGENT,
-            'X-Web-View-Ver': S3S.get_web_view_ver(),
-            'X-NACOUNTRY': user_country,
+            'X-Web-View-Ver': self.get_web_view_ver(),
+            'X-NACOUNTRY': self.user_country,
             'Accept': '*/*',
             'Origin': SPLATNET3_URL,
             'X-Requested-With': 'com.nintendo.znca'
         }
         app_cookies = {
-            '_gtoken': web_service_token,  # X-GameWebToken
+            '_gtoken': g_token,  # X-GameWebToken
             '_dnt': '1'  # Do Not Track
         }
         url = f'{SPLATNET3_URL}/api/bullet_tokens'
@@ -423,7 +460,8 @@ class S3S:
 
         try:
             # bullet_token过期时间7200s 即2h
-            bullet_token = r.json()['bulletToken']
+            r_json = json.loads(r.text)
+            bullet_token = r_json['bulletToken']
             return bullet_token
         except Exception as e:
             logger.exception(f'{user_id} get_bullet error. {r.status_code}')
@@ -435,7 +473,7 @@ class S3S:
                 logger.exception("Cannot access SplatNet 3 without having played online.")
             raise Exception(f'{user_id} get_bullet error. {r.status_code}')
 
-    async def call_f_api(self, access_token, step, f_gen_url, user_id, coral_user_id=None):
+    async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         """Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp)."""
 
         api_head = {}
@@ -451,7 +489,7 @@ class S3S:
             api_body = {  # 'timestamp' & 'request_id' (uuid v4) set automatically
                 'token': access_token,
                 'hash_method': step,  # 1 = coral (NSO) token, 2 = webservicetoken
-                'na_id': user_id
+                'na_id': r_user_id
             }
             if step == 2 and coral_user_id is not None:
                 api_body["coral_user_id"] = coral_user_id
@@ -473,10 +511,10 @@ class S3S:
                         f"Error during f generation:\n{json.dumps(json.loads(api_response.text), ensure_ascii=False)}")
                 else:
                     logger.error(f"Error during f generation: Error {api_response.status_code}.")
+                raise ValueError(f"resp error:{json.dumps(api_response)}")
             except:
                 logger.error(f"Couldn't connect to f generation API ({f_gen_url}). Please try again later.")
-
-            return
+                raise ValueError('NetConnectError')
 
 
 if __name__ == "__main__":

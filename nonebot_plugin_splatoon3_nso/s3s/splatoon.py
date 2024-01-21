@@ -58,8 +58,9 @@ class Splatoon:
         new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
             "", "", "", self.user_lang, self.user_country
         try:
-            new_access_token, new_g_token, user_nickname, user_lang, user_country, _user_info = \
-                await self.s3s.get_gtoken(F_GEN_URL, self.session_token)
+            # user_nickname为任天堂官网账号用户名，没有参考价值
+            new_access_token, new_g_token, user_nickname, user_lang, user_country = \
+                await self.s3s.get_gtoken(self.session_token)
         except Exception as e:
             msg_id = get_msg_id(self.platform, self.user_id)
             logger.warning(f'{msg_id} refresh_gtoken_and_bullettoken error. {e} {self.session_token}')
@@ -94,19 +95,20 @@ class Splatoon:
                     f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
                 logger.warning('try f_gen_url_2 url')
                 try:
-                    new_access_token, new_g_token, user_nickname, user_lang, user_country, _user_info = \
-                        await self.s3s.get_gtoken(F_GEN_URL_2, self.session_token)
+                    self.s3s.f_gen_url = F_GEN_URL_2
+                    new_access_token, new_g_token, user_nickname, user_lang, user_country = \
+                        await self.s3s.get_gtoken(self.session_token)
                 except Exception as e:
                     logger.warning(
                         f'f_gen_url_2 url also fail:{e} db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
 
         try:
             # 获取bullettoken
-            new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token, user_lang, user_country)
+            new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
         except Exception as e:
             msg_id = get_msg_id(self.platform, self.user_id)
             logger.warning(f'{msg_id} get g_token success,get bullet_token error,start try again.reason:{e}')
-            new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token, user_lang, user_country)
+            new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
         # 刷新值1
         if new_g_token and new_bullet_token:
             self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token)
@@ -161,18 +163,19 @@ class Splatoon:
             logger.debug(f'_request: {t2}s')
             if res.status_code != 200:
                 logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
-                try:
-                    await self.refresh_gtoken_and_bullettoken()
-                    logger.debug(f'refresh tokens complete，try again')
-                except Exception as e:
-                    logger.debug(f'refresh tokens fail,reason:{e}')
-                t = time.time()
-                res = await self.req_client.post(GRAPHQL_URL, data=data,
-                                                 headers=self._head_bullet(self.bullet_token),
-                                                 cookies=dict(_gtoken=self.g_token))
-                t2 = f'{time.time() - t:.3f}'
-                logger.debug(f'_request: {t2}s')
-                return res.json()
+                if res.status_code == 401:
+                    try:
+                        await self.refresh_gtoken_and_bullettoken()
+                        logger.info(f'refresh tokens complete，try again')
+                    except Exception as e:
+                        logger.info(f'refresh tokens fail,reason:{e}')
+                    t = time.time()
+                    res = await self.req_client.post(GRAPHQL_URL, data=data,
+                                                     headers=self._head_bullet(self.bullet_token),
+                                                     cookies=dict(_gtoken=self.g_token))
+                    t2 = f'{time.time() - t:.3f}'
+                    logger.debug(f'_request: {t2}s')
+                    return res.json()
             else:
                 return res.json()
         except Exception as e:
