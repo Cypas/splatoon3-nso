@@ -3,6 +3,7 @@ from nonebot.plugin import PluginMetadata
 
 from .config import driver, plugin_config
 from .handle import *
+from .handle.send_msg import bot_send
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP
 from .utils.bot import *
 

@@ -70,10 +70,12 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
     lv_point = detail['afterGradePoint'] or ''
     # 打工地图
     coop_stage = detail['coopStage']['name']
-
+    # 胜负情况
+    result_wave = detail["resultWave"]
+    judgement = "🎉Clear!! " if win else f"😭W{result_wave} Failure"
     msg = f"""
-#### 段位:{lv_grade} {lv_point}  危险度:{detail['dangerRate']:.0%} {'🎉Clear!! ' if win else '😭Failure'}
-### {coop_stage}  点数+{detail['jobPoint']}({c_point}p) boss槽:{king_str}
+#### {coop_stage} 段位:{lv_grade} {lv_point}  危险度:{detail['dangerRate']:.0%} {judgement}
+##### 打工点数+{detail['jobPoint']}({c_point}p) boss槽:{king_str}
 {wave_msg}
 
 #### {total_deliver_cnt}

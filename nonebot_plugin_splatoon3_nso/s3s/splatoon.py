@@ -2,6 +2,7 @@ import time
 import uuid
 import os
 
+import httpx
 from loguru import logger
 
 from .utils import gen_graphql_body, translate_rid, GRAPHQL_URL
@@ -154,7 +155,6 @@ class Splatoon:
                 logger.info(f'{self.user_id} tokens is None,start refresh tokens soon')
                 await self.refresh_gtoken_and_bullettoken()
                 logger.debug(f'refresh tokens complete')
-
             t = time.time()
             res = await self.req_client.post(GRAPHQL_URL, data=data,
                                              headers=self._head_bullet(self.bullet_token),
@@ -162,9 +162,9 @@ class Splatoon:
             t2 = f'{time.time()  - t:.3f}'
             logger.debug(f'_request: {t2}s')
             if res.status_code != 200:
-                logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
                 if res.status_code == 401:
                     try:
+                        logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
                         await self.refresh_gtoken_and_bullettoken()
                         logger.info(f'refresh tokens complete，try again')
                     except Exception as e:
@@ -178,14 +178,16 @@ class Splatoon:
                     return res.json()
             else:
                 return res.json()
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            logger.warning(f'_request error: connectError or connect timeout')
         except Exception as e:
-            logger.warning(f'api:{GRAPHQL_URL}')
+            logger.warning(f'_request error: {e}')
             logger.warning(f'data:{data}')
             logger.warning(f'res:{res}')
-            if res:
-                logger.warning(f'res:{res.status_code}')
-                logger.warning(f'res:{res.text}')
-            logger.warning(f'_request error: {e}')
+            # if res:
+            #     logger.warning(f'res:{res}')
+            #     logger.warning(f'res:{res.status_code}')
+            #     logger.warning(f'res:{res.text}')
             return None
 
     async def get_recent_battles(self):

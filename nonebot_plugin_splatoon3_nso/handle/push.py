@@ -1,4 +1,6 @@
 from datetime import datetime as dt, timedelta
+from nonebot.adapters import Message
+from nonebot.params import CommandArg
 
 from .battle_tools import PushStatistics
 from .utils import _check_session_handler, PUSH_INTERVAL
@@ -16,7 +18,7 @@ matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, p
 
 
 @matcher_start_push.handle(parameterless=[Depends(_check_session_handler)])
-async def start_push(bot: Bot, event: Event):
+async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
     if isinstance(bot, QQ_Bot):
         await bot_send(bot, event, 'q群不支持该功能，该功能可在其他平台使用')
@@ -32,6 +34,31 @@ async def start_push(bot: Bot, event: Event):
     # push计数+1
     user = dict_get_or_set_user_info(platform, user_id, push=1, push_cnt=user.push_cnt + 1)
 
+    # 检查push的条件
+    get_battle = False
+    get_coop = False
+    get_screenshot = False
+    mask = False
+    cmd_message = args.extract_plain_text().strip()
+    # 筛选参数
+    if cmd_message:
+        cmd_lst = cmd_message.split(" ")
+        if 'b' in cmd_lst or 'battle' in cmd_lst:
+            get_battle = True
+        if 'c' in cmd_lst or 'coop' in cmd_lst:
+            get_coop = True
+        if get_battle and get_coop:
+            get_battle = False
+            get_coop = False
+        if 'ss' in cmd_lst or 'screenshot' in cmd_lst:
+            get_screenshot = True
+        if 'm' in cmd_lst or 'mask' in cmd_lst:
+            mask = True
+    filters = {"get_battle": get_battle,
+               "get_coop": get_coop,
+               "get_screenshot": get_screenshot,
+               "mask": mask,
+               }
     # 看来源是否是群聊
     channel_id = ""
     if isinstance(event, Tg_CME):
@@ -71,13 +98,23 @@ async def start_push(bot: Bot, event: Event):
     """
     scheduler.add_job(
         push_latest_battle, 'interval', seconds=PUSH_INTERVAL, next_run_time=dt.now() + timedelta(seconds=3),
-        id=job_id, args=[bot, event, job_data],
+        id=job_id, args=[bot, event, job_data, filters],
         misfire_grace_time=PUSH_INTERVAL - 1, coalesce=True, max_instances=1
     )
-    # await push_latest_battle(bot, event, job_data)
     msg = f'Start push! check new data(battle or coop) every {PUSH_INTERVAL} seconds. /stop_push to stop'
     if isinstance(bot, (V12_Bot, Kook_Bot)):
-        msg = f'开始推送战绩，每{PUSH_INTERVAL}秒查询一次最新数据(对战或打工)\n/stop_push 停止推送'
+        filters_str1 = ""
+        if get_screenshot:
+            filters_str1 += "截图"
+        if mask:
+            filters_str1 += "打码"
+
+        filters_str2 = "对战或打工"
+        if get_battle:
+            filters_str2 = "对战"
+        if get_coop:
+            filters_str2 = "打工"
+        msg = f'开始推送{filters_str1}战绩，每{PUSH_INTERVAL}秒查询一次最新 {filters_str2} 数据\n/stop_push 停止推送'
     await bot_send(bot, event, msg)
 
 
@@ -122,17 +159,22 @@ async def stop_push(bot: Bot, event: Event):
     await bot_send(bot, event, msg)
 
 
-async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
+async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: dict):
     """定时推送函数"""
     job_id = job_data.get('job_id')
     logger.debug(f'push_latest_battle {job_id}, {job_data}')
-
+    # job_data
     platform = job_data.get('platform')
     user_id = job_data.get('user_id')
     msg_id = job_data.get('msg_id')
     push_cnt = job_data.get('this_push_cnt', 0)
     last_battle_id = job_data.get('last_battle_id')
     push_st = job_data.get('push_statistics')
+    # filters
+    get_battle = filters["get_battle"]
+    get_coop = filters["get_coop"]
+    get_screenshot = filters["get_screenshot"]
+    mask = filters["mask"]
 
     user = dict_get_or_set_user_info(platform, user_id)
 
@@ -142,24 +184,24 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
     #     # show log every 10 minutes
     #     logger.info(f'push_latest_battle: {user.game_name}, {job_id}')
 
-    logger.info(f"push_cnt:{push_cnt}")
-    logger.info(f"last_battle_id:{last_battle_id}")
-
     try:
-        res = await get_last_battle_or_coop(platform, user_id, for_push=True)
+        res = await get_last_battle_or_coop(platform, user_id, for_push=True, get_battle=get_battle,
+                                            get_coop=get_coop,
+                                            get_screenshot=get_screenshot, mask=mask)
         battle_id, _info, is_battle, is_playing = res
     except Exception as e:
-        logger.debug(f'push_latest_battle error: {e}')
+        logger.warning(f'push_latest_battle error: {e}')
         return
 
-    # 第一次push时不处理最后一次超过20分钟的记录
-    if not last_battle_id and not is_playing:
-        job_data.update({"last_battle_id": battle_id})
-        return
+    # # 第一次push时不处理最后一次超过20分钟的记录
+    # if not last_battle_id and not is_playing:
+    #     job_data.update({"last_battle_id": battle_id})
+    #     return
 
     # 如果battle_id未改变
     if last_battle_id == battle_id:
-        if not is_playing:
+        if not is_playing and push_cnt * PUSH_INTERVAL / 60 > 20:
+            # 关闭定时，更新push状态，发送统计
             scheduler.remove_job(job_id)
             dict_get_or_set_user_info(platform, user_id, push=0)
             msg = 'No game record for 20 minutes, stop push.'
@@ -186,10 +228,16 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict):
     logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
     job_data.update({"last_battle_id": battle_id})
 
-    msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_st=push_st)
+    msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_st=push_st,
+                             get_screenshot=get_screenshot, mask=mask)
+    photo = None
+    if get_screenshot:
+        photo = msg
+        msg = ''
 
-    image_width = 720
-    r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)
+    image_width = 680
+    r = await bot_send(bot, event, message=msg, photo=photo, image_width=image_width, skip_log_cmd=True)
+
     # tg撤回上一条push的消息
     if job_data.get('channel_id') and r:
         message_id = ''

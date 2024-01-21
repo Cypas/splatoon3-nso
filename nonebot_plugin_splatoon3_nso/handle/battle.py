@@ -17,7 +17,9 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     # 游戏模式
     mode = battle_detail['vsMode']['mode']
     # 胜负
-    judgement = battle_detail['judgement']
+    judgement: str = battle_detail['judgement']
+    # 取胜负的翻译
+    judgement.replace("DEEMED_LOSE", "自己掉线").replace("EXEMPTED_LOSE", "队友掉线，免除惩罚")
     # 标题 点数 进度(0-3)
     title, sub_title, point, b_process = await get_battle_msg_title(b_info, battle_detail, splatoon=splatoon,
                                                                     mask=False, idx=idx)
@@ -118,15 +120,15 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
 
             if last_power:
                 diff = open_power - last_power
-                str_open_power = f"战力: ({diff:+.2f}) {open_power:.2f}"
+                str_open_power = f"分数: ({diff:+.2f}) {open_power:.2f}"
             if push_st:
                 if max_open_power and not get_prev:
-                    str_max_open_power = f', MAX: {max_open_power:.2f}'
+                    str_max_open_power = f', 最高分数: {max_open_power:.2f}'
                 push_st.battle.open_power = open_power
                 push_st.battle.max_open_power = max_open_power
 
                 # 开放重新定分置零
-                if (not open_power) and (judgement in ('WIN', 'LOST')) and push_st.battle.max_open_power:
+                if (not open_power) and (judgement != "DRAW") and push_st.battle.max_open_power:
                     push_st.battle.open_power = 0
                     push_st.battle.max_open_power = 0
 
@@ -139,15 +141,15 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
 
     try:
         date_play = dt.strptime(battle_detail['playedTime'], '%Y-%m-%dT%H:%M:%SZ') + timedelta(hours=8)
-        str_time = (date_play + timedelta(seconds=duration)).strftime('%y-%m-%d %H:%M:%S')
+        str_time = date_play.strftime('%y-%m-%d %H:%M:%S')
     except Exception as e:
         str_time = ''
-    footer = f"\n#### 耗时: {duration}s, {str_time}"
+    footer = f"\n#### 时间: {str_time}  耗时: {duration}s"
     title += f"{sub_title}   比分:{score}  {b_process} {str_open_power_inline} \n"
 
     dict_a = {'GOLD': '🏅️', 'SILVER': '🥈', 'BRONZE': '🥉'}
     award_list = [f"{dict_a.get(a['rank'], '')}{a['name']}" for a in battle_detail['awards']]
-    footer += ('\n ' + ' '.join(award_list) + '\n')
+    title += ('##### 奖牌:' + ' '.join(award_list) + '\n')
 
     # # b_info唯二有用的地方，显示祭典当前等级，但全是日文
     # if mode == 'FEST':

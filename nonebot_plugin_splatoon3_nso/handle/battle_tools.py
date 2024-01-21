@@ -162,6 +162,8 @@ class PushBattleStatistics:
         self.total = 0
         self.win = 0
         self.lose = 0
+        self.deemed_lose = 0
+        self.exempted_lose = 0
         self.draw = 0
         self.ka = 0
         self.k = 0
@@ -223,9 +225,13 @@ class PushStatistics:
                 case "WIN":
                     b.win += 1
                     b.successive = max(b.successive, 0) + 1
-                case "LOSE" | "DEEMED_LOSE" | "EXEMPTED_LOSE":
+                case "LOSE" | "DEEMED_LOSE":
+                    # DEEMED_LOSE：自己掉线
                     b.lose += 1
                     b.successive = min(b.successive, 0) - 1
+                case "EXEMPTED_LOSE":
+                    # EXEMPTED_LOSE：队友掉线，豁免惩罚
+                    b.exempted_lose += 1
                 case "DRAW":
                     b.draw += 1
             # 点数/power变更
@@ -317,6 +323,10 @@ class PushStatistics:
             msg += f"负：{b.lose}，"
             if b.draw:
                 msg += f"无效：{b.draw}，"
+            if b.deemed_lose:
+                msg += f"掉线：{b.deemed_lose}，"
+            if b.exempted_lose:
+                msg += f"队友掉线，免除惩罚：{b.exempted_lose}，"
 
             if b.win:
                 win_rate = b.win / (b.win + b.lose)

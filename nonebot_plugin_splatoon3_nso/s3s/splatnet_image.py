@@ -3,16 +3,17 @@ from nonebot import logger
 from playwright.async_api import async_playwright, Browser, BrowserContext, ViewportSize
 
 from .utils import SPLATNET3_URL
-from ..data.utils import GlobalUserInfo
+from ..data.data_source import dict_get_or_set_user_info
 from ..utils import proxies, get_msg_id
 
 global_browser = None
 global_dict_context = {}
 
 
-async def get_app_screenshot(user: GlobalUserInfo, key='', url='', mask=False):
+async def get_app_screenshot(platform, user_id, key='', url='', mask=False):
     """获取app页面截图"""
-    msg_id = get_msg_id(user.platform, user.user_id)
+    user = dict_get_or_set_user_info(platform, user_id)
+    msg_id = get_msg_id(platform, user_id)
     logger.info(f'get_app_screenshot： {msg_id}, {key}, {url}')
 
     COOKIES = [{'name': '_gtoken', 'value': 'undefined', 'domain': 'api.lp1.av5ja.srv.nintendo.net', 'path': '/',
