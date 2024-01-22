@@ -140,12 +140,16 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
             # 再次尝试一次
             res = await splatoon.get_recent_battles()
             if not res:
-                return f'`网络错误，请稍后再试.`', False
+                if for_push:
+                    # 跳过本次循环
+                    raise ValueError('NetConnectError')
+                else:
+                    return f'`网络错误，请稍后再试.`', False
         try:
             b_info = res['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]
             battle_id = b_info['id']
             battle_t = get_battle_time_or_coop_time(battle_id)
-        except Exception as e:
+        except:
             b_info = {}
             battle_id = ""
             battle_t = ""
@@ -157,7 +161,11 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
             # 再次尝试一次
             res = await splatoon.get_coops()
             if not res:
-                return f'`网络错误，请稍后再试.`', False
+                if for_push:
+                    # 跳过本次循环
+                    raise ValueError('NetConnectError')
+                else:
+                    return f'`网络错误，请稍后再试.`', False
         try:
             coop = res['data']['coopResult']
             # /last c 2 指令可能存在跨期查询的问题，idx需要查询每期nodes数量
@@ -186,7 +194,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
             }  # coop_eggs为当期获得的最多的蛋数
             coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx]['id']
             coop_t = get_battle_time_or_coop_time(coop_id)
-        except Exception as e:
+        except:
             coop_info = {}
             coop_id = ""
             coop_t = ""
@@ -234,7 +242,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
 
 async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False,
                        get_screenshot=False, mask=False,
-                       push_st=None):
+                       push_statistics=None):
     # 获取最后对战或打工的md文本
     try:
         if is_battle:
@@ -259,7 +267,7 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                 splatoon.set_user_info(game_sp_id=game_sp_id, game_name=game_name)
 
             msg = await get_battle_msg_md(extra_info, battle_detail, idx=idx, splatoon=splatoon, get_equip=get_equip,
-                                          mask=mask, push_st=push_st)
+                                          mask=mask, push_statistics=push_statistics)
         else:
             if get_screenshot:
                 try:
@@ -273,7 +281,7 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             # 查询全部boss击杀数量
             coop_statistics_res = await splatoon.get_coop_statistics()
             coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
-            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask, push_st=push_st)
+            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask, push_statistics=push_statistics)
 
     except Exception as e:
         logger.exception(e)

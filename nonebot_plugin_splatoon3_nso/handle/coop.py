@@ -7,7 +7,7 @@ from ..data.data_source import model_get_temp_image_path
 from ..utils.bot import *
 
 
-async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, push_st: PushStatistics = None):
+async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, push_statistics: PushStatistics = None):
     """获取打工的md文本"""
     c_point = coop_info.get('coop_point')
     c_eggs = coop_info.get('coop_highest_eggs')
@@ -117,9 +117,9 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
         msg += f"""|{boss_cnt} |{boss_pop} | {defeat} | {boss_name_str}|\n"""
 
     # push mode
-    if push_st:
+    if push_statistics:
         # 统计push数据
-        push_st.set_coop_st(detail)
+        push_statistics.set_coop_st(detail)
 
     try:
         date_play = dt.strptime(detail['playedTime'], '%Y-%m-%dT%H:%M:%SZ') + timedelta(hours=8)

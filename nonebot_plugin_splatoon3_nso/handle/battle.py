@@ -10,7 +10,7 @@ from ..utils.bot import *
 
 
 async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splatoon=None, mask=False,
-                            push_st: PushStatistics = None):
+                            push_statistics: PushStatistics = None):
     """获取对战信息md"""
 
     battle_detail = battle_detail['data']['vsHistoryDetail'] or {}
@@ -94,11 +94,11 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             max_open_power = 0
 
             last_power = None
-            if push_st:
+            if push_statistics:
                 # 统计置分
-                max_open_power = push_st.battle.max_open_power
+                max_open_power = push_statistics.battle.max_open_power
                 max_open_power = max(max_open_power, open_power)
-                last_power = push_st.battle.open_power
+                last_power = push_statistics.battle.open_power
             get_prev = False
             # 获取过去一局数据
             if not last_power:
@@ -121,20 +121,20 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             if last_power:
                 diff = open_power - last_power
                 str_open_power = f"分数: ({diff:+.2f}) {open_power:.2f}"
-            if push_st:
+            if push_statistics:
                 if max_open_power and not get_prev:
                     str_max_open_power = f', 最高分数: {max_open_power:.2f}'
-                push_st.battle.open_power = open_power
-                push_st.battle.max_open_power = max_open_power
+                push_statistics.battle.open_power = open_power
+                push_statistics.battle.max_open_power = max_open_power
 
                 # 开放重新定分置零
-                if (not open_power) and (judgement != "DRAW") and push_st.battle.max_open_power:
-                    push_st.battle.open_power = 0
-                    push_st.battle.max_open_power = 0
+                if (not open_power) and (judgement != "DRAW") and push_statistics.battle.max_open_power:
+                    push_statistics.battle.open_power = 0
+                    push_statistics.battle.max_open_power = 0
 
     title += "##### "
     str_open_power_inline = ''
-    if str_open_power and (push_st or last_power):
+    if str_open_power and (push_statistics or last_power):
         title += f"{str_open_power}{str_max_open_power} "
     elif str_open_power:
         str_open_power_inline = str_open_power
@@ -156,12 +156,12 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     #     msg += f'\n#### {b_info["player"]["festGrade"]}'
 
     # push mode
-    if push_st:
+    if push_statistics:
         # 统计push数据
-        push_st.set_battle_st(battle_detail, point)
+        push_statistics.set_battle_st(battle_detail, point)
 
         # 为查询数据添加部分push统计内容
-        b = push_st.battle
+        b = push_statistics.battle
         total = b.total
         win = b.win
         lose = b.lose

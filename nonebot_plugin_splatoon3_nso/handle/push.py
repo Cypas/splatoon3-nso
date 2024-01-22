@@ -75,9 +75,9 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         'msg_id': msg_id,
         'this_push_cnt': 0,
         'game_name': user.game_name or "",
-        'channel_id': channel_id,
         'job_id': job_id,
         'last_battle_id': "",
+        'channel_id': channel_id,
         'last_channel_msg_id': "",
         'push_statistics': PushStatistics(),
     }
@@ -145,7 +145,7 @@ async def stop_push(bot: Bot, event: Event):
     job_data = None
     try:
         r = scheduler.get_job(job_id)
-        job_data = r.args[-1] or {}
+        job_data = r.args[2] or {}
         scheduler.remove_job(job_id)
     except Exception as e:
         logger.error(f"get push job data error:{e}")
@@ -169,7 +169,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     msg_id = job_data.get('msg_id')
     push_cnt = job_data.get('this_push_cnt', 0)
     last_battle_id = job_data.get('last_battle_id')
-    push_st = job_data.get('push_statistics')
+    push_statistics: PushStatistics = job_data.get("push_statistics")
     # filters
     get_battle = filters["get_battle"]
     get_coop = filters["get_coop"]
@@ -228,7 +228,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
     job_data.update({"last_battle_id": battle_id})
 
-    msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_st=push_st,
+    msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
                              get_screenshot=get_screenshot, mask=mask)
     photo = None
     if get_screenshot:
@@ -240,9 +240,8 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
 
     # tg撤回上一条push的消息
     if job_data.get('channel_id') and r:
-        message_id = ''
         if isinstance(bot, Tg_Bot):
-            message_id = r.message_id
             if job_data.get('last_channel_msg_id'):
                 await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_channel_msg_id'])
+        message_id = r.message_id
         job_data.update({"last_channel_msg_id": message_id})
