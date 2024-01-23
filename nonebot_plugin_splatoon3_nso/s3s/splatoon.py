@@ -279,7 +279,7 @@ class Splatoon:
 
     async def get_test(self, try_again=False):
         """测试内容查询"""
-        data = gen_graphql_body(translate_rid['CoopStatistics'])
+        data = gen_graphql_body(translate_rid['TotalQuery'])
         res = await self._request(data, try_again=try_again)
         return res
 
@@ -307,21 +307,17 @@ class Splatoon:
         res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_summary(self, try_again=False):
-        """"""
+    async def get_history_summary(self, try_again=False):
+        """主页 - 历史 页面 全部分类数据"""
         data = gen_graphql_body(translate_rid['HistorySummary'])
         res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_all_res(self, try_again=False):
-        """"""
+    async def get_total_query(self, try_again=False):
+        """nso没有这个页面，统计比赛场数"""
         data = gen_graphql_body(translate_rid['TotalQuery'])
         res = await self._request(data, try_again=try_again)
         return res
-
-    def app_get_access_token(self, try_again=False):
-        """get nso_access_token"""
-        return self.access_token
 
     def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
@@ -336,6 +332,12 @@ class Splatoon:
             'Authorization': f"Bearer {app_access_token}", 'X-Platform': 'Android'
         }
         return graphql_head
+
+    async def get_friends(self, try_again=False):
+        """获取sp3好友"""
+        data = gen_graphql_body(translate_rid['FriendsList'])
+        res = await self._request(data, try_again=try_again)
+        return res
 
     async def app_ns_friend_list(self, try_again=False):
         """nso 好友列表"""

@@ -17,6 +17,7 @@ async def screen_shot(bot: Bot, event: Event):
     user_id = event.get_user_id()
     key = ""
     message = ""
+    await bot_send(bot, event, message="截图需要10秒以上时间，请稍等...")
     if " " in event.get_plaintext():
         # 取末尾的关键词
         key = event.get_plaintext().split(' ', 1)[1].strip()

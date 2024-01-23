@@ -37,7 +37,7 @@ translate_rid = {
     # 主页 - 武器  获取全部武器数据
     'FriendsList': 'ea1297e9bb8e52404f52d89ac821e1d73b726ceef2fd9cc8d6b38ab253428fb3',  # 好友列表
     'HistorySummary': '0a62c0152f27c4218cf6c87523377521c2cff76a4ef0373f2da3300079bf0388',  # 主页 - 历史 -总览
-    'TotalQuery': '2a9302bdd09a13f8b344642d4ed483b9464f20889ac17401e993dfa5c2bb3607',
+    'TotalQuery': '2a9302bdd09a13f8b344642d4ed483b9464f20889ac17401e993dfa5c2bb3607',   # 统计查询  nso没有这个页面
     'XRankingQuery': 'a5331ed228dbf2e904168efe166964e2be2b00460c578eee49fc0bc58b4b899c',  # 主页 - x排名
     'ScheduleQuery': '9b6b90568f990b2a14f04c25dd6eb53b35cc12ac815db85ececfccee64215edd',  # 日程
     'StageRecordsQuery': 'c8b31c491355b4d889306a22bd9003ac68f8ce31b2d5345017cdd30a2c8056f3',  # 主页 - 场地 (查各地图胜率)

@@ -1,4 +1,5 @@
 import json
+import time
 from datetime import datetime as dt, timedelta
 
 from .battle import get_battle_msg_md
@@ -97,7 +98,6 @@ async def get_last_battle_or_coop(bot, event, platform, user_id, for_push=False,
     # print(json.dumps(res))
 
     # t = time.time()
-    #
     # # pic = await get_app_screenshot(user, url=url, mask=mask)
     # res = await splatoon.get_x_battles()
     #
