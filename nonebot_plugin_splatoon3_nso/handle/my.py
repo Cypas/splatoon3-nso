@@ -247,26 +247,39 @@ async def get_ns_friends_md(splatoon: Splatoon):
                 _state = fmt_sp3_state(f)
                 if _state == 'ONLINE':
                     continue
+                _state = get_cn_sp3_stat(_state)
                 dict_sp3[f.get('nickname')] = _state
                 _dict_sp3[_state] += 1
 
-    msg = ''
+    msg = f'''#### NS在线好友 HKT {dt.now():%Y-%m-%d %H:%M:%S}
+|||||
+|---:|---|---|:---|
+'''
     _dict = defaultdict(int)
     for f in res.get('friends') or []:
         if (f.get('presence') or {}).get('state') != 'ONLINE' and f.get('isFavoriteFriend') is False:
             continue
         u_name = f.get('name') or ''
-        ww = 10 - wide_chars(u_name)
-        msg += f"{u_name:<{ww}}\t"
+        u_name = u_name.replace('`', '&#96;').replace('|', '&#124;')
+
+        img_type = "ns_friend_icon"
+        # 储存名使用friend_id
+        icon_img = await model_get_temp_image_path(img_type, f['nsaId'], f['imageUri'])
+        img_str = f'''<img height="40" src="{icon_img}"/>'''
+        msg += f'|{u_name}|{img_str}'
         if (f.get('presence') or {}).get('state') == 'ONLINE':
             _game_name = f['presence']['game'].get('name') or ''
             _game_name = _game_name.replace('The Legend of Zelda: Tears of the Kingdom', 'TOTK')
-            msg += f" {_game_name}"
+            msg += f"|{_game_name}"
             _dict[_game_name] += 1
             if f['presence']['game'].get('totalPlayTime'):
-                msg += f"({int(f['presence']['game'].get('totalPlayTime') / 60)}h)"
+                msg += f"({int(f['presence']['game'].get('totalPlayTime') / 60)}h)|"
+            else:
+                msg += '|'
             if f.get('name') in dict_sp3:
-                msg += f" | {dict_sp3[f.get('name')]}"
+                msg += f" {dict_sp3[f.get('name')]}|"
+            else:
+                msg += '|'
         else:
             t = (f.get('presence') or {}).get('logoutAt') or 0
             if t:
@@ -275,26 +288,26 @@ async def get_ns_friends_md(splatoon: Splatoon):
                 if tt.startswith('0'):
                     tt = tt.split(', ')[-1]
                 tt = tt.split('.')[0][:-3].replace(':', 'h')
-                msg += f" (offline about {tt})"
+                msg += f" |(offline about {tt})||"
             else:
-                msg += f" ({(f.get('presence') or {}).get('state', 'offline')})"
+                msg += f" |({(f.get('presence') or {}).get('state', 'offline')})||"
         msg += '\n'
     st = ''
     _dict['total online'] = sum(_dict.values())
     _dict['total'] = len(res.get('friends') or [])
     for k, v in _dict.items():
-        st += f'{k:>25}: {v}\n'
+        st += f'|||{k}| {v}|\n'
 
     if _dict_sp3:
         _dict_sp3['total sp3'] = sum(_dict_sp3.values())
-        st += '\n'
+        st += '|||||\n'
         for k, v in _dict_sp3.items():
-            st += f'{k:>25}: {v}\n'
+            st += f'|||{k}| {v}|\n'
 
-    msg = f'''```
-{msg}
+    msg = f'''
+{msg}|||||
 {st}
-```'''
+'''
     return msg
 
 
