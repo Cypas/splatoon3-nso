@@ -85,13 +85,13 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
                 url = f"{SPLATNET3_URL}/{v}"
                 break
 
-        if '问卷' in key:
+        if "问卷" in key or "投票" in key:
             url = f"{SPLATNET3_URL}/fest_record"
 
         await page.goto(f"{url}?lang=zh-CN")
 
-    if '问卷' in key:
-        k = '问卷实施中'
+    if "问卷" in key or "投票" in key:
+        k = "问卷实施中"
         locator = page.get_by_text(k, exact=True)
         if not await locator.count():
             raise ValueError("text not found")
