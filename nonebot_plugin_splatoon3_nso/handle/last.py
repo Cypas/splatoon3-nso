@@ -16,7 +16,7 @@ matcher_last = on_command("last", priority=10, block=True)
 
 
 @matcher_last.handle(parameterless=[Depends(_check_session_handler)])
-async def last(bot: Bot, event: Event):
+async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     """获取上一局对战或打工数据图"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -27,7 +27,7 @@ async def last(bot: Bot, event: Event):
     get_screenshot = False
     mask = False
     idx = 0
-    cmd_message = event.get_plaintext()[5:].strip()
+    cmd_message = args.extract_plain_text().strip()
     logger.debug(f'last: {cmd_message}')
     # 筛选参数
     if cmd_message:

@@ -44,6 +44,7 @@ class UserTable(Base_Main):
     user_info = Column(Text(), nullable=True)
     game_name = Column(String(), default='')
     game_sp_id = Column(String(), nullable=True)
+    ns_name = Column(String(), nullable=True)
     ns_friend_code = Column(String(), nullable=True)
     api_notify = Column(Integer(), default=1)  # 0:close 1:open
     report_notify = Column(Integer(), default=1)  # 0:close 1:open

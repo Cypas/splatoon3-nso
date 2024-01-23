@@ -120,7 +120,7 @@ async def get_top_all_name(name, player_code):
     max_power = row.power
     top_str = f'F({max_power})' if row.top_type.startswith('Fest') else f'E({max_power})'
     name = name.replace('`', '&#96;').replace('|', '&#124;')
-    name = name.strip() + f' <span style="color:#EE9D59">`{top_str}`</span">'
+    name = name.strip() + f' <span style="color:#EE9D59">`{top_str}`</span>'
     if '<img' not in name:
         weapon_id = str(row.weapon_id)
         weapon = model_get_all_weapon() or {}
@@ -140,9 +140,9 @@ async def get_top_user(player_code):
     if top_user:
         _x = 'x' if ':6:' in top_user.top_type else 'X'
         if '-a:' in top_user.top_type:
-            top_str = f' <span style="color:#fc0390">{_x}{top_user.rank}</span"><span style="color:red">({top_user.power})</span">'
+            top_str = f' <span style="color:#fc0390">{_x}{top_user.rank}({top_user.power})</span>'
         else:
-            top_str = f' <span style="color:red">{_x}{top_user.rank}({top_user.power})</span">'
+            top_str = f' <span style="color:red">{_x}{top_user.rank}({top_user.power})</span>'
         weapon_id = str(top_user.weapon_id)
         weapon = model_get_all_weapon() or {}
         if weapon.get(weapon_id):

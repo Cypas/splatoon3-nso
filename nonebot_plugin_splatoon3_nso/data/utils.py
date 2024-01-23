@@ -21,6 +21,7 @@ class GlobalUserInfo:
         self.push = kwargs.get('push', 0)
         self.push_cnt = kwargs.get('push_cnt', 0)
         self.stat_key = kwargs.get('stat_key', None)
+        self.ns_name = kwargs.get('ns_name', None)
         self.ns_friend_code = kwargs.get('ns_friend_code', None)
         self.req_client = kwargs.get('req_client', None)
 

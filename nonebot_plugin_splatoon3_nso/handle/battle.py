@@ -151,7 +151,18 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     award_list = [f"{dict_a.get(a['rank'], '')}{a['name']}" for a in battle_detail['awards']]
     title += ('##### 奖牌:' + ' '.join(award_list) + '\n')
 
-    # # b_info唯二有用的地方，显示祭典当前等级，但全是日文
+    footer += f'\n###### 用户名颜色: <b>粗体黑色</b>:玩家自己，' \
+              f'<span style="color:green">绿色 </span> :已在bot登录的用户，' \
+              f'<span style="color:skyblue">浅蓝色 </span> :某个已登录用户的好友(大概率国人)' \
+              f'</br>用户名后面分数: ' \
+              f'<span style="color:#EE9D59">E(2400) </span> : 活动比赛上榜最高分，' \
+              f'<span style="color:#EE9D59">F(2400) </span> :祭典百杰最高分' \
+              f'</br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;' \
+              f'<span style="color:red">X12(3000) </span> :日服五百强排名及分数，' \
+              f'<span style="color:#fc0390">X12(3000) </span> :美服五百强排名及分数' \
+              f'</br>用户名后面头像或武器: 一般都为<span style="color:skyblue">浅蓝色</span>用户的头像,如果是武器，则是以上榜单用户上榜时所用的武器'
+
+        # # b_info唯二有用的地方，显示祭典当前等级，但全是日文
     # if mode == 'FEST':
     #     msg += f'\n#### {b_info["player"]["festGrade"]}'
 

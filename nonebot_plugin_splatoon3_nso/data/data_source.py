@@ -29,6 +29,7 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
                 push=0,
                 push_cnt=user.push_cnt or 0,
                 stat_key=user.stat_key,
+                ns_name=user.ns_name,
                 ns_friend_code=user.ns_friend_code,
                 req_client=get_or_init_client(platform, user_id)
             )

@@ -311,6 +311,35 @@ async def get_ns_friends_md(splatoon: Splatoon):
     return msg
 
 
+@on_command("friend_code", aliases={'fc'}, priority=10, block=True).handle(
+    parameterless=[Depends(_check_session_handler)])
+async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
+    """获取ns 好友码"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user = dict_get_or_set_user_info(platform, user_id)
+    force = False  # 强制从接口获取
+
+    if "force" in args.extract_plain_text():
+        force = True
+    msg = ""
+    if user and user.ns_friend_code and not force:
+        msg += f"ns用户名: {user.ns_name}\n好友码(sw码): SW-{user.ns_friend_code}"
+        msg += f"\n\n如果ns主机主动更换了ns码导致无法搜索到好友，请发送\n/friend_code force 指令重新缓存新的好友码"
+    else:
+        splatoon = Splatoon(bot, event, user)
+        res = await splatoon.app_ns_myself() or {}
+
+        name = res.get('name')
+        code = res.get('code')
+        if code:
+            dict_get_or_set_user_info(platform, user_id, ns_name=name, ns_friend_code=code)
+            msg += f"已更新新好友码并缓存\n"
+            msg += f"ns用户名: {res.get('name')}\n好友码(sw码): SW-{user.ns_friend_code}"
+
+    await bot_send(bot, event, msg)
+
+
 def fmt_sp3_state(f):
     """sp3好友状态格式化"""
     _state = f.get('onlineState')
