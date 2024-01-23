@@ -4,11 +4,15 @@ import os
 
 import httpx
 from loguru import logger
+from nonebot import Bot
+from nonebot.internal.adapter import Event
 
 from .utils import gen_graphql_body, translate_rid, GRAPHQL_URL
 from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S, F_GEN_URL, F_GEN_URL_2
+from ..data.utils import GlobalUserInfo
+from ..handle.send_msg import bot_send
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
-from ..utils import DIR_RESOURCE, HttpReq, get_msg_id, get_or_init_client
+from ..utils import DIR_RESOURCE,  get_msg_id, get_or_init_client
 
 
 class UserDBInfo:
@@ -20,22 +24,24 @@ class UserDBInfo:
 
 
 class Splatoon:
-    def __init__(self, platform, user_id, user_name, session_token, req_client):
-        self.platform = platform
-        self.user_id = user_id
-        self.user_name = user_name
-        self.session_token = session_token
+    def __init__(self, bot: Bot, event: Event, user_info: GlobalUserInfo):
+        self.bot = bot
+        self.event = event
+        self.platform = bot.adapter.get_name()
+        self.user_id = event.get_user_id()
+        self.user_name = user_info.user_name
+        self.session_token = user_info.session_token
         self.user_lang = 'zh-CN'
         self.user_country = 'JP'
         self.bullet_token = ''
         self.g_token = ''
         self.access_token = ''
-        s3s = S3S(platform, user_id)
+        s3s = S3S(self.platform, self.user_id)
         self.s3s = s3s
         self.nso_app_version = s3s.get_nsoapp_version()
-        self.req_client = req_client or get_or_init_client(platform, user_id)
+        self.req_client = user_info.req_client or get_or_init_client(self.platform, self.user_id)
 
-        user = model_get_or_set_user(platform, user_id)
+        user = model_get_or_set_user(self.platform, self.user_id)
         if user:
             self.bullet_token = user.bullet_token
             self.g_token = user.g_token
@@ -135,19 +141,31 @@ class Splatoon:
         }
         return graphql_head
 
-    async def test_page(self):
+    async def test_page(self, try_again=False):
         """主页(测试访问页面)"""
         data = gen_graphql_body(translate_rid["HomeQuery"])
         # t = time.time()
         headers = self._head_bullet(self.bullet_token)
         cookies = dict(_gtoken=self.g_token)
-        test = HttpReq.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
+        test = await self.req_client.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
 
         if test.status_code != 200:
-            logger.info(f'{self.user_id} tokens expired.')
-            await self.refresh_gtoken_and_bullettoken()
+            if test.status_code == 401:
+                # 更新token提醒一下用户
+                if not try_again:
+                    await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
+                try:
+                    logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
+                    await self.refresh_gtoken_and_bullettoken()
+                    logger.info(f'refresh tokens complete，try again')
+                except Exception as e:
+                    logger.info(f'refresh tokens fail,reason:{e}')
+                t = time.time()
+                test = await self.req_client.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
+                t2 = f'{time.time() - t:.3f}'
+                logger.debug(f'_request: {t2}s')
 
-    async def _request(self, data):
+    async def _request(self, data, try_again=False):
         res = ''
         try:
             if not self.bullet_token or not self.g_token:
@@ -159,10 +177,13 @@ class Splatoon:
             res = await self.req_client.post(GRAPHQL_URL, data=data,
                                              headers=self._head_bullet(self.bullet_token),
                                              cookies=dict(_gtoken=self.g_token))
-            t2 = f'{time.time()  - t:.3f}'
+            t2 = f'{time.time() - t:.3f}'
             logger.debug(f'_request: {t2}s')
             if res.status_code != 200:
                 if res.status_code == 401:
+                    # 更新token提醒一下用户
+                    if not try_again:
+                        await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                     try:
                         logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
                         await self.refresh_gtoken_and_bullettoken()
@@ -190,74 +211,115 @@ class Splatoon:
             #     logger.warning(f'res:{res.text}')
             return None
 
-    async def get_recent_battles(self):
+    async def _ns_api_request(self, url, try_again=False):
+        """ns接口层操作，如ns好友列表，我的 页面"""
+        app_access_token = self.access_token
+        headers = self._head_access(app_access_token)
+        json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
+
+        res = ''
+        try:
+            t = time.time()
+            res = await self.req_client.post(url, headers=headers, json=json_body)
+            t2 = f'{time.time() - t:.3f}'
+            logger.debug(f'_request: {t2}s')
+            if res.status_code != 200:
+                if res.status_code == 401:
+                    # 更新token提醒一下用户
+                    if not try_again:
+                        await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
+                    try:
+                        logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
+                        await self.refresh_gtoken_and_bullettoken()
+                        logger.info(f'refresh tokens complete，try again')
+                    except Exception as e:
+                        logger.info(f'refresh tokens fail,reason:{e}')
+                    t = time.time()
+                    res = await self.req_client.post(url, headers=headers, json=json_body)
+                    t2 = f'{time.time() - t:.3f}'
+                    logger.debug(f'_request: {t2}s')
+                    return res.json()
+            else:
+                return res.json()
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            logger.warning(f'_request error: connectError or connect timeout')
+        except Exception as e:
+            logger.warning(f'_request error: {e}')
+            logger.warning(f'data:{url}')
+            logger.warning(f'res:{res}')
+            # if res:
+            #     logger.warning(f'res:{res}')
+            #     logger.warning(f'res:{res.status_code}')
+            #     logger.warning(f'res:{res.text}')
+            return None
+
+    async def get_recent_battles(self, try_again=False):
         """最近对战查询"""
         data = gen_graphql_body(translate_rid['LatestBattleHistoriesQuery'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_last_one_battle(self):
+    async def get_last_one_battle(self, try_again=False):
         """最新一局对战id查询"""
         data = gen_graphql_body(translate_rid['PagerLatestVsDetailQuery'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_bankara_battles(self):
+    async def get_bankara_battles(self, try_again=False):
         """蛮颓对战查询"""
         data = gen_graphql_body(translate_rid['BankaraBattleHistoriesQuery'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_x_battles(self):
+    async def get_x_battles(self, try_again=False):
         """x对战查询"""
         data = gen_graphql_body(translate_rid['XBattleHistoriesQuery'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_test(self):
+    async def get_test(self, try_again=False):
         """测试内容查询"""
         data = gen_graphql_body(translate_rid['CoopStatistics'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_battle_detail(self, battle_id):
+    async def get_battle_detail(self, battle_id, try_again=False):
         """指定对战id查询细节"""
         data = gen_graphql_body(translate_rid['VsHistoryDetailQuery'], "vsResultId", battle_id)
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_coops(self):
+    async def get_coops(self, try_again=False):
         """打工历史"""
         data = gen_graphql_body(translate_rid['CoopHistoryQuery'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_coop_detail(self, battle_id):
+    async def get_coop_detail(self, battle_id, try_again=False):
         """指定打工id查询细节"""
         data = gen_graphql_body(translate_rid['CoopHistoryDetailQuery'], "coopHistoryDetailId", battle_id)
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_coop_statistics(self):
+    async def get_coop_statistics(self, try_again=False):
         """打工统计数据(全部boss击杀数量)"""
         data = gen_graphql_body(translate_rid['CoopStatistics'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-
-    async def get_summary(self):
+    async def get_summary(self, try_again=False):
         """"""
         data = gen_graphql_body(translate_rid['HistorySummary'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    async def get_all_res(self):
+    async def get_all_res(self, try_again=False):
         """"""
         data = gen_graphql_body(translate_rid['TotalQuery'])
-        res = await self._request(data)
+        res = await self._request(data, try_again=try_again)
         return res
 
-    def app_get_access_token(self):
+    def app_get_access_token(self, try_again=False):
         """get nso_access_token"""
         return self.access_token
 
@@ -275,34 +337,24 @@ class Splatoon:
         }
         return graphql_head
 
-    async def app_ns_friend_list(self):
+    async def app_ns_friend_list(self, try_again=False):
         """nso 好友列表"""
-        app_access_token = self.app_get_access_token()
-        if not app_access_token:
-            return
-
-        headers = self._head_access(app_access_token)
-        json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
         url = "https://api-lp1.znc.srv.nintendo.net/v3/Friend/List"
+        res = await self._ns_api_request(url, try_again=try_again)
+        if not res:
+            raise ValueError('NetConnectError')
+        return res
 
-        r = await self.req_client.post(url, headers=headers, json=json_body)
-        return r
-
-    async def app_ns_myself(self):
+    async def app_ns_myself(self, try_again=False):
         """nso 我的 页面
         返回ns好友码"""
-        app_access_token = self.app_get_access_token()
-        if not app_access_token:
-            return
-
-        headers = self._head_access(app_access_token)
-        json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
         url = "https://api-lp1.znc.srv.nintendo.net/v3/User/ShowSelf"
+        res = await self._ns_api_request(url, try_again=try_again)
+        if not res:
+            raise ValueError('NetConnectError')
 
-        r = await self.req_client.post(url, headers=headers, json=json_body)
-        logger.debug(r)
-        name = r['result']['name']
-        my_sw_code = r['result']['links']['friendCode']['id']
+        name = res['result']['name']
+        my_sw_code = res['result']['links']['friendCode']['id']
         return {
             'name': name,
             'code': my_sw_code

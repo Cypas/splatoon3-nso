@@ -20,7 +20,7 @@ WEB_VIEW_VER_FALLBACK = "6.0.0-daea5c11"  # fallback
 F_GEN_URL = 'https://api.imink.app/f'
 F_GEN_URL_2 = 'https://nxapi-znca-api.fancy.org.uk/api/znca/f'
 
-F_USER_AGENT = f'splatoon3_bot/{BOT_VERSION}'
+F_USER_AGENT = f'nonebot_plugin_splatoon3_nso/{BOT_VERSION}'
 APP_USER_AGENT = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) ' \
                  'AppleWebKit/537.36 (KHTML, like Gecko) ' \
                  'Chrome/94.0.4606.61 Mobile Safari/537.36'
@@ -260,6 +260,8 @@ class S3S:
             id_response = json.loads(r.text)
         except (httpx.ConnectError, httpx.ConnectTimeout):
             raise ValueError('NetConnectError')
+        except json.JSONDecodeError as e:
+            raise ValueError('JSONDecodeError')
         except Exception as e:
             raise e
 
@@ -332,6 +334,8 @@ class S3S:
             splatoon_token = json.loads(r.text)
         except (httpx.ConnectError, httpx.ConnectTimeout):
             raise ValueError('NetConnectError')
+        except json.JSONDecodeError as e:
+            raise ValueError('JSONDecodeError')
         except Exception as e:
             raise e
 
@@ -356,7 +360,9 @@ class S3S:
                 splatoon_token = json.loads(r.text)
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
                 coral_user_id = splatoon_token["result"]["user"]["id"]
-            except:
+            except json.JSONDecodeError as e:
+                raise ValueError('JSONDecodeError')
+            except Exception:
                 raise ValueError(f"resp error:{json.dumps(splatoon_token)}")
 
             f, uuid, timestamp = await self.call_f_api(access_token, 2, self.f_gen_url, self.r_user_id,
@@ -390,6 +396,8 @@ class S3S:
             web_service_resp = json.loads(r.text)
         except (httpx.ConnectError, httpx.ConnectTimeout):
             raise ValueError('NetConnectError')
+        except json.JSONDecodeError as e:
+            raise ValueError('JSONDecodeError')
         except Exception as e:
             raise e
 
@@ -463,7 +471,7 @@ class S3S:
             r_json = json.loads(r.text)
             bullet_token = r_json['bulletToken']
             return bullet_token
-        except Exception as e:
+        except json.JSONDecodeError as e:
             logger.exception(f'{user_id} get_bullet error. {r.status_code}')
             if r.status_code == 401:
                 logger.exception("Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")

@@ -53,7 +53,7 @@ async def last(bot: Bot, event: Event):
     image_width = 680
     if get_equip:
         image_width = 1000
-    msg, is_playing = await get_last_battle_or_coop(platform, user_id, get_battle=get_battle,
+    msg, is_playing = await get_last_battle_or_coop(bot, event, platform, user_id, get_battle=get_battle,
                                                     get_coop=get_coop,
                                                     get_equip=get_equip,
                                                     idx=idx,
@@ -79,11 +79,12 @@ async def last(bot: Bot, event: Event):
                 await bot_send(bot, event, msg)
 
 
-async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=False, get_coop=False, get_equip=False,
+async def get_last_battle_or_coop(bot, event, platform, user_id, for_push=False, get_battle=False, get_coop=False,
+                                  get_equip=False,
                                   idx=0, get_screenshot=False, mask=False):
     """获取最近全部对战或打工数据"""
     user = dict_get_or_set_user_info(platform, user_id)
-    splatoon = Splatoon(platform, user.user_id, user.user_name, user.session_token, user.req_client)
+    splatoon = Splatoon(bot, event, user)
     battle_t = ""
     coop_t = ""
 
@@ -138,7 +139,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
         res = await splatoon.get_recent_battles()
         if not res:
             # 再次尝试一次
-            res = await splatoon.get_recent_battles()
+            res = await splatoon.get_recent_battles(try_again=True)
             if not res:
                 if for_push:
                     # 跳过本次循环
@@ -159,7 +160,7 @@ async def get_last_battle_or_coop(platform, user_id, for_push=False, get_battle=
         res = await splatoon.get_coops()
         if not res:
             # 再次尝试一次
-            res = await splatoon.get_coops()
+            res = await splatoon.get_coops(try_again=True)
             if not res:
                 if for_push:
                     # 跳过本次循环
@@ -281,7 +282,8 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             # 查询全部boss击杀数量
             coop_statistics_res = await splatoon.get_coop_statistics()
             coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
-            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask, push_statistics=push_statistics)
+            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask,
+                                        push_statistics=push_statistics)
 
     except Exception as e:
         logger.exception(e)

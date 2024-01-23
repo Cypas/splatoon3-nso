@@ -129,7 +129,6 @@ async def stop_push(bot: Bot, event: Event):
         return
     msg = f'Stop push!'
 
-    logger.info(msg)
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
@@ -185,7 +184,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     #     logger.info(f'push_latest_battle: {user.game_name}, {job_id}')
 
     try:
-        res = await get_last_battle_or_coop(platform, user_id, for_push=True, get_battle=get_battle,
+        res = await get_last_battle_or_coop(bot, event, platform, user_id, for_push=True, get_battle=get_battle,
                                             get_coop=get_coop,
                                             get_screenshot=get_screenshot, mask=mask)
         battle_id, _info, is_battle, is_playing = res
@@ -224,7 +223,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             return
         return
     # 获取新对战信息
-    splatoon = Splatoon(platform, user.user_id, user.user_name, user.session_token, user.req_client)
+    splatoon = Splatoon(bot, event, user)
     logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
     job_data.update({"last_battle_id": battle_id})
 

@@ -117,7 +117,7 @@ async def login_in_2(bot: Bot, event: Event):
     # 刷新token
     await bot.send(event, message="登录中，正在刷新token，请等待大约10s")
     req_client = get_or_init_client(platform, user_id)
-    splatoon = Splatoon(platform, user.user_id, user.user_name, user.session_token, req_client)
+    splatoon = Splatoon(bot, event, user)
     await splatoon.refresh_gtoken_and_bullettoken()
 
     msg = f"""
