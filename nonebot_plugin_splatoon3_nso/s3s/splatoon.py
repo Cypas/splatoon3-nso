@@ -12,7 +12,7 @@ from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S, F_GEN_URL, F_GEN_URL_2
 from ..data.utils import GlobalUserInfo
 from ..handle.send_msg import bot_send
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
-from ..utils import DIR_RESOURCE,  get_msg_id, get_or_init_client
+from ..utils import DIR_RESOURCE, get_msg_id, get_or_init_client
 
 
 class UserDBInfo:
@@ -154,7 +154,7 @@ class Splatoon:
         if test.status_code != 200:
             if test.status_code == 401:
                 # 更新token提醒一下用户
-                if not try_again:
+                if not try_again and self.bot and self.event:
                     await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                 try:
                     logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
@@ -184,7 +184,7 @@ class Splatoon:
             if res.status_code != 200:
                 if res.status_code == 401:
                     # 更新token提醒一下用户
-                    if not try_again:
+                    if not try_again and self.bot and self.event:
                         await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                     try:
                         logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
@@ -289,6 +289,12 @@ class Splatoon:
     async def get_x_battles(self, try_again=False):
         """x对战查询"""
         data = gen_graphql_body(translate_rid['XBattleHistoriesQuery'])
+        res = await self._request(data, try_again=try_again)
+        return res
+
+    async def get_x_ranking(self, area: str, try_again=False):
+        """x排行榜查询"""
+        data = gen_graphql_body(translate_rid['XRankingQuery'], varname='region', varvalue=area)
         res = await self._request(data, try_again=try_again)
         return res
 

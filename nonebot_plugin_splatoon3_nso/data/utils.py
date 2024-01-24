@@ -9,6 +9,7 @@ from ..utils import init_path, get_file_url
 
 class GlobalUserInfo:
     """全局公用用户类"""
+
     def __init__(self, **kwargs):
         self.platform = kwargs.get('platform', None)
         self.user_id = kwargs.get('user_id', None)
@@ -36,8 +37,10 @@ async def model_get_or_set_temp_image(_type, name: str, link) -> TempImageTable:
     download_flag: bool = False
     temp_image = TempImageTable()
     if row:
-        # 判断是否是用户图像缓存，并比对缓存数据是否需要更新
-        if row.type in ("friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link:
+        # 判断是否是用户图像缓存，并比对缓存数据是否需要更新, 图片名称是否为空
+        if (row.type in ("friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link) or \
+                not row.lens or \
+                (row.lens and row.lens < 2048):
             download_flag = True
         else:
             temp_image = copy.deepcopy(row)
@@ -47,7 +50,9 @@ async def model_get_or_set_temp_image(_type, name: str, link) -> TempImageTable:
         # 通过url下载图片储存至本地
         image_data = await get_file_url(link)
         file_name = ""
-        if len(image_data) > 0:
+        # 1024 bytes长度 = 1k
+        lens = len(image_data)
+        if lens > 2048:
             # 创建文件夹
             init_path(f"{DIR_TEMP_IMAGE}")
             init_path(f"{DIR_TEMP_IMAGE}/{_type}")
@@ -55,12 +60,9 @@ async def model_get_or_set_temp_image(_type, name: str, link) -> TempImageTable:
             file_name = f'{name}.png'
             with open(f"{DIR_TEMP_IMAGE}/{_type}/{file_name}", "wb") as f:
                 f.write(image_data)
-        temp_image = TempImageTable(
-            type=_type,
-            name=name,
-            link=link,
-            file_name=file_name
-        )
+        temp_image = get_insert_or_update_obj(TempImageTable, {"type": _type, "name": name}, link=link,
+                                              file_name=file_name, lens=lens)
+
         # 将复制值传给orm
         session.add(copy.deepcopy(temp_image))
     session.commit()

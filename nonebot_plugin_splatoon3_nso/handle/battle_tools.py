@@ -2,7 +2,7 @@ from datetime import datetime as dt, timedelta
 
 from .utils import DICT_RANK_POINT, get_battle_true_id
 from ..s3s.splatoon import Splatoon
-from ..data.data_source import model_get_top_player, model_get_temp_image_path, model_get_all_weapon, model_get_top_all
+from ..data.data_source import model_get_top_player, model_get_temp_image_path, model_get_all_weapon, model_get_max_power_top_all
 from ..utils.bot import *
 
 
@@ -107,7 +107,7 @@ def get_battle_group_idx(groups, battle_id) -> int:
 
 async def get_top_all_name(name, player_code):
     """对top all榜单上有名的玩家额外渲染name"""
-    top_all = model_get_top_all(player_code)
+    top_all = model_get_max_power_top_all(player_code)
     if not top_all:
         return name, 0
 

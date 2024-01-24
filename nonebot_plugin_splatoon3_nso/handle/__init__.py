@@ -8,5 +8,6 @@ from .login import login_in, login_in_2, clear_db_info, get_login_code, set_logi
 from .screenshot import screen_shot
 from .my import me, friends, ns_friends, friend_code
 from .history import history
+from .top import _top, x_top
 from .utils import *
 

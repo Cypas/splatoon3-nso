@@ -11,16 +11,16 @@ screen_shot = on_command("screen_shot", aliases={'ss'}, priority=10, block=True)
 
 
 @screen_shot.handle(parameterless=[Depends(_check_session_handler)])
-async def screen_shot(bot: Bot, event: Event):
+async def screen_shot(bot: Bot, event: Event, args: Message = CommandArg()):
     """/ss 截图指令"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     key = ""
     message = ""
     await bot_send(bot, event, message="截图需要10秒以上时间，请稍等...")
-    if " " in event.get_plaintext():
+    if " " in args.extract_plain_text():
         # 取末尾的关键词
-        key = event.get_plaintext().split(' ', 1)[1].strip()
+        key = args.extract_plain_text().split(' ')[-1].strip()
     try:
         img = await get_screenshot_image(bot, event, platform, user_id, key=key)
     except ValueError as e:

@@ -52,7 +52,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     image_width = 680
     if get_equip:
         image_width = 1000
-    msg, is_playing = await get_last_battle_or_coop(bot, event, platform, user_id, get_battle=get_battle,
+    msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
                                                     get_coop=get_coop,
                                                     get_equip=get_equip,
                                                     idx=idx,
@@ -78,10 +78,12 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
                 await bot_send(bot, event, msg)
 
 
-async def get_last_battle_or_coop(bot, event, platform, user_id, for_push=False, get_battle=False, get_coop=False,
+async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, get_coop=False,
                                   get_equip=False,
-                                  idx=0, get_screenshot=False, mask=False):
+                                  idx=0, get_screenshot=False, mask=False, get_player_code_idx=0):
     """获取最近全部对战或打工数据"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     battle_t = ""
@@ -241,7 +243,10 @@ async def get_last_battle_or_coop(bot, event, platform, user_id, for_push=False,
         if for_push:
             return battle_id, b_info, True, is_playing
         msg = await get_last_msg(splatoon, battle_id, b_info, idx=idx, is_battle=True, get_equip=get_equip,
-                                 get_screenshot=get_screenshot, mask=mask)
+                                 get_screenshot=get_screenshot, mask=mask, get_player_code_idx=get_player_code_idx)
+        if get_player_code_idx:
+            # 为top提供服务
+            return msg
         return msg, is_playing
     else:
         # 获取打工数据
@@ -254,7 +259,7 @@ async def get_last_battle_or_coop(bot, event, platform, user_id, for_push=False,
 
 async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False,
                        get_screenshot=False, mask=False,
-                       push_statistics=None):
+                       push_statistics=None, get_player_code_idx: int = 0):
     # 获取最后对战或打工的md文本
     try:
         if is_battle:
@@ -267,7 +272,30 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                     pic = None
                 return pic
             battle_detail = await splatoon.get_battle_detail(_id)
-            # 取game_sp_id
+
+            # 为top命令提供player_code和name
+            if get_player_code_idx:
+                battle_detail = battle_detail['data']['vsHistoryDetail'] or {}
+                teams = [battle_detail['myTeam']] + battle_detail['otherTeams']
+                p_lst = []
+                for t in sorted(teams, key=lambda x: x['order']):
+                    for p in t['players']:
+                        p_lst.append(p)
+
+                if int(get_player_code_idx) > 0:
+                    _idx = int(get_player_code_idx) - 1
+                    _idx = min(_idx, len(p_lst))
+                    p = p_lst[_idx]
+                    player_code, player_name = get_game_sp_id_and_name(p)
+                    return player_code, player_name
+                else:
+                    ret = []
+                    for p in p_lst:
+                        player_code, player_name = get_game_sp_id_and_name(p)
+                        ret.append((player_code, player_name))
+                    return ret
+
+            # 取用户本人game_sp_id
             if not splatoon.user_db_info.game_sp_id or not splatoon.user_db_info.game_name:
                 my_team = battle_detail['data']['vsHistoryDetail']['myTeam']
                 p = {}

@@ -118,3 +118,12 @@ def get_time_now_china_date(time_str: str) -> datetime.datetime:
     """将东八区时间字符串转换为date对象"""
     dt = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
     return dt
+
+
+def utc_str_to_china_str(time_str: str) -> str:
+    """splatoon3的世界时字符串转国内时区字符串
+    输入字符串形如  %Y-%m-%dT%H:%M:%SZ
+    输出字符串形如  %Y-%m-%d %H:%M:%S
+    """
+    china_time = get_time_now_china_str(time_converter(time_str))
+    return china_time

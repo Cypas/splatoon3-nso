@@ -184,7 +184,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     #     logger.info(f'push_latest_battle: {user.game_name}, {job_id}')
 
     try:
-        res = await get_last_battle_or_coop(bot, event, platform, user_id, for_push=True, get_battle=get_battle,
+        res = await get_last_battle_or_coop(bot, event, for_push=True, get_battle=get_battle,
                                             get_coop=get_coop,
                                             get_screenshot=get_screenshot, mask=mask)
         battle_id, _info, is_battle, is_playing = res

@@ -60,7 +60,14 @@ async def model_get_temp_image_path(_type, name, link) -> str:
     row = await model_get_or_set_temp_image(_type, name, link)
     # logger.info(f"row为{row.__dict__}")
     file_name = row.file_name
-    return f"{DIR_TEMP_IMAGE}/{_type}/{file_name}"
+    if file_name:
+        # 存在有效本地缓存
+        path = f"{DIR_TEMP_IMAGE}/{_type}/{file_name}"
+    else:
+        # 返回link
+        path = row.link
+    logger.info(f"path:{path}")
+    return path
 
 
 def model_clean_db_cache():
@@ -109,10 +116,16 @@ def model_get_all_user():
     """获取全部用户"""
     session = DBSession()
     users = session.query(UserTable).all()
-    new_users = copy.deepcopy(users)
-    session.commit()
     session.close()
-    return new_users
+    return users
+
+
+def model_get_one_user() -> UserTable:
+    """获取最新登录的一个用户，没那么容易出问题"""
+    session = DBSession()
+    user = session.query(UserTable).order_by(UserTable.create_time.desc()).first()
+    session.close()
+    return user
 
 
 def model_get_login_user(player_code):
@@ -135,11 +148,21 @@ def model_get_top_player(player_code):
     return new_user
 
 
-def model_get_top_all(player_code) -> TopAll:
-    """获取一条top all信息"""
+def model_get_max_power_top_all(player_code) -> TopAll:
+    """获取一条最高分数 top all信息"""
     session = DBSession()
     user = session.query(TopAll).filter(
         TopAll.player_code == player_code).order_by(TopAll.power.desc()).first()
+    new_user = copy.deepcopy(user)
+    session.commit()
+    session.close()
+    return new_user
+
+
+def model_get_all_top_all(player_code):
+    """获取某人全部上榜数据"""
+    session = DBSession()
+    user = session.query(TopAll).filter(TopAll.player_code == player_code).all()
     new_user = copy.deepcopy(user)
     session.commit()
     session.close()
