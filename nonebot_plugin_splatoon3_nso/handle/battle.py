@@ -5,11 +5,13 @@ from .battle_tools import get_b_point_and_process, get_x_power_and_process, get_
 from .utils import get_user_name_color, get_game_sp_id_and_name, dict_b_mode_trans
 from ..data.data_source import global_user_info_dict, model_get_temp_image_path, model_get_user_friend
 from ..data.db_sqlite import UserFriendTable
+from ..s3s.splatoon import Splatoon
+from ..utils import get_time_now_china_date, plugin_release_time, get_time_now_china
 
 from ..utils.bot import *
 
 
-async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splatoon=None, mask=False,
+async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splatoon: Splatoon = None, mask=False,
                             push_statistics: PushStatistics = None):
     """获取对战信息md"""
 
@@ -151,16 +153,22 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     award_list = [f"{dict_a.get(a['rank'], '')}{a['name']}" for a in battle_detail['awards']]
     title += ('##### 奖牌:' + ' '.join(award_list) + '\n')
 
-    footer += f'\n###### 用户名颜色: <b>粗体黑色</b>:玩家自己，' \
-              f'<span style="color:green">绿色 </span> :已在bot登录的用户，' \
-              f'<span style="color:skyblue">浅蓝色 </span> :某个已登录用户的好友(大概率国人)' \
-              f'</br>用户名后面分数: ' \
-              f'<span style="color:#EE9D59">E(2400) </span> : 活动比赛上榜最高分，' \
-              f'<span style="color:#EE9D59">F(2400) </span> :祭典百杰最高分' \
-              f'</br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;' \
-              f'<span style="color:red">X12(3000) </span> :日服五百强排名及分数，' \
-              f'<span style="color:#fc0390">X12(3000) </span> :美服五百强排名及分数' \
-              f'</br>用户名后面头像或武器: 一般都为<span style="color:skyblue">浅蓝色</span>用户的头像,如果是武器，则是以上榜单用户上榜时所用的武器'
+    # 打印图例说明
+    user_create_dt = get_time_now_china_date(splatoon.user_db_info.create_time) + timedelta(days=7)
+    plugin_release_dt = get_time_now_china_date(plugin_release_time) + timedelta(days=7)
+    now_dt = get_time_now_china()
+    if now_dt < plugin_release_dt or now_dt < user_create_dt:
+        footer += f'\n###### 本注解说明会在登录7天后不再显示' \
+                  f'</br>用户名颜色: <b>粗体黑色</b>:玩家自己，' \
+                  f'<span style="color:green">绿色 </span> :已在bot登录的用户，' \
+                  f'<span style="color:skyblue">浅蓝色 </span> :某个已登录用户的好友(大概率国人)' \
+                  f'</br>用户名后面分数: ' \
+                  f'<span style="color:#EE9D59">E(2400) </span> : 活动比赛上榜最高分，' \
+                  f'<span style="color:#EE9D59">F(2400) </span> :祭典百杰最高分' \
+                  f'</br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;' \
+                  f'<span style="color:red">X12(3000) </span> :日服五百强排名及分数，' \
+                  f'<span style="color:#fc0390">X12(3000) </span> :美服五百强排名及分数' \
+                  f'</br>用户名后面头像或武器: 一般都为<span style="color:skyblue">浅蓝色</span>用户的头像,如果是武器，则是以上榜单用户上榜时所用的武器'
 
         # # b_info唯二有用的地方，显示祭典当前等级，但全是日文
     # if mode == 'FEST':

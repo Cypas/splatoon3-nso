@@ -54,7 +54,7 @@ def get_expire_time() -> str:
 
 
 def time_converter(time_str) -> datetime:
-    """时间转换 年-月-日 时:分:秒"""
+    """世界时字符串转日期 时间转换 年-月-日 时:分:秒"""
     # convert time to UTC+8
     dt = datetime.datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%SZ")
     dt += datetime.timedelta(hours=8)
@@ -112,3 +112,9 @@ def get_time_now_china_str(now=None) -> str:
         now = get_time_now_china()
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
     return now_str
+
+
+def get_time_now_china_date(time_str: str) -> datetime.datetime:
+    """将东八区时间字符串转换为date对象"""
+    dt = datetime.datetime.strptime(time_str, "%Y-%m-%d %H:%M:%S")
+    return dt

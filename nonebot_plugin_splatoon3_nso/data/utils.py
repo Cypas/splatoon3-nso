@@ -8,6 +8,7 @@ from ..utils import init_path, get_file_url
 
 
 class GlobalUserInfo:
+    """全局公用用户类"""
     def __init__(self, **kwargs):
         self.platform = kwargs.get('platform', None)
         self.user_id = kwargs.get('user_id', None)

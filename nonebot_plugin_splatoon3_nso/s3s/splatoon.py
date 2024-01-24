@@ -16,11 +16,12 @@ from ..utils import DIR_RESOURCE,  get_msg_id, get_or_init_client
 
 
 class UserDBInfo:
-    def __init__(self, db_id, user_name, game_name, game_sp_id):
+    def __init__(self, db_id, user_name, game_name, game_sp_id, create_time):
         self.db_id = db_id
         self.user_name = user_name
         self.game_name = game_name
         self.game_sp_id = game_sp_id
+        self.create_time = create_time
 
 
 class Splatoon:
@@ -49,7 +50,8 @@ class Splatoon:
             self.user_db_info = UserDBInfo(str(user.id) or "0",
                                            user.user_name or "no user name",
                                            user.game_name or "no game name",
-                                           user.game_sp_id or "")
+                                           user.game_sp_id or "",
+                                           user.create_time)
 
     def set_user_info(self, **kwargs):
         """修改user信息"""

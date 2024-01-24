@@ -2,6 +2,7 @@ import os
 
 BOT_VERSION = '1.5.6'
 DIR_RESOURCE = f'{os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))}/resource'
+plugin_release_time = "2024-01-27 02:35:58"  # 预留  2.0.0重构版nso插件发布时间，预计发布时对全部用户先显示一周，之后再判断用户创建时间
 
 
 def multiple_replace(text, _dict):

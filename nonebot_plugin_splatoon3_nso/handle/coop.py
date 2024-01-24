@@ -4,10 +4,12 @@ from datetime import datetime as dt, timedelta
 from .battle_tools import PushStatistics
 from .utils import get_user_name_color, get_game_sp_id_and_name
 from ..data.data_source import model_get_temp_image_path
+from ..s3s.splatoon import Splatoon
+from ..utils import get_time_now_china_date, get_time_now_china, plugin_release_time
 from ..utils.bot import *
 
 
-async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, push_statistics: PushStatistics = None):
+async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, splatoon: Splatoon = None, push_statistics: PushStatistics = None):
     """获取打工的md文本"""
     c_point = coop_info.get('coop_point')
     c_eggs = coop_info.get('coop_highest_eggs')
@@ -125,6 +127,16 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
         date_play = dt.strptime(detail['playedTime'], '%Y-%m-%dT%H:%M:%SZ') + timedelta(hours=8)
         str_time = date_play.strftime('%y-%m-%d %H:%M:%S')
         msg += f"\n##### 时间: {str_time}"
+
+        # 打印图例说明
+        user_create_dt = get_time_now_china_date(splatoon.user_db_info.create_time) + timedelta(days=7)
+        plugin_release_dt = get_time_now_china_date(plugin_release_time) + timedelta(days=7)
+        now_dt = get_time_now_china()
+        if now_dt < plugin_release_dt or now_dt < user_create_dt:
+            msg += f'\n###### 本注解说明会在登录7天后不再显示' \
+                      f'</br>用户名颜色: <b>粗体黑色</b>:玩家自己，' \
+                      f'<span style="color:green">绿色 </span> :已在bot登录的用户，' \
+                      f'<span style="color:skyblue">浅蓝色 </span> :某个已登录用户的好友(大概率国人)'
     except Exception as e:
         pass
 

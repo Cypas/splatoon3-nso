@@ -282,7 +282,7 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             # 查询全部boss击杀数量
             coop_statistics_res = await splatoon.get_coop_statistics()
             coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
-            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask,
+            msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask, splatoon=splatoon,
                                         push_statistics=push_statistics)
 
     except Exception as e:

@@ -377,6 +377,7 @@ def wide_chars(s):
 
 
 def get_cn_sp3_stat(_st):
+    """获取用户状态的中文翻译"""
     if 'PRIVATE' in _st:
         _st = '私房'
     elif 'X_MATCH)' in _st:
