@@ -28,7 +28,7 @@ class GlobalUserInfo:
         self.req_client = kwargs.get('req_client', None)
 
 
-async def model_get_or_set_temp_image(_type, name: str, link) -> TempImageTable:
+async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageTable:
     """获取或设置缓存图片"""
     session = DBSession()
     name = name.replace("/", "-")
@@ -38,15 +38,13 @@ async def model_get_or_set_temp_image(_type, name: str, link) -> TempImageTable:
     temp_image = TempImageTable()
     if row:
         # 判断是否是用户图像缓存，并比对缓存数据是否需要更新, 图片名称是否为空
-        if (row.type in ("friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link) or \
-                not row.lens or \
-                (row.lens and row.lens < 2048):
+        if (row.type in ("friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link) or not row.file_name:
             download_flag = True
         else:
             temp_image = copy.deepcopy(row)
     else:
         download_flag = True
-    if download_flag:
+    if download_flag and link:
         # 通过url下载图片储存至本地
         image_data = await get_file_url(link)
         file_name = ""
@@ -60,8 +58,9 @@ async def model_get_or_set_temp_image(_type, name: str, link) -> TempImageTable:
             file_name = f'{name}.png'
             with open(f"{DIR_TEMP_IMAGE}/{_type}/{file_name}", "wb") as f:
                 f.write(image_data)
-        temp_image = get_insert_or_update_obj(TempImageTable, {"type": _type, "name": name}, link=link,
-                                              file_name=file_name, lens=lens)
+        temp_image = get_insert_or_update_obj(TempImageTable, {"type": _type, "name": name}, type=_type, name=name,
+                                              link=link,
+                                              file_name=file_name)
 
         # 将复制值传给orm
         session.add(copy.deepcopy(temp_image))
@@ -82,7 +81,7 @@ def get_insert_or_update_obj(cls, filter_dict, **kw):
     if len(filter_dict) > 0:
         for k, v in filter_dict.items():
             query = query.filter(text(str(k) + "='" + str(v) + "'"))
-            query.filter_by()
+            # query.filter_by()
         row = query.first()
     else:
         # 没有提供筛选

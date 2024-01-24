@@ -55,18 +55,18 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
     return user_info
 
 
-async def model_get_temp_image_path(_type, name, link) -> str:
+async def model_get_temp_image_path(_type, name, link=None) -> str:
     """获取缓存文件路径"""
-    row = await model_get_or_set_temp_image(_type, name, link)
+    row = await model_get_or_set_temp_image(_type, name, link=link)
     # logger.info(f"row为{row.__dict__}")
-    file_name = row.file_name
-    if file_name:
+
+    if row and row.file_name:
         # 存在有效本地缓存
-        path = f"{DIR_TEMP_IMAGE}/{_type}/{file_name}"
+        path = f"{DIR_TEMP_IMAGE}/{_type}/{row.file_name}"
     else:
-        # 返回link
-        path = row.link
-    logger.info(f"path:{path}")
+        # 没有缓存数据或无效缓存 默认返回空，不渲染图片
+        path = ""
+
     return path
 
 
@@ -169,14 +169,14 @@ def model_get_all_top_all(player_code):
     return new_user
 
 
-def model_get_all_weapon() -> dict:
-    """获取全部装备数据"""
-    session = DBSession()
-    weapon = session.query(Weapon).all()
-    _dict = dict((str(i.weapon_id), dict(name=i.weapon_name, url=i.image2d_thumb)) for i in weapon)
-    session.commit()
-    session.close()
-    return _dict
+# def model_get_all_weapon() -> dict:
+#     """获取全部装备数据"""
+#     session = DBSession()
+#     weapon = session.query(Weapon).all()
+#     _dict = dict((str(i.weapon_id), dict(name=i.weapon_name, url=i.image2d_thumb)) for i in weapon)
+#     session.commit()
+#     session.close()
+#     return _dict
 
 
 def model_get_user_friend(game_name) -> UserFriendTable:

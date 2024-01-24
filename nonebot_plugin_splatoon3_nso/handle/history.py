@@ -185,7 +185,10 @@ async def get_group_node_msg(g_node, splatoon, _type):
 
         img_type = "battle_weapon_main"
         weapon_main_img = await model_get_temp_image_path(img_type, n['player']['weapon']['name'], weapon_img)
-        weapon_str = f'<img height="20" src="{weapon_main_img}"/>'
+        if weapon_main_img:
+            weapon_str = f'<img height="20" src="{weapon_main_img}"/>'
+        else:
+            weapon_str = n['player']['weapon']['name']
         duration = p.get('duration') or ''
         score = p.get('score') or ''
         jud = n.get('judgement') or ''

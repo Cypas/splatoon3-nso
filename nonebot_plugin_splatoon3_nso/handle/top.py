@@ -2,14 +2,15 @@ from datetime import datetime as dt, timedelta
 
 from .last import get_last_battle_or_coop
 from .send_msg import bot_send
-from .utils import _check_session_handler, get_battle_time_or_coop_time
+from .utils import _check_session_handler
 from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_max_power_top_all, \
-    model_get_all_user, model_get_all_weapon, model_get_one_user, model_get_all_top_all
+    model_get_all_user, model_get_one_user, model_get_all_top_all
 from ..s3s.splatoon import Splatoon
-from ..utils import get_msg_id, get_time_now_china_date, time_converter, get_time_now_china_str, utc_str_to_china_str
+from ..utils import get_msg_id, utc_str_to_china_str
 from ..utils.bot import *
 
 matcher_top = on_command("top", priority=10, block=True)
+
 
 @matcher_top.handle(parameterless=[Depends(_check_session_handler)])
 async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
@@ -89,7 +90,7 @@ async def get_top(bot: Bot, event: Event, battle=None, player_idx=None):
 
 
 async def get_top_md(player_code: str | list):
-    logger.info(f'get top md {player_code}')
+    logger.debug(f'get top md {player_code}')
     msg = ''
     dict_p = {}
     if isinstance(player_code, str):
@@ -114,8 +115,6 @@ async def get_top_md(player_code: str | list):
 
     if not res:
         return
-
-    weapon = model_get_all_weapon() or {}
 
     str_player_code = ''
     if isinstance(player_code, str):
@@ -143,13 +142,15 @@ async def get_top_md(player_code: str | list):
             i.play_time += timedelta(hours=8)
         t_type = t_type.replace('LeagueMatchRankingTeam-', 'L-')
         _t = f"{i.play_time:%y-%m-%d %H}".replace(' 00', '')
-        if weapon.get(str(i.weapon_id)):
-            img_type = "battle_weapon_main"
-            weapon_main_img = await model_get_temp_image_path(img_type, weapon[str(i.weapon_id)]['name'],
-                                                              weapon[str(i.weapon_id)]['url'])
+
+        img_type = "battle_weapon_main"
+        weapon_main_img = await model_get_temp_image_path(img_type, i.weapon)
+
+        if weapon_main_img:
             str_w = f'<img height="40" src="{weapon_main_img}"/>'
         else:
             str_w = f'{i.weapon}'
+
         if i.player_code != p_code:
             msg += f'||\n'
             p_code = i.player_code

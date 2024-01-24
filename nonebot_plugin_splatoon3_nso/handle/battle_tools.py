@@ -2,7 +2,7 @@ from datetime import datetime as dt, timedelta
 
 from .utils import DICT_RANK_POINT, get_battle_true_id
 from ..s3s.splatoon import Splatoon
-from ..data.data_source import model_get_top_player, model_get_temp_image_path, model_get_all_weapon, model_get_max_power_top_all
+from ..data.data_source import model_get_top_player, model_get_temp_image_path, model_get_max_power_top_all
 from ..utils.bot import *
 
 
@@ -122,12 +122,10 @@ async def get_top_all_name(name, player_code):
     name = name.replace('`', '&#96;').replace('|', '&#124;')
     name = name.strip() + f' <span style="color:#EE9D59">`{top_str}`</span>'
     if '<img' not in name:
-        weapon_id = str(row.weapon_id)
-        weapon = model_get_all_weapon() or {}
-        if weapon.get(weapon_id):
-            img_type = "battle_weapon_main"
-            weapon_main_img = await model_get_temp_image_path(img_type, weapon[weapon_id]['name'],
-                                                              weapon[weapon_id]['url'])
+        weapon_name = str(row.weapon)
+        img_type = "battle_weapon_main"
+        weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
+        if weapon_main_img:
             name += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
     return name, float(max_power or 0)
 
@@ -143,12 +141,10 @@ async def get_top_user(player_code):
             top_str = f' <span style="color:#fc0390">{_x}{top_user.rank}({top_user.power})</span>'
         else:
             top_str = f' <span style="color:red">{_x}{top_user.rank}({top_user.power})</span>'
-        weapon_id = str(top_user.weapon_id)
-        weapon = model_get_all_weapon() or {}
-        if weapon.get(weapon_id):
-            img_type = "battle_weapon_main"
-            weapon_main_img = await model_get_temp_image_path(img_type, weapon[weapon_id]['name'],
-                                                              weapon[weapon_id]['url'])
+        weapon_name = str(top_user.weapon)
+        img_type = "battle_weapon_main"
+        weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
+        if weapon_main_img:
             top_str += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
         return top_str, float(top_user.power or 0)
     return top_str, _power

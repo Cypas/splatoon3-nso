@@ -147,7 +147,7 @@ class Splatoon:
         """主页(测试访问页面)"""
         data = gen_graphql_body(translate_rid["HomeQuery"])
         # t = time.time()
-        headers = self._head_bullet(self.bullet_token)
+        headers = self._head_get_file()
         cookies = dict(_gtoken=self.g_token)
         test = await self.req_client.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
 
@@ -339,6 +339,23 @@ class Splatoon:
         data = gen_graphql_body(translate_rid['TotalQuery'])
         res = await self._request(data, try_again=try_again)
         return res
+
+    def _head_get_file(self):
+        """为获取图片的请求拼装header"""
+        graphql_head = {
+            'Host': 'api.lp1.av5ja.srv.nintendo.net',
+            'Connection': 'keep-alive',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; DUK-AL20 Build/V417IR; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Mobile Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'X-Requested-With': 'com.nintendo.znca',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-Mode': 'no-cors',
+            'Sec-Fetch-Dest': 'image',
+            'Referer': 'https://api.lp1.av5ja.srv.nintendo.net/?lang=zh-CN&na_country=JP&na_lang=zh-TW',
+            'Accept-Encoding': 'gzip, deflate',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+        }
+        return graphql_head
 
     def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
