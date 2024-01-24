@@ -1,5 +1,3 @@
-import json
-import time
 from datetime import datetime as dt, timedelta
 
 from .battle import get_battle_msg_md

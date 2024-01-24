@@ -273,6 +273,18 @@ class Splatoon:
         res = await self._request(data, try_again=try_again)
         return res
 
+    async def get_regular_battles(self, try_again=False):
+        """涂地对战查询"""
+        data = gen_graphql_body(translate_rid['RegularBattleHistoriesQuery'])
+        res = await self._request(data, try_again=try_again)
+        return res
+
+    async def get_event_battles(self, try_again=False):
+        """活动对战查询"""
+        data = gen_graphql_body(translate_rid['EventBattleHistoriesQuery'])
+        res = await self._request(data, try_again=try_again)
+        return res
+
     async def get_x_battles(self, try_again=False):
         """x对战查询"""
         data = gen_graphql_body(translate_rid['XBattleHistoriesQuery'])
