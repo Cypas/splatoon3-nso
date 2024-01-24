@@ -134,38 +134,45 @@ async def get_last_battle_or_coop(bot, event, platform, user_id, for_push=False,
         # else:
 
         # 获取最近全部对战
-        res = await splatoon.get_recent_battles()
-        if not res:
-            # 再次尝试一次
-            res = await splatoon.get_recent_battles(try_again=True)
-            if not res:
-                if for_push:
-                    # 跳过本次循环
-                    raise ValueError('NetConnectError')
-                else:
-                    return f'`网络错误，请稍后再试.`', False
         try:
+            res = await splatoon.get_recent_battles()
+            if not res:
+                # 再次尝试一次
+                res = await splatoon.get_recent_battles(try_again=True)
+                if not res:
+                    if for_push:
+                        # 跳过本次循环
+                        raise ValueError('NetConnectError')
+                    else:
+                        return f'`网络错误，请稍后再试.`', False
             b_info = res['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]
             battle_id = b_info['id']
             battle_t = get_battle_time_or_coop_time(battle_id)
-        except:
+        except ValueError:
+            if for_push:
+                # 跳过本次循环
+                raise ValueError('NetConnectError')
+            else:
+                return f'`网络错误，请稍后再试.`', False
+        except Exception as e:
             b_info = {}
             battle_id = ""
             battle_t = ""
 
     if not get_battle:
         # 获取最近全部打工
-        res = await splatoon.get_coops()
-        if not res:
-            # 再次尝试一次
-            res = await splatoon.get_coops(try_again=True)
-            if not res:
-                if for_push:
-                    # 跳过本次循环
-                    raise ValueError('NetConnectError')
-                else:
-                    return f'`网络错误，请稍后再试.`', False
         try:
+            res = await splatoon.get_coops()
+            if not res:
+                # 再次尝试一次
+                res = await splatoon.get_coops(try_again=True)
+                if not res:
+                    if for_push:
+                        # 跳过本次循环
+                        raise ValueError('NetConnectError')
+                    else:
+                        return f'`网络错误，请稍后再试.`', False
+
             coop = res['data']['coopResult']
             # /last c 2 指令可能存在跨期查询的问题，idx需要查询每期nodes数量
             coop_group_idx = 0
@@ -193,7 +200,13 @@ async def get_last_battle_or_coop(bot, event, platform, user_id, for_push=False,
             }  # coop_eggs为当期获得的最多的蛋数
             coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx]['id']
             coop_t = get_battle_time_or_coop_time(coop_id)
-        except:
+        except ValueError:
+            if for_push:
+                # 跳过本次循环
+                raise ValueError('NetConnectError')
+            else:
+                return f'`网络错误，请稍后再试.`', False
+        except Exception:
             coop_info = {}
             coop_id = ""
             coop_t = ""

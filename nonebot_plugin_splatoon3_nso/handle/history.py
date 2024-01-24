@@ -17,7 +17,7 @@ async def history(bot: Bot, event: Event, args: Message = CommandArg()):
     if cmd_message:
         cmd_lst = cmd_message.split()
         if 'o' in cmd_lst or 'open' in cmd_lst:
-            _type = 'event'
+            _type = 'open'
         if 'e' in cmd_lst or 'event' in cmd_lst:
             _type = 'event'
         if 'f' in cmd_lst or 'fest' in cmd_lst:
@@ -25,6 +25,7 @@ async def history(bot: Bot, event: Event, args: Message = CommandArg()):
 
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
+    await bot_send(bot, event, '开始努力作图，请稍等~', skip_log_cmd=True)
     msg = await get_history_md(splatoon, _type=_type)
     await bot_send(bot, event, msg, parse_mode='Markdown', image_width=1000)
 
@@ -40,7 +41,7 @@ async def get_history_md(splatoon: Splatoon, _type='open'):
             res = await splatoon.get_bankara_battles()
         elif _type == 'fest':
             res = await splatoon.get_regular_battles()
-    except ValueError:
+    except ValueError as e:
         return '网络错误，请稍后再试!'
     if not res:
         return 'No battle found!'
@@ -81,8 +82,7 @@ async def get_group_node_msg(g_node, splatoon, _type):
         battle_id = fst_battle['id']
         battle_t = get_battle_time_or_coop_time(battle_id)
         b_t = dt.strptime(battle_t, '%Y%m%dT%H%M%S') + timedelta(hours=8)
-        msg = '#### ' + g_node['leagueMatchHistoryGroup']['leagueMatchEvent'][
-            'name'] + f' HKT {b_t:%Y-%m-%d %H:%M:%S}\n'
+        msg = f"#### 活动: {g_node['leagueMatchHistoryGroup']['leagueMatchEvent']['name']} HKT {b_t:%Y-%m-%d %H:%M:%S}\n"
     elif _type == 'open':
         fst_battle = g_node['historyDetails']['nodes'][0]
         battle_id = fst_battle['id']
@@ -114,9 +114,18 @@ async def get_group_node_msg(g_node, splatoon, _type):
         b_t = dt.strptime(battle_t, '%Y%m%dT%H%M%S') + timedelta(hours=8)
         msg = f"#### 祭典单排 HKT {b_t:%Y-%m-%d %H:%M:%S}\n"
 
-    msg += '''
+    _type_name = ""
+    if _type == "event":
+        _type_name = "(活动)"
+    elif _type == "open":
+        _type_name = "(组排)"
+    elif _type == "fest":
+        _type_name = ""
+
+    msg += f'''
 |  |   ||  ||||||||||
 | --: |--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--|
+|胜负|分数变动{_type_name}|当前分数{_type_name}|武器|总|杀+助|死亡|kd|大招|涂地|耗时|比分|地图|
 '''
 
     dict_p = {}
@@ -124,9 +133,11 @@ async def get_group_node_msg(g_node, splatoon, _type):
     for b in battle_lst[::-1]:
         _id = b['id']
         dict_p[_id] = {}
-        battle_detail = await splatoon.get_battle_detail(_id)
+        battle_detail = await splatoon.get_battle_detail(_id, try_again=True)
         if not battle_detail:
-            continue
+            battle_detail = await splatoon.get_battle_detail(_id, try_again=True)
+            if not battle_detail:
+                continue
         cur_power = 0
         if _type == 'event':
             cur_power = battle_detail['data']['vsHistoryDetail']['leagueMatch']['myLeaguePower']

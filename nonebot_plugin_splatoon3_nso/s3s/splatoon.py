@@ -203,6 +203,7 @@ class Splatoon:
                 return res.json()
         except (httpx.ConnectError, httpx.ConnectTimeout):
             logger.warning(f'_request error: connectError or connect timeout')
+            raise ValueError('NetConnectError')
         except Exception as e:
             logger.warning(f'_request error: {e}')
             logger.warning(f'data:{data}')
