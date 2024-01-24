@@ -64,7 +64,7 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
 
     # boss槽
     king_smell = detail.get("smellMeter")
-    king_str = f'{king_smell}/5' if king_smell else ''
+    king_str = f'{king_smell}/5' if king_smell is not None else ''
     # 段位
     lv_grade = detail['afterGrade']['name'] if detail.get('afterGrade') else ''
     lv_point = detail['afterGradePoint'] or ''
