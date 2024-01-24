@@ -30,7 +30,7 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
                 battle = int(cmd)
             else:
                 player_idx = cmd.lower()
-            if cmd == 'last':
+            if cmd == 'last' or cmd == 'all':
                 get_all = True
 
     if battle:
@@ -51,7 +51,13 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
         # -1代表获取全部成员
         player_idx = '-1'
 
-    _msg = '未查询到任何上榜数据\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中查询数据，若以上榜单都未上榜，则查不到数据，/top命令具体参数可查看/nso详细帮助'
+    _msg = ""
+    if not cmd_message:
+        _msg += "未查询到自己的任何上榜数据"
+        _msg += "\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中查询数据，若以上榜单都未上榜，则查不到数据，/top命令具体参数可查看/nso详细帮助"
+    else:
+        _msg = '该条件下未查询到成员上榜数据'
+
     photo = await get_top(bot, event, battle=battle, player_idx=player_idx)
     if photo:
         if not photo.startswith('###'):
@@ -94,7 +100,7 @@ async def get_top_md(player_code: str | list):
     msg = ''
     dict_p = {}
     if isinstance(player_code, str):
-        res = model_get_max_power_top_all(player_code)
+        res = model_get_all_top_all(player_code)
         if not res:
             return msg
         res = sorted(res, key=lambda x: x.play_time)
@@ -159,7 +165,17 @@ async def get_top_md(player_code: str | list):
         else:
             msg += f'{t_type}|{i.rank}|{i.power}|{str_w}|{i.player_name}|{dict_p[i.player_code]}|{_t}\n'
 
-    msg += '||\n\n说明: /top [1-50] [a-h] [last]. 对战数字, 玩家排序, 全部查询\n'
+    """
+    &nbsp;  一个空格
+    &emsp;  一个中文宽度
+    """
+
+    msg += '||\n\n说明: /top 未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中查询数据，若以上榜单都未上榜，则查不到数据' \
+           '</br>可选参数:[1-50]: 查询倒数第n场对战，配合下面两个参数使用' \
+           '</br>&emsp;&emsp;&emsp;&emsp;&nbsp;' \
+           '[a-h]: a-h的八个字母对应从上往下的8名玩家，指定查找该玩家全部上榜记录，如 /top 2 e' \
+           '</br>&emsp;&emsp;&emsp;&emsp;&nbsp;' \
+           '[all]: all为查询第n场对战中除自己外的7名玩家的全部上榜记录，如 /top 2 all'
     return msg
 
 
