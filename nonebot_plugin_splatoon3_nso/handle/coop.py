@@ -1,8 +1,8 @@
 import base64
 from datetime import datetime as dt, timedelta
 
-from .battle_tools import PushStatistics
-from .utils import get_user_name_color, get_game_sp_id_and_name
+from .b_or_c_tools import PushStatistics, get_user_name_color
+from .utils import get_game_sp_id_and_name
 from ..data.data_source import model_get_temp_image_path
 from ..s3s.splatoon import Splatoon
 from ..utils import get_time_now_china_date, get_time_now_china, plugin_release_time

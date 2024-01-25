@@ -1,8 +1,6 @@
 from datetime import datetime as dt, timedelta
-from nonebot.adapters import Message
-from nonebot.params import CommandArg
 
-from .battle_tools import PushStatistics
+from .b_or_c_tools import PushStatistics
 from .utils import _check_session_handler, PUSH_INTERVAL
 from .send_msg import bot_send, notify_to_channel
 from .last import get_last_battle_or_coop, get_last_msg
@@ -118,7 +116,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     await bot_send(bot, event, msg)
 
 
-matcher_stop_push = on_command("stop_push", aliases={'stop', 'st', 'stp'}, priority=10, block=True)
+matcher_stop_push = on_command("stop_push", aliases={'stp', 'st', 'stop'}, priority=10, block=True)
 
 
 @matcher_stop_push.handle(parameterless=[Depends(_check_session_handler)])

@@ -510,7 +510,7 @@ class S3S:
             uuid = resp["request_id"]
             timestamp = resp["timestamp"]
             return f, uuid, timestamp
-        except:
+        except Exception as e:
             try:  # if api_response never gets set
                 logger.warning(
                     f"Error during f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")

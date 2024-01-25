@@ -3,8 +3,7 @@ from datetime import datetime as dt, timedelta
 from .last import get_last_battle_or_coop
 from .send_msg import bot_send
 from .utils import _check_session_handler
-from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_max_power_top_all, \
-    model_get_all_user, model_get_one_user, model_get_all_top_all
+from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_newest_user, model_get_all_top_all
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id, utc_str_to_china_str
 from ..utils.bot import *
@@ -56,12 +55,12 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
         _msg += "未查询到自己的任何上榜数据"
         _msg += "\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中查询数据，若以上榜单都未上榜，则查不到数据，/top命令具体参数可查看/nso详细帮助"
     else:
-        _msg = '该条件下未查询到成员上榜数据'
+        _msg = ''
 
     photo = await get_top(bot, event, battle=battle, player_idx=player_idx)
     if photo:
         if not photo.startswith('###'):
-            _msg += f', {photo}'
+            _msg += f'该条件下未查询到成员{photo}上榜数据'
         else:
             _msg = photo
     await bot_send(bot, event, _msg)
@@ -84,18 +83,18 @@ async def get_top(bot: Bot, event: Event, battle=None, player_idx=None):
         else:
             # last 全部玩家
             p_lst = []
-            _i = 64
+            _i = 96  # 97号为a，为top提供索引
             for p in res:
                 _i += 1
                 if p[0] != player_code:
                     p_lst.append(f"{p[0]}_{chr(_i)}")
             player_code = p_lst
 
-    photo = await get_top_md(player_code)
+    photo = await get_top_md(player_code, player_name)
     return photo or player_name
 
 
-async def get_top_md(player_code: str | list):
+async def get_top_md(player_code: str | list, player_name=""):
     logger.debug(f'get top md {player_code}')
     msg = ''
     dict_p = {}
@@ -122,19 +121,19 @@ async def get_top_md(player_code: str | list):
     if not res:
         return
 
-    str_player_code = ''
-    if isinstance(player_code, str):
-        str_player_code = f'({player_code})'
-
-    msg = f'''#### 排行榜数据 {str_player_code} HKT {dt.now():%Y-%m-%d %H:%M:%S}
+# 6列
+    msg = f'''#### 全部排行榜数据 (玩家:{player_name}) HKT {dt.now():%Y-%m-%d %H:%M:%S}
 |||||||
 |---|---:|:---|---|---|---|
+|排行榜名称|排名|最高分|武器|玩家|时间|
 '''
 
+# 7列
     if isinstance(player_code, list):
-        msg = f'''#### 排行榜数据 {str_player_code} HKT {dt.now():%Y-%m-%d %H:%M:%S}
+        msg = f'''#### 全部排行榜数据 HKT {dt.now():%Y-%m-%d %H:%M:%S}
 ||||||||
 |---|---:|:---|---|---|---|---|
+|排行榜名称|排名|最高分|武器|玩家名|序列|时间|
 '''
 
     p_code = ''
@@ -196,7 +195,7 @@ async def get_x_top_msg(bot, event):
     else:
         # 没有bot和event 来自定时任务
         # 随机抽一名登录用户
-        db_user = model_get_one_user()
+        db_user = model_get_newest_user()
         user = dict_get_or_set_user_info(db_user.platform, db_user.user_id)
         splatoon = Splatoon(None, None, user)
 

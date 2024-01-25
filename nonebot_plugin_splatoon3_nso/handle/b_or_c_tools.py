@@ -2,7 +2,8 @@ from datetime import datetime as dt, timedelta
 
 from .utils import DICT_RANK_POINT, get_battle_true_id
 from ..s3s.splatoon import Splatoon
-from ..data.data_source import model_get_top_player, model_get_temp_image_path, model_get_max_power_top_all
+from ..data.data_source import model_get_top_player, model_get_temp_image_path, model_get_max_power_top_all, \
+    model_get_login_user_by_sp_code, model_get_user_friend
 from ..utils.bot import *
 
 
@@ -112,15 +113,13 @@ async def get_top_all_name(name, player_code):
         return name, 0
 
     # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
-    if '<img' in name:
-        origin_name = name.split('style="color:skyblue">')[-1].split(" <img height='36px'")[0]
-        name = f'<span style="color:skyblue">{origin_name}</span>'
+    name = remove_user_name_icon(name)
 
     row = top_all
     max_power = row.power
     top_str = f'F({max_power})' if row.top_type.startswith('Fest') else f'E({max_power})'
     name = name.replace('`', '&#96;').replace('|', '&#124;')
-    name = name.strip() + f' <span style="color:#EE9D59">`{top_str}`</span>'
+    name = name.strip() + f'</br><span style="color:#EE9D59">`{top_str}`</span>'
     if '<img' not in name:
         weapon_name = str(row.weapon)
         img_type = "battle_weapon_main"
@@ -130,12 +129,15 @@ async def get_top_all_name(name, player_code):
     return name, float(max_power or 0)
 
 
-async def get_top_user(player_code):
+async def get_top_user(name, player_code):
     """获取top玩家md信息"""
     _power = 0
     top_str = ''
     top_user = model_get_top_player(player_code)
     if top_user:
+        # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
+        name = remove_user_name_icon(name)
+
         _x = 'x' if ':6:' in top_user.top_type else 'X'
         if '-a:' in top_user.top_type:
             top_str = f' <span style="color:#fc0390">{_x}{top_user.rank}({top_user.power})</span>'
@@ -146,8 +148,39 @@ async def get_top_user(player_code):
         weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
         if weapon_main_img:
             top_str += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
-        return top_str, float(top_user.power or 0)
-    return top_str, _power
+        _power = float(top_user.power or 0)
+
+    if top_str:
+        name = name.strip() + top_str
+    return name, _power
+
+
+async def get_user_name_color(player_name, player_code):
+    """取用户名颜色"""
+    login = model_get_login_user_by_sp_code(player_code)
+
+    # 登录用户绿色
+    if login:
+        return f'<span style="color:green">{player_name}</span>'
+
+    u_str = player_name
+    r = model_get_user_friend(player_name)
+    # 用户好友蓝色
+    if r:
+        img_type = "friend_icon"
+        # 储存名使用friend_id
+        user_icon = await model_get_temp_image_path(img_type, r.friend_id, r.user_icon)
+        img = f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{user_icon}'/>"
+        u_str = f'<span style="color:skyblue">{player_name} {img}</span>'
+    return u_str
+
+
+def remove_user_name_icon(name):
+    """存在top_all榜单，或x榜时，移除用户名后面的好友头像，方便显示武器"""
+    if '<img' in name:
+        origin_name = name.split('style="color:skyblue">')[-1].split(" <img height='36px'")[0]
+        name = f'<span style="color:skyblue">{origin_name}</span>'
+    return name
 
 
 class PushBattleStatistics:

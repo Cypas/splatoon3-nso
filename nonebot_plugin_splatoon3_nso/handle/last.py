@@ -52,6 +52,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     image_width = 680
     if get_equip:
         image_width = 1000
+        await bot_send(bot, event, "查询装备数据会花费更长一些时间，请稍等")
     msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
                                                     get_coop=get_coop,
                                                     get_equip=get_equip,

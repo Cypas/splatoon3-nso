@@ -1,8 +1,8 @@
 from datetime import datetime as dt, timedelta
 
-from .battle_tools import get_b_point_and_process, get_x_power_and_process, get_top_user, get_top_all_name, \
-    PushStatistics
-from .utils import get_user_name_color, get_game_sp_id_and_name, dict_b_mode_trans
+from .b_or_c_tools import get_b_point_and_process, get_x_power_and_process, get_top_user, get_top_all_name, \
+    PushStatistics, get_user_name_color
+from .utils import get_game_sp_id_and_name, dict_b_mode_trans
 from ..data.data_source import global_user_info_dict, model_get_temp_image_path, model_get_user_friend
 from ..data.db_sqlite import UserFriendTable
 from ..s3s.splatoon import Splatoon
@@ -35,26 +35,28 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     if get_equip:
         # 衣服搭配
         body = '''|||||||
-|---|---|---|---|---|---|
+|:----|:----|:----|:----|:----|:----|
 |武器|帽子|上衣|鞋子|背景|徽章|
 '''
     else:
         # 战绩
-        body = """||||||||||
-|---|---:|----:|----:|---:|---:|:---:|---:|:----|
-|武器|总|杀+助|死亡|kd<td colspan="2">大招</td> |涂地|玩家|
+        body = """|||||||||||
+|-|---|---:|----:|----:|---:|---:|:---:|---:|:----|
+|序|武器|总|杀+助|死亡|kd<td colspan="2">大招</td> |涂地|玩家|
 """
 
     text_list = []
-    teams = [battle_detail['myTeam']] + battle_detail['otherTeams']
-    for team in sorted(teams, key=lambda x: x['order']):
+    teams = [battle_detail['myTeam']]
+    teams.extend(battle_detail['otherTeams'])
+    # 按内容里的order字段重新排序
+    for k1, team in enumerate(sorted(teams, key=lambda x: x['order'])):
         team_power = []
-        for p in team['players']:
+        for k, p in enumerate(team['players']):
             is_last_p = True if p == team['players'][-1] else False
             if get_equip:
-                text_list.append(await get_row_user_equip(p))
+                text_list.append(await get_row_user_equip(k1 * 4 + k, p))
             else:
-                text_list.append(await get_row_user_stats(p, mask, is_last_p, team_power))
+                text_list.append(await get_row_user_stats(k1 * 4 + k, p, mask, is_last_p, team_power))
 
         ti = '||'
         if mode == 'FEST':
@@ -162,13 +164,13 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
                   f'</br>用户名颜色: <b>粗体黑色</b>:玩家自己，' \
                   f'<span style="color:green">绿色 </span> :已在bot登录的用户，' \
                   f'<span style="color:skyblue">浅蓝色 </span> :某个已登录用户的好友(大概率国人)' \
-                  f'</br>用户名后面分数: ' \
+                  f'</br>用户名下面分数: ' \
                   f'<span style="color:#EE9D59">E(2400) </span> : 活动比赛上榜最高分，' \
                   f'<span style="color:#EE9D59">F(2400) </span> :祭典百杰最高分' \
                   f'</br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&nbsp;' \
                   f'<span style="color:red">X12(3000) </span> :日服五百强排名及分数，' \
                   f'<span style="color:#fc0390">X12(3000) </span> :美服五百强排名及分数' \
-                  f'</br>用户名后面头像或武器: 一般都为<span style="color:skyblue">浅蓝色</span>用户的头像,如果是武器，则是以上榜单用户上榜时所用的武器'
+                  f'</br>用户名右侧头像或武器: 一般都为<span style="color:skyblue">浅蓝色</span>用户的头像,如果是武器，则是以上榜单用户上榜时所用的武器'
 
         # # b_info唯二有用的地方，显示祭典当前等级，但全是日文
     # if mode == 'FEST':
@@ -208,7 +210,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     return msg
 
 
-async def get_row_user_equip(p):
+async def get_row_user_equip(k_idx, p):
     """获取一行对战玩家装备信息
     p:player的一个遍历对象
     """
@@ -303,7 +305,7 @@ async def get_row_user_equip(p):
     return t
 
 
-async def get_row_user_stats(p, mask=False, is_last_player=False, team_power=None):
+async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_power=None):
     """获取一行对战玩家战绩
     p:player的一个遍历对象
     """
@@ -339,27 +341,27 @@ async def get_row_user_stats(p, mask=False, is_last_player=False, team_power=Non
         name = await get_user_name_color(name, player_code)
 
     # X 五百强分数
-    top_str, power = await get_top_user(player_code)
-    if top_str:
-        name = name.strip() + top_str
-
-    # 其他排行榜分数
-    elif not p.get('isMyself'):
+    name, power = await get_top_user(name, player_code)
+    if (not power) and (not p.get('isMyself')):
+        # 其他排行榜分数
         name, power = await get_top_all_name(name, player_code)
 
     if power and isinstance(team_power, list):
         team_power.append(power)
-
-    if is_last_player and team_power:
-        _power = f'{sum(team_power) / len(team_power):.1f}'
-        name += f'<span style="position:absolute;margin-top:28px;color:#1e96d2;right:40px">队伍排行榜均分:{_power}</span>'
 
     weapon_img = ((p.get('weapon') or {}).get('image') or {}).get('url') or ''
     img_type = "battle_weapon_main"
     weapon_main_img = await model_get_temp_image_path(img_type, p['weapon']['name'], weapon_img)
     w_str = f'<img height="40" src="{weapon_main_img}"/>'
     name = f'{name}|'
-    t = f"|{w_str}|{ak:>2}|{k_str:>5}k | {d:>2}d|{ration:>4.1f}|{sp}|{sp_img}| {p['paint']:>4}p| {name}|\n"
+
+    _i = 97  # 97号为a，为top提供索引 abcdefgh
+    t = f"|{chr(_i + k_idx)}|{w_str}|{ak:>2}|{k_str:>5}k | {d:>2}d|{ration:>4.1f}|{sp}|{sp_img}| {p['paint']:>4}p| {name}|\n"
+    if is_last_player and team_power:
+        _power = f'{sum(team_power) / len(team_power):.1f}'
+        t += f'|||||||<td colspan="3"">队伍上榜者均分: ' \
+             f'<span style="color:#1e96d2">{_power}</span>' \
+             f'</td>|\n'
     return t
 
 

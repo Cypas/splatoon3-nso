@@ -120,7 +120,7 @@ def model_get_all_user():
     return users
 
 
-def model_get_one_user() -> UserTable:
+def model_get_newest_user() -> UserTable:
     """获取最新登录的一个用户，没那么容易出问题"""
     session = DBSession()
     user = session.query(UserTable).order_by(UserTable.create_time.desc()).first()
@@ -128,13 +128,12 @@ def model_get_one_user() -> UserTable:
     return user
 
 
-def model_get_login_user(player_code):
+def model_get_login_user_by_sp_code(player_code):
+    """获取登录用户信息"""
     session = DBSession()
     user = session.query(UserTable).filter(UserTable.game_sp_id == player_code).first()
-    new_user = copy.deepcopy(user)
-    session.commit()
     session.close()
-    return new_user
+    return user
 
 
 def model_get_top_player(player_code):
@@ -142,10 +141,8 @@ def model_get_top_player(player_code):
     session = DBSession()
     user = session.query(TopPlayer).filter(
         TopPlayer.player_code == player_code).order_by(TopPlayer.power.desc()).first()
-    new_user = copy.deepcopy(user)
-    session.commit()
     session.close()
-    return new_user
+    return user
 
 
 def model_get_max_power_top_all(player_code) -> TopAll:
@@ -153,20 +150,16 @@ def model_get_max_power_top_all(player_code) -> TopAll:
     session = DBSession()
     user = session.query(TopAll).filter(
         TopAll.player_code == player_code).order_by(TopAll.power.desc()).first()
-    new_user = copy.deepcopy(user)
-    session.commit()
     session.close()
-    return new_user
+    return user
 
 
 def model_get_all_top_all(player_code):
     """获取某人全部上榜数据"""
     session = DBSession()
     user = session.query(TopAll).filter(TopAll.player_code == player_code).all()
-    new_user = copy.deepcopy(user)
-    session.commit()
     session.close()
-    return new_user
+    return user
 
 
 # def model_get_all_weapon() -> dict:
@@ -185,10 +178,8 @@ def model_get_user_friend(game_name) -> UserFriendTable:
     user = session.query(UserFriendTable).filter(
         UserFriendTable.game_name == game_name
     ).order_by(UserFriendTable.create_time.desc()).first()
-    new_user = copy.deepcopy(user)
-    session.commit()
     session.close()
-    return new_user
+    return user
 
 
 def model_set_user_friend(data_lst):

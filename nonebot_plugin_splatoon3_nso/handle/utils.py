@@ -2,9 +2,7 @@ import base64
 import json
 import os
 
-from ..config import plugin_config
-from ..data.data_source import global_user_info_dict, model_get_temp_image_path, dict_get_or_set_user_info, \
-    model_get_user_friend, model_get_login_user
+from ..data.data_source import dict_get_or_set_user_info
 from ..utils import DIR_RESOURCE
 from ..utils.bot import *
 
@@ -79,26 +77,6 @@ def get_battle_true_id(_id):
     """
     battle_true_id = base64.b64decode(_id).decode('utf-8').split(':')[-1]
     return battle_true_id
-
-
-async def get_user_name_color(player_name, player_code):
-    """取用户名颜色"""
-    login = model_get_login_user(player_code)
-
-    # 登录用户绿色
-    if login:
-        return f'<span style="color:green">{player_name}</span>'
-
-    u_str = player_name
-    r = model_get_user_friend(player_name)
-    # 用户好友蓝色
-    if r:
-        img_type = "friend_icon"
-        # 储存名使用friend_id
-        user_icon = await model_get_temp_image_path(img_type, r.friend_id, r.user_icon)
-        img = f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{user_icon}'/>"
-        u_str = f'<span style="color:skyblue">{player_name} {img}</span>'
-    return u_str
 
 
 async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
