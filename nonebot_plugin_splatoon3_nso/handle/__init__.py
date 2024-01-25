@@ -7,5 +7,6 @@ from .screenshot import screen_shot
 from .my import me, friends, ns_friends, friend_code
 from .history import history
 from .top import _top, x_top
+from .report import report, report_all
 from .utils import *
 

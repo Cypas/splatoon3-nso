@@ -171,6 +171,75 @@ def model_get_all_top_all(player_code):
 #     session.close()
 #     return _dict
 
+def model_add_report(**kwargs):
+    logger.debug(f'model_add_report: {kwargs}')
+    _dict = kwargs
+    user_id_sp = _dict.get('user_id_sp')
+    if not user_id_sp:
+        logger.warning(f'no user_id_sp: {_dict}')
+        return
+    session = DBSession()
+    _res = session.query(Report).filter(Report.user_id_sp == user_id_sp).order_by(Report.create_time.desc()).first()
+    if _res and _res.create_time.date() >= datetime.datetime.utcnow().date():
+        logger.debug(f'already saved report: {_dict.get("user_id")}, {user_id_sp}, {_dict.get("nickname")}')
+        session.close()
+        return
+
+    new_report = Report(**_dict)
+    session.add(new_report)
+    session.commit()
+    session.close()
+
+
+def model_get_report(**kwargs):
+    user_id_sp = kwargs.get('user_id_sp')
+    if not user_id_sp:
+        return None
+    session = DBSession()
+
+    #     query = [Report.user_id_sp == user_id_sp]
+    #     report = session.query(Report).filter(*query).order_by(Report.create_time.desc()).all()
+
+    report = session.query(Report).from_statement(text("""
+SELECT *
+FROM report WHERE (user_id_sp, last_play_time, create_time) IN
+( SELECT user_id_sp, last_play_time, MAX(create_time)
+  FROM report
+  GROUP BY user_id_sp, last_play_time)
+and user_id_sp=:user_id_sp
+order by create_time desc""")
+                                                  ).params(user_id_sp=user_id_sp).all()
+    session.close()
+    return report
+
+
+def model_get_report_all(user_id_sp):
+    if not user_id_sp:
+        return None
+    session = DBSession()
+
+    reports = session.query(Report).from_statement(text("""
+SELECT id, DATETIME(last_play_time, '+8 hours') last_play_time,
+total_cnt,
+total_cnt - LAG(total_cnt) OVER (ORDER BY last_play_time) AS user_id_sp,
+win_cnt, win_rate,
+round(win_rate - LAG(win_rate) OVER (ORDER BY last_play_time), 2) AS nickname,
+coop_cnt,
+coop_cnt - LAG(coop_cnt) OVER (ORDER BY last_play_time) AS name_id,
+coop_boss_cnt,
+coop_boss_cnt - LAG(coop_boss_cnt) OVER (ORDER BY last_play_time) AS by_name,
+total_cnt - LAG(total_cnt) OVER (ORDER BY last_play_time) + coop_cnt - LAG(coop_cnt) OVER (ORDER BY last_play_time) badges,
+rank, udemae
+FROM report WHERE (user_id_sp, last_play_time, create_time) IN
+( SELECT user_id_sp, last_play_time, MAX(create_time)
+  FROM report
+  GROUP BY user_id_sp, last_play_time)
+and user_id_sp=:user_id_sp
+order by create_time""")).params(user_id_sp=user_id_sp).all()
+
+    session.close()
+    return reports
+
 
 def model_get_user_friend(game_name) -> UserFriendTable:
     """获取好友数据"""
