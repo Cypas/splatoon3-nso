@@ -10,7 +10,7 @@ from nonebot.internal.adapter import Event
 from .utils import gen_graphql_body, translate_rid, GRAPHQL_URL
 from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S, F_GEN_URL, F_GEN_URL_2
 from ..data.utils import GlobalUserInfo
-from ..handle.send_msg import bot_send
+from ..handle.send_msg import bot_send, send_private_msg
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
 from ..utils import DIR_RESOURCE, get_msg_id, get_or_init_client
 
@@ -81,11 +81,16 @@ class Splatoon:
                         f'invalid_grant_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
                     self.set_user_info(session_token=None)
                     # 写入待发送文本
-                    msg = f'喷3账号 {user.game_name or ""} 登录过期，请重新登录 /login \n'
+                    msg = f'喷3账号 {user.game_name or ""} 登录过期，请重新登录 /login'
+                    if self.bot and self.event:
+                        # 来自用户主动请求
+                        await bot_send(self.bot, self.event, msg)
+                    else:
+                        # 定时任务
+                        # 排除QQ平台
+                        if self.platform != "QQ":
+                            await send_private_msg(self.bot, self.user_id, msg)
 
-                    file_msg_path = os.path.join(f'{DIR_RESOURCE}/user_msg', f'msg_{user.db_id}.txt')
-                    with open(file_msg_path, 'a') as f:
-                        f.write(msg)
                     return
                 elif 'Membership required' in str(e):
                     # 会员过期
@@ -96,9 +101,14 @@ class Splatoon:
                     logger.warning('membership_required notify')
                     # 写入待发送文本
                     msg = f'喷3账号 {nickname} 会员过期'
-                    file_msg_path = os.path.join(f'{DIR_RESOURCE}/user_msg', f'msg_{user.db_id}.txt')
-                    with open(file_msg_path, 'w') as f:
-                        f.write(msg)
+                    if self.bot and self.event:
+                        # 来自用户主动请求
+                        await bot_send(self.bot, self.event, msg)
+                    else:
+                        # 定时任务
+                        # 排除QQ平台
+                        if self.platform != "QQ":
+                            await send_private_msg(self.bot, self.user_id, msg)
                     return
                 logger.warning(
                     f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')

@@ -9,4 +9,3 @@ from .history import history
 from .top import _top, x_top
 from .report import report, report_all
 from .utils import *
-
