@@ -78,7 +78,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             '地图': 'stage_record',
         }
         # 未匹配，默认地址
-        url = f"{SPLATNET3_URL}/history_record/summary"
+        url = f"{SPLATNET3_URL}/history/latest"
 
         for k, v in trans.items():
             if k in key:

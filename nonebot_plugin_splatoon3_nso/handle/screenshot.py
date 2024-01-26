@@ -17,7 +17,11 @@ async def screen_shot(bot: Bot, event: Event, args: Message = CommandArg()):
     user_id = event.get_user_id()
     key = ""
     message = ""
-    await bot_send(bot, event, message="截图需要10秒以上时间，请稍等...")
+    if not args.extract_plain_text().strip():
+        # 没有任何参数
+        await bot_send(bot, event, message="未提供任何截图参数，将截图最近对战，截图需要10秒以上时间，请稍等...")
+    else:
+        await bot_send(bot, event, message="截图需要10秒以上时间，请稍等...")
     if " " in args.extract_plain_text():
         # 取末尾的关键词
         key = args.extract_plain_text().split(' ')[-1].strip()

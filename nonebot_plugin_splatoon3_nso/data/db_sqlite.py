@@ -41,7 +41,7 @@ class UserTable(Base_Main):
     access_token = Column(String(), nullable=True)  # nso用户操作token |有效期2h| 获取ns friends，好友码
     g_token = Column(String(), nullable=True)  # web service token，nso内sp3网页服务token |有效期3h| nso页面操作，截图时使用
     bullet_token = Column(String(), nullable=True)  # nso内sp3网页api接口token |有效期2h| 战绩api接口使用
-    user_info = Column(Text(), nullable=True)
+    user_info = Column(Text(), nullable=True)  # 当前版本未使用字段
     game_name = Column(String(), default='')
     game_sp_id = Column(String(), nullable=True, index=True)
     ns_name = Column(String(), nullable=True)
