@@ -158,7 +158,7 @@ def model_get_all_stat_user() -> list[UserTable]:
 def model_get_another_account_user(platform, user_id, session_token) -> list[Type[UserTable]]:
     """查找同session_token的其他账号"""
     session = DBSession()
-    users = session.query(UserTable).filter(and_(not and_(UserTable.platform == platform, UserTable.user_id == user_id),
+    users = session.query(UserTable).filter(and_(and_(UserTable.platform != platform, UserTable.user_id != user_id),
                                                  UserTable.session_token == session_token)).all()
     session.close()
     return users

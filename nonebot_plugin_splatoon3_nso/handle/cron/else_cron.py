@@ -3,7 +3,8 @@ import asyncio
 from .utils import cron_logger
 from datetime import datetime as dt, timedelta
 
-from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info
+from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, model_get_all_user, \
+    model_get_newest_user
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 
