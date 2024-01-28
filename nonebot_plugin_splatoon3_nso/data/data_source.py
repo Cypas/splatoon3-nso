@@ -1,5 +1,8 @@
+import copy
+import datetime
 from typing import Type
 
+from nonebot import logger
 from sqlalchemy import and_
 
 from .db_sqlite import *
@@ -59,7 +62,7 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
     return user_info
 
 
-def dict_get_all_global_users() -> list[GlobalUserInfo]:
+def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
     """获取全部公共缓存用户"""
 
     def user_remove_duplicates(lst: list[GlobalUserInfo]):
@@ -72,7 +75,8 @@ def dict_get_all_global_users() -> list[GlobalUserInfo]:
 
     users: list[GlobalUserInfo] = copy.deepcopy(list(global_user_info_dict.values()))
     # 去重
-    users = user_remove_duplicates(users)
+    if remove_duplicates:
+        users = user_remove_duplicates(users)
     return users
 
 

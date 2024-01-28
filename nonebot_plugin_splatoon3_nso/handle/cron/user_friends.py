@@ -9,7 +9,7 @@ from ...utils import get_msg_id
 
 
 async def create_get_user_friends_tasks():
-    """创建刷新token任务"""
+    """创建获取好友列表任务"""
     cron_logger.info(f'create_get_user_friends_tasks start')
     t = dt.utcnow()
     users = dict_get_all_global_users()

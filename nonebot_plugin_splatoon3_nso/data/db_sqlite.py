@@ -1,18 +1,10 @@
-import copy
-import datetime
-import json
-import os
-
-import httpx
-from httpx import Response
-from loguru import logger
 from sqlalchemy import Column, String, create_engine, Integer, Boolean, Text, DateTime, func, Float, \
-    PrimaryKeyConstraint, UniqueConstraint
+    UniqueConstraint
 from sqlalchemy.sql import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-from ..utils import DIR_RESOURCE, get_time_now_china_str
+from ..utils import DIR_RESOURCE
 
 database_uri_main = f'sqlite:///{DIR_RESOURCE}/nso_data.sqlite'
 database_uri_friends = f'sqlite:///{DIR_RESOURCE}/data_friend.sqlite'
@@ -52,7 +44,6 @@ class UserTable(Base_Main):
     first_play_time = Column(String(), nullable=True)
     create_time = Column(DateTime(), default=func.now())
     update_time = Column(DateTime(), onupdate=func.now())
-
 
     __table_args__ = (
         UniqueConstraint("platform", "user_id", name='Idx_Platform_User'),
