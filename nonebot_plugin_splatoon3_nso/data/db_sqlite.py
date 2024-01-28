@@ -176,7 +176,15 @@ class UserFriendTable(Base_Friends):
     update_time = Column(DateTime(), onupdate=func.now())
 
 
-Base_Main.metadata.create_all(engine)
-DBSession = sessionmaker(bind=engine)
-Base_Friends.metadata.create_all(engine_friends)
-DBSession_Friends = sessionmaker(bind=engine_friends)
+DBSession = sessionmaker()
+DBSession_Friends = sessionmaker()
+
+
+def init_db():
+    """初始化数据库"""
+    global DBSession
+    global DBSession_Friends
+    Base_Main.metadata.create_all(engine)
+    DBSession.configure(bind=engine)
+    Base_Friends.metadata.create_all(engine_friends)
+    DBSession_Friends.configure(bind=engine_friends)

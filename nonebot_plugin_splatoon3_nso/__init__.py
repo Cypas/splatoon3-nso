@@ -2,6 +2,8 @@ from nonebot.message import event_preprocessor
 from nonebot.plugin import PluginMetadata
 
 from .config import driver, plugin_config
+from .data.db_sqlite import init_db
+from .data.transfer import transfer_user_db
 from .handle import *
 from .handle.cron import remove_all_scheduler, scheduler_controller
 from .handle.send_msg import bot_send, notify_to_channel
@@ -54,6 +56,17 @@ async def bot_on_start():
     version = BOT_VERSION
     logger.info(f' bot start, version: {version} '.center(120, '-'))
     await notify_to_channel(f'bot start, version: {version}')
+    # 检查旧数据库文件与新数据库文件是否存在
+    old_db_path = f'{DIR_RESOURCE}/data.sqlite'
+    new_db_path = f'{DIR_RESOURCE}/nso_data.sqlite'
+    if os.path.exists(old_db_path) and not os.path.exists(new_db_path):
+        # 旧数据库存在，新数据库不存在，启动转移函数
+        logger.info("检测到旧版本用户数据库，将开始进行数据转移")
+        transfer_user_db()
+        logger.info("用户数据库转移完成")
+    else:
+        init_db()
+
     # 创建定时任务
     scheduler_controller()
 
