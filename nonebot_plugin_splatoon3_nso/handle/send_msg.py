@@ -1,6 +1,6 @@
 from nonebot.adapters.qq import AuditException, ActionFailed
 
-from ..utils import DIR_RESOURCE
+from ..utils import DIR_RESOURCE, get_msg_id
 from ..utils.bot import *
 from ..config import plugin_config
 
@@ -37,6 +37,49 @@ async def notify_to_channel(_msg, _type='msg', **kwargs):
                                                message=Kook_MsgSeg.KMarkdown(f"```\n{_msg}```"))
             except Exception as e:
                 logger.warning(f'kook频道通知消息失败: {e}')
+
+
+async def notify_to_private(platform: str, user_id: str, msg: str):
+    """通知至私聊"""
+    # 排除QQ平台
+    if platform != "QQ":
+        return
+    # tg_bot
+    notify_tg_bot_id = plugin_config.splatoon3_notify_tg_bot_id
+    # kook_bot
+    notify_kk_bot_id = plugin_config.splatoon3_notify_kk_bot_id
+    # 通知标题
+    msg_id = get_msg_id(platform, user_id)
+    title = f'#{msg_id} \n'
+    bot = None
+    for _bot in get_bots().values():
+        # 确定平台
+        if _bot.adapter.get_name() == platform:
+            # 确认发信bot
+            if isinstance(_bot, Tg_Bot) and notify_tg_bot_id and _bot.self_id == notify_tg_bot_id:
+                bot = _bot
+                break
+            if isinstance(_bot, Kook_Bot) and notify_kk_bot_id and _bot.self_id == notify_kk_bot_id:
+                bot = _bot
+                break
+
+    # 消息过滤处理
+    if isinstance(bot, Tg_Bot):
+        if 'stat.ink' in msg:
+            msg = msg.replace('Exported', '#Exported')
+        else:
+            if '早报' in msg:
+                msg = '#report\n' + msg
+    elif isinstance(bot, V12_Bot):
+        msg = msg.replace('```', '').strip()
+    elif isinstance(bot, Kook_Bot):
+        pass
+
+    if bot:
+        # 发送私信
+        await send_private_msg(bot, user_id, msg)
+        # 通知到频道
+        await notify_to_channel(title + msg, _type='job')
 
 
 async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):

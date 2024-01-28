@@ -92,7 +92,6 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     max_instances：执行此job的最大实例数，executor执行job时，根据job的id来计算执行次数，根据设置的最大实例数来确定是否可执行
     next_run_time：Job下次的执行时间，创建Job时可以指定一个时间[datetime],不指定的话则默认根据trigger获取触发时间
     executor：apscheduler定义的执行器，job创建时设置执行器的名字，根据字符串你名字到scheduler获取到执行此job的 执行器，执行job指定的函数
-
     """
     scheduler.add_job(
         push_latest_battle, 'interval', seconds=PUSH_INTERVAL, next_run_time=dt.now() + timedelta(seconds=3),

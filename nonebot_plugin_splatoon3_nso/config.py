@@ -21,8 +21,6 @@ class Config(BaseModel):
     # deno_path  需要先在linux下安装deno，参考https://www.denojs.cn/ 此处填写安装路径
     splatoon3_deno_path: str = ""
 
-    # 定时任务执行bot的id(必须配置)
-    splatoon3_cron_job_execute_bot_id: str = ""
     # Q群无法登陆时其他平台的服务器id
     splatoon3_kk_guild_id: str = ""
     # bot上线，掉线时通知到频道

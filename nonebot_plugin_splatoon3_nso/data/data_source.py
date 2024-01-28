@@ -1,3 +1,7 @@
+from typing import Type
+
+from sqlalchemy import and_
+
 from .db_sqlite import *
 from .utils import model_get_or_set_temp_image, get_insert_or_update_obj, GlobalUserInfo
 from ..utils import get_or_init_client, get_msg_id
@@ -53,6 +57,23 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
         if not user:
             logger.debug(f"user info update error; {kwargs}")
     return user_info
+
+
+def dict_get_all_global_users() -> list[GlobalUserInfo]:
+    """获取全部公共缓存用户"""
+
+    def user_remove_duplicates(lst: list[GlobalUserInfo]):
+        # 根据session_token值去重全部users
+        result = []
+        for u in lst:
+            if u.session_token not in [r.session_token for r in result]:
+                result.append(u)
+        return result
+
+    users: list[GlobalUserInfo] = copy.deepcopy(list(global_user_info_dict.values()))
+    # 去重
+    users = user_remove_duplicates(users)
+    return users
 
 
 async def model_get_temp_image_path(_type, name, link=None) -> str:
@@ -112,10 +133,28 @@ def model_delete_user(platform, user_id):
     session.close()
 
 
-def model_get_all_user():
-    """获取全部用户"""
+def model_get_all_user() -> list[UserTable]:
+    """获取全部session_token不为空用户"""
     session = DBSession()
-    users = session.query(UserTable).all()
+    users = session.query(UserTable).filter(UserTable.session_token.isnot(None)).all()
+    session.close()
+    return users
+
+
+def model_get_all_stat_user() -> list[UserTable]:
+    """获取全部session_token不为空,且stat key不为空用户"""
+    session = DBSession()
+    users = session.query(UserTable).filter(
+        and_(UserTable.session_token.isnot(None), UserTable.stat_key.isnot(None))).all()
+    session.close()
+    return users
+
+
+def model_get_another_account_user(platform, user_id, session_token) -> list[Type[UserTable]]:
+    """查找同session_token的其他账号"""
+    session = DBSession()
+    users = session.query(UserTable).filter(and_(not and_(UserTable.platform == platform, UserTable.user_id == user_id),
+                                                 UserTable.session_token == session_token)).all()
     session.close()
     return users
 
@@ -172,6 +211,7 @@ def model_get_all_top_all(player_code):
 #     return _dict
 
 def model_add_report(**kwargs):
+    """添加日报数据"""
     logger.debug(f'model_add_report: {kwargs}')
     _dict = kwargs
     user_id_sp = _dict.get('user_id_sp')
@@ -291,4 +331,67 @@ def model_set_user_friend(data_lst):
             session.commit()
             report_logger.debug(f'add user_friend: {r[1]}, {r[2]}, {r[3]}, {game_name}')
 
+    session.close()
+
+
+def model_delete_top_player(top_id):
+    """删除指定赛季 top榜单玩家数据"""
+    session = DBSession()
+    session.query(TopPlayer).filter(TopPlayer.top_id == top_id).delete()
+    session.commit()
+    session.close()
+
+
+def model_delete_top_all(top_id):
+    """删除指定赛季 top_all榜单玩家数据"""
+    session = DBSession()
+    session.query(TopAll).filter(TopAll.top_id == top_id).delete()
+    session.commit()
+    session.close()
+
+
+def model_add_top_player(row):
+    """添加top榜单数据"""
+    top_id, _top_type, rank, power, name, name_id, player_code, byname, weapon_id, weapon = row
+
+    session = DBSession()
+    _dict = {
+        'top_id': top_id,
+        'top_type': _top_type,
+        'rank': rank,
+        'power': power,
+        'player_name': name,
+        'player_name_id': name_id,
+        'player_code': player_code,
+        'byname': byname,
+        'weapon_id': weapon_id,
+        'weapon': weapon,
+    }
+    new_user = TopPlayer(**_dict)
+    session.add(new_user)
+    session.commit()
+    session.close()
+
+
+def model_add_top_all(row):
+    """添加top_all榜单数据"""
+    top_id, _top_type, rank, power, name, name_id, player_code, byname, weapon_id, weapon, play_time = row
+
+    session = DBSession()
+    _dict = {
+        'top_id': top_id,
+        'top_type': _top_type,
+        'rank': rank,
+        'power': power,
+        'player_name': name,
+        'player_name_id': name_id,
+        'player_code': player_code,
+        'byname': byname,
+        'weapon_id': weapon_id,
+        'weapon': weapon,
+        'play_time': play_time
+    }
+    new_user = TopAll(**_dict)
+    session.add(new_user)
+    session.commit()
     session.close()

@@ -8,10 +8,11 @@ from nonebot import Bot
 from nonebot.internal.adapter import Event
 
 from .utils import gen_graphql_body, translate_rid, GRAPHQL_URL
-from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S, F_GEN_URL, F_GEN_URL_2
+from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S
 from ..data.utils import GlobalUserInfo
-from ..handle.send_msg import bot_send, send_private_msg
-from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
+from ..handle.send_msg import bot_send, send_private_msg, notify_to_private
+from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, model_get_another_account_user, \
+    global_user_info_dict
 from ..utils import DIR_RESOURCE, get_msg_id, get_or_init_client
 
 
@@ -86,10 +87,8 @@ class Splatoon:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
                     else:
-                        # 定时任务
-                        # 排除QQ平台
-                        if self.platform != "QQ":
-                            await send_private_msg(self.bot, self.user_id, msg)
+                        # 来自定时任务
+                        await notify_to_private(self.platform, self.user_id, msg)
 
                     return
                 elif 'Membership required' in str(e):
@@ -105,21 +104,11 @@ class Splatoon:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
                     else:
-                        # 定时任务
-                        # 排除QQ平台
-                        if self.platform != "QQ":
-                            await send_private_msg(self.bot, self.user_id, msg)
+                        # 来自定时任务
+                        await notify_to_private(self.platform, self.user_id, msg)
                     return
                 logger.warning(
                     f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
-                logger.warning('try f_gen_url_2 url')
-                try:
-                    self.s3s.f_gen_url = F_GEN_URL_2
-                    new_access_token, new_g_token, user_nickname, user_lang, user_country = \
-                        await self.s3s.get_gtoken(self.session_token)
-                except Exception as e:
-                    logger.warning(
-                        f'f_gen_url_2 url also fail:{e} db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
 
         try:
             # 获取bullettoken
@@ -128,14 +117,37 @@ class Splatoon:
             msg_id = get_msg_id(self.platform, self.user_id)
             logger.warning(f'{msg_id} get g_token success,get bullet_token error,start try again.reason:{e}')
             new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
-        # 刷新值1
+        # 刷新值
         if new_g_token and new_bullet_token:
             self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token)
+            # 刷新其他同绑定账号
+            self.refresh_another_account()
             logger.info(f'{self.user_id} tokens updated.')
             logger.debug(f'new access_token: {new_access_token}')
             logger.debug(f'new g_token: {new_g_token}')
             logger.debug(f'new bullet_token: {new_bullet_token}')
         return True
+
+    def refresh_another_account(self):
+        # 刷新同一其他session_token的其他账号
+        platform = self.platform
+        user_id = self.user_id
+        session_token = self.session_token
+        users = model_get_another_account_user(platform, user_id, session_token)
+        if len(users) > 0:
+            for u in users:
+                # 如果存在全局缓存，也更新缓存数据
+                key = get_msg_id(u.platform, u.user_id)
+                user_info = global_user_info_dict.get(key)
+                if user_info:
+                    # 更新缓存数据
+                    dict_get_or_set_user_info(u.platform, u.user_id, access_token=self.access_token,
+                                              g_token=self.g_token,
+                                              bullet_token=self.bullet_token)
+                else:
+                    # 更新数据库数据
+                    model_get_or_set_user(u.platform, u.user_id, access_token=self.access_token, g_token=self.g_token,
+                                          bullet_token=self.bullet_token)
 
     def _head_bullet(self, bullet_token):
         """为含有bullet_token的请求拼装header"""
@@ -154,10 +166,10 @@ class Splatoon:
         return graphql_head
 
     async def test_page(self, try_again=False):
-        """主页(测试访问页面)"""
+        """主页(测试访问页面) 目前只有nso截图功能需要用到这个测试访问函数"""
         data = gen_graphql_body(translate_rid["HomeQuery"])
         # t = time.time()
-        headers = self._head_get_file()
+        headers = self._head_bullet(self.bullet_token)
         cookies = dict(_gtoken=self.g_token)
         test = await self.req_client.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
 
@@ -172,10 +184,6 @@ class Splatoon:
                     logger.info(f'refresh tokens complete，try again')
                 except Exception as e:
                     logger.info(f'refresh tokens fail,reason:{e}')
-                t = time.time()
-                test = await self.req_client.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
-                t2 = f'{time.time() - t:.3f}'
-                logger.debug(f'_request: {t2}s')
 
     async def _request(self, data, try_again=False):
         res = ''
@@ -239,7 +247,7 @@ class Splatoon:
             if res.status_code != 200:
                 if res.status_code == 401:
                     # 更新token提醒一下用户
-                    if not try_again:
+                    if not try_again and self.bot and self.event:
                         await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                     try:
                         logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
@@ -303,8 +311,19 @@ class Splatoon:
         return res
 
     async def get_x_ranking(self, area: str, try_again=False):
-        """x排行榜查询"""
+        """x排行榜top1查询"""
         data = gen_graphql_body(translate_rid['XRankingQuery'], varname='region', varvalue=area)
+        res = await self._request(data, try_again=try_again)
+        return res
+
+    async def get_x_ranking_500(self, top_id: str, try_again=False):
+        """x排行榜500强查询"""
+        data = gen_graphql_body(translate_rid['XRankingQuery'], varname='id', varvalue=top_id)
+        res = await self._request(data, try_again=try_again)
+        return res
+
+    async def get_custom_data(self, data, try_again=False):
+        """提供data数据进行自定义查询"""
         res = await self._request(data, try_again=try_again)
         return res
 
@@ -350,23 +369,6 @@ class Splatoon:
         res = await self._request(data, try_again=try_again)
         return res
 
-    def _head_get_file(self):
-        """为获取图片的请求拼装header"""
-        graphql_head = {
-            'Host': 'api.lp1.av5ja.srv.nintendo.net',
-            'Connection': 'keep-alive',
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0.1; DUK-AL20 Build/V417IR; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/91.0.4472.114 Mobile Safari/537.36',
-            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-            'X-Requested-With': 'com.nintendo.znca',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-Mode': 'no-cors',
-            'Sec-Fetch-Dest': 'image',
-            'Referer': 'https://api.lp1.av5ja.srv.nintendo.net/?lang=zh-CN&na_country=JP&na_lang=zh-TW',
-            'Accept-Encoding': 'gzip, deflate',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-        }
-        return graphql_head
-
     def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
         graphql_head = {
@@ -409,71 +411,3 @@ class Splatoon:
             'name': name,
             'code': my_sw_code
         }
-
-    # def app_get_token(self):
-    #     """get token，与iksm函数定义重复"""
-    #     headers = {
-    #         'Host': 'accounts.nintendo.com',
-    #         'Accept-Encoding': 'gzip',
-    #         'Content-Type': 'application/json; charset=utf-8',
-    #         'Accept-Language': 'en-US',
-    #         'Accept': 'application/json',
-    #         'Connection': 'Keep-Alive',
-    #         'User-Agent': f'OnlineLounge/{self.nso_app_version} NASDKAPI Android'
-    #     }
-    #
-    #     json_body = {
-    #         'client_id': '71b963c1b7b6d119',
-    #         'session_token': self.session_token,
-    #         'grant_type': 'urn:ietf:params:oauth:grant-type:jwt-bearer-session-token'
-    #     }
-    #
-    #     r = self.app_do_req(method='POST', url='https://accounts.nintendo.com/connect/1.0.0/api/token',
-    #                         headers=headers, json=json_body)
-    #     return r
-    #
-    # async def app_get_nintendo_account_data(self, access_token):
-    #     """get user info 与iksm函数定义重复"""
-    #     url = 'https://api.accounts.nintendo.com/2.0.0/users/me'
-    #     headers = {
-    #         "User-Agent": "OnlineLounge/2.2.0 NASDKAPI Android",
-    #         "Authorization": "Bearer {}".format(access_token)
-    #     }
-    #     r = self.app_do_req(method='GET', url=url, headers=headers)
-    #     return r
-    #
-    # def app_login_switch_web(self, id_token, nintendo_profile):
-    #     """get access token与web service token  与iksm函数定义重复"""
-    #     user_id = nintendo_profile['id']
-    #     nso_f, request_id, timestamp = call_f_api(id_token, 1, F_GEN_URL, user_id)
-    #
-    #     headers = {
-    #         'Host': 'api-lp1.znc.srv.nintendo.net',
-    #         'Accept-Language': 'en-US',
-    #         'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/7.1.2)',
-    #         'Accept': 'application/json',
-    #         'X-ProductVersion': self.nso_app_version,
-    #         'Content-Type': 'application/json; charset=utf-8',
-    #         'Connection': 'Keep-Alive',
-    #         'Authorization': 'Bearer',
-    #         'X-Platform': 'Android',
-    #         'Accept-Encoding': 'gzip'
-    #     }
-    #
-    #     jsonbody = {'parameter': {}}
-    #     jsonbody['parameter']['f'] = nso_f
-    #     jsonbody['parameter']['naIdToken'] = id_token
-    #     jsonbody['parameter']['timestamp'] = timestamp
-    #     jsonbody['parameter']['requestId'] = request_id
-    #     jsonbody['parameter']['naCountry'] = nintendo_profile['country']
-    #     jsonbody['parameter']['naBirthday'] = nintendo_profile['birthday']
-    #     jsonbody['parameter']['language'] = nintendo_profile['language']
-    #
-    #     url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
-    #     r = self.app_do_req(method='POST', url=url, headers=headers, json=jsonbody)
-    #     try:
-    #         web_token = r["result"]["webApiServerCredential"]["accessToken"]
-    #     except:
-    #         logger.info(r)
-    #         web_token = ''
-    #     return web_token

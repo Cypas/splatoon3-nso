@@ -3,8 +3,9 @@ from nonebot.plugin import PluginMetadata
 
 from .config import driver, plugin_config
 from .handle import *
-from .handle.send_msg import bot_send
-from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP
+from .handle.cron import remove_all_scheduler, scheduler_controller
+from .handle.send_msg import bot_send, notify_to_channel
+from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
 from .utils.bot import *
 
 # require("nonebot_plugin_apscheduler")
@@ -48,77 +49,47 @@ async def _help(bot: Bot, event: Event):
             await bot_send(bot, event, message=msg)
 
 
-# @driver.on_startup
-# async def bot_on_start():
-#     version = utils.BOT_VERSION
-#     logger.info(f' bot start, version: {version} '.center(120, '-'))
-#     await notify_to_channel(f'bot start, version: {version}')
-#
-#
-# @driver.on_shutdown
-# async def bot_on_shutdown():
-#     version = utils.BOT_VERSION
-#     logger.info(f' bot shutdown, version: {version} '.center(120, 'x'))
-#     bots = get_bots()
-#     logger.info(f'bot: {bots}')
-#     for k in bots.keys():
-#         job_id = f'sp3_cron_job_{k}'
-#         if scheduler.get_job(job_id):
-#             scheduler.remove_job(job_id)
-#             logger.info(f'remove job {job_id}!')
-#
-#
-# @driver.on_bot_connect
-# async def _(bot: Bot):
-#     bot_type = 'Telegram'
-#     if isinstance(bot, QQ_Bot):
-#         bot_type = 'QQ'
-#     elif isinstance(bot, V12_Bot):
-#         bot_type = 'WeChat'
-#     elif isinstance(bot, Kook_Bot):
-#         bot_type = 'Kook'
-#
-#     logger.info(f' {bot_type} bot connect {bot.self_id} '.center(60, '-').center(120, ' '))
-#
-#     job_id = f'sp3_cron_job_{bot.self_id}'
-#     if scheduler.get_job(job_id):
-#         scheduler.remove_job(job_id)
-#         logger.info(f'remove job {job_id} first')
-#
-#     # 选择每个平台对应发信bot
-#     if ((isinstance(bot, Tg_Bot)) and (bot.self_id == plugin_config.splatoon3_notify_tg_bot_id)) or (
-#             (isinstance(bot, Kook_Bot)) and (bot.self_id == plugin_config.splatoon3_notify_kk_bot_id)):
-#         scheduler.add_job(
-#             cron_job, 'interval', minutes=1, id=job_id, args=[bot],
-#             misfire_grace_time=59, coalesce=True, max_instances=1
-#         )
-#         logger.info(f'add job {job_id}')
-#
-#     if bot_type == 'QQ':
-#         text = f'bot {bot_type}: {bot.self_id} online ~'
-#         if plugin_config.splatoon3_bot_disconnect_notify:
-#             await notify_to_channel(text)
-#
-#
-# @driver.on_bot_disconnect
-# async def _(bot: Bot):
-#     bot_type = 'Telegram'
-#     if isinstance(bot, QQ_Bot):
-#         bot_type = 'QQ'
-#     elif isinstance(bot, V12_Bot):
-#         bot_type = 'WeChat'
-#     elif isinstance(bot, Kook_Bot):
-#         bot_type = 'Kook'
-#
-#     text = f'bot {bot_type}: {bot.self_id} disconnect !!!!!!!!!!!!!!!!!!!'
-#     if plugin_config.splatoon3_bot_disconnect_notify:
-#         try:
-#             await notify_to_channel(text)
-#         except Exception as e:
-#             logger.warning(f"{text}")
-#             logger.warning(f"日志通知失败: {e}")
-#
-#
+@driver.on_startup
+async def bot_on_start():
+    version = BOT_VERSION
+    logger.info(f' bot start, version: {version} '.center(120, '-'))
+    await notify_to_channel(f'bot start, version: {version}')
+    # 创建定时任务
+    scheduler_controller()
+
+
+@driver.on_shutdown
+async def bot_on_shutdown():
+    version = BOT_VERSION
+    logger.info(f' bot shutdown, version: {version} '.center(120, 'x'))
+    bots = get_bots()
+    logger.info(f'bot: {bots}')
+    # 删除全部定时任务
+    remove_all_scheduler()
+
+
+@driver.on_bot_connect
+async def _(bot: Bot):
+    bot_name = bot.adapter.get_name()
+    logger.info(f' {bot_name} bot connect {bot.self_id} '.center(60, '-').center(120, ' '))
+    if bot_name == 'QQ':
+        text = f'bot {bot_name}: {bot.self_id} online ~'
+        if plugin_config.splatoon3_bot_disconnect_notify:
+            await notify_to_channel(text)
+
+
+@driver.on_bot_disconnect
+async def _(bot: Bot):
+    bot_name = bot.adapter.get_name()
+    text = f'bot {bot_name}: {bot.self_id} disconnect !!!!!!!!!!!!!!!!!!!'
+    if plugin_config.splatoon3_bot_disconnect_notify:
+        try:
+            await notify_to_channel(text)
+        except Exception as e:
+            logger.warning(f"{text}")
+            logger.warning(f"日志通知失败: {e}")
+
+
 # @event_preprocessor
 # async def tg_private_msg(bot: Tg_Bot, event: Event):
 #     try:

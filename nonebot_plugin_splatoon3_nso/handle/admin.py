@@ -47,11 +47,11 @@ async def admin_cmd(bot: Bot, event: Event):
         msg = f'```\n{msg}```' if msg else 'no data'
         await bot_send(bot, event, message=msg, parse_mode='Markdown')
 
-    elif plain_text == 'update_user_info_first':
+    elif plain_text == 'create_set_report_tasks':
         await bot_send(bot, event, message="即将开始update_user_info_first", parse_mode='Markdown')
         threading.Thread(target=asyncio.run, args=(update_user_info_first(),)).start()
 
-    elif plain_text == 'update_user_info':
+    elif plain_text == 'send_report_task':
         await bot_send(bot, event, message="即将开始整理并发送日报", parse_mode='Markdown')
         threading.Thread(target=asyncio.run, args=(update_user_info(),)).start()
 
