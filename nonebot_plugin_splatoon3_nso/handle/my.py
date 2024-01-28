@@ -403,3 +403,4 @@ def get_cn_sp3_stat(_st):
     elif 'FEST)3' in _st:
         _st = '祭典三色'
     return _st
+

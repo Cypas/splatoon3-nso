@@ -25,25 +25,25 @@ async def sync_stat_ink():
     await asyncio.gather(*users)
 
 
-async def sync_stat_ink_func(user: UserTable):
+async def sync_stat_ink_func(db_user: UserTable):
     """同步stat.ink"""
 
-    cron_logger.debug(f"get user: {user.user_name}, have stat_key: {user.stat_key}")
+    cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
 
-    msg = get_post_stat_msg(user)
-    if msg and user.stat_notify:
-        cron_logger.debug(f'{user.id}, {user.user_name}, {msg}')
-        await notify_to_private(user.platform, user.user_id, msg)
+    msg = get_post_stat_msg(db_user)
+    if msg and db_user.stat_notify:
+        cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
+        await notify_to_private(db_user.platform, db_user.user_id, msg)
 
 
-def get_post_stat_msg(user):
+def get_post_stat_msg(db_user):
     """获取同步消息文本"""
 
-    cron_logger.debug(f"get user: {user.user_name}, have stat_key: {user.stat_key}")
-    if not (user and user.session_token and user.stat_key):
+    cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
+    if not (db_user and db_user.session_token and db_user.stat_key):
         return
 
-    res = exported_to_stat_ink(user.id, user.session_token, user.stat_key)
+    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key)
     if not res:
         return
 
@@ -60,7 +60,7 @@ def get_post_stat_msg(user):
         url += '/salmon3'
     msg += f' to\n{url}\n'
 
-    cron_logger.debug(f'{user.id}, {user.user_name}, {msg}')
+    cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
 
     return msg
 

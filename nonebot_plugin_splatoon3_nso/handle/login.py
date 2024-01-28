@@ -308,3 +308,31 @@ first sync will be in minutes.
     update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
     threading.Thread(target=sync_stat_ink_func, args=(db_user,)).start()
+
+
+@on_command("sync_now", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def sync_now(bot: Bot, event: Event):
+    if isinstance(bot, QQ_Bot):
+        await bot_send(bot, event, '暂不支持')
+        return
+    if 'group' in event.get_event_name():
+        await bot_send(bot, event, MSG_PRIVATE)
+        return
+
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user = dict_get_or_set_user_info(platform, user_id)
+    if not (user and user.session_token and user.stat_key):
+        msg = 'Please set api_key first, /set_api_key'
+        if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
+            msg = '请先设置 api_key, /set_api_key'
+        await bot_send(bot, event, msg)
+        return
+
+    update_s3si_ts()
+    msg = "战绩手动同步任务已开始，请稍等..."
+    db_user = model_get_or_set_user(platform, user_id)
+    if db_user:
+        await bot_send(bot, event, msg)
+        await sync_stat_ink_func(db_user)
+    return
