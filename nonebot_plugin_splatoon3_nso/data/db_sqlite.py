@@ -12,7 +12,7 @@ database_uri_friends = f'sqlite:///{DIR_RESOURCE}/data_friend.sqlite'
 DIR_TEMP_IMAGE = f'{DIR_RESOURCE}/temp_image'
 
 Base_Main = declarative_base()
-engine = create_engine(database_uri_main)
+engine = create_engine(database_uri_main)  # 加上, echo=True可以输出sql语句
 
 Base_Friends = declarative_base()
 engine_friends = create_engine(database_uri_friends)

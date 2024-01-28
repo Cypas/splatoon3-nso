@@ -59,7 +59,7 @@ async def get_friends_task(p_and_id):
             friend_id = f['id']
             player_name = f.get('playerName') or ''
             nickname = f.get('nickname') or ''
-            cron_logger.info(f'get_friend: {msg_id}, {u.game_name} -- sp_name:{player_name}, ns_name:{nickname}')
+            cron_logger.info(f'get_friend: {msg_id},{u.game_name}--sp:{player_name} ,ns:{nickname}')
             user_icon = f['userIcon']['url']
             f_list.append((user_id, friend_id, player_name, nickname, user_icon))
 

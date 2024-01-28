@@ -5,8 +5,10 @@ from ..data.data_source import dict_get_all_global_users, model_clean_db_cache
 from ..utils import get_msg_id
 from ..utils.bot import *
 
+matcher_admin = on_command("admin", block=True, permission=SUPERUSER)
 
-@on_command("admin", block=True, permission=SUPERUSER).handle()
+
+@matcher_admin.handle()
 async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
     plain_text = args.extract_plain_text().strip()
     logger.info(f'admin: {plain_text}')
@@ -35,10 +37,6 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
         await bot_send(bot, event, message="即将开始parse_x_rank")
         await get_x_player()
 
-    elif plain_text == 'sync_stat_ink':
-        await bot_send(bot, event, message="即将开始sync_stat_ink")
-        await sync_stat_ink()
-
     elif plain_text == 'clean_cache':
         model_clean_db_cache()
         await bot_send(bot, event, message="数据库缓存已清空")
@@ -64,4 +62,4 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
     elif plain_text == 'sync_stat_ink':
         await bot_send(bot, event, message="即将开始sync_stat_ink")
-        sync_stat_ink()
+        await sync_stat_ink()

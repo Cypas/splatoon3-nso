@@ -1,3 +1,4 @@
+import asyncio
 import os
 import json
 import subprocess
@@ -13,24 +14,21 @@ from ..send_msg import notify_to_private
 from .utils import user_remove_duplicates, cron_logger
 
 
-def sync_stat_ink():
+async def sync_stat_ink():
     """同步至stat"""
     users = model_get_all_stat_user()
     # 去重
     users = user_remove_duplicates(users)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        executor.map(sync_stat_ink_func, users)
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    #     executor.map(sync_stat_ink_func, users)
+    await asyncio.gather(*users)
 
 
-def sync_stat_ink_func(user: UserTable):
+async def sync_stat_ink_func(user: UserTable):
     """同步stat.ink"""
 
     cron_logger.debug(f"get user: {user.user_name}, have stat_key: {user.stat_key}")
-
-    path_folder = f'{os.path.abspath(os.path.join(__file__, os.pardir))}/resource/user_msg'
-    if not os.path.exists(path_folder):
-        os.mkdir(path_folder)
 
     msg = get_post_stat_msg(user)
     if msg and user.stat_notify:

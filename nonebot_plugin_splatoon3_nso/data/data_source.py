@@ -24,6 +24,7 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
         user = model_get_or_set_user(platform, user_id)
         if user:
             user_info = GlobalUserInfo(
+                db_id=user.id,
                 platform=user.platform,
                 user_id=user.user_id,
                 user_name=user.user_name,
@@ -73,7 +74,7 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
                 result.append(u)
         return result
 
-    users: list[GlobalUserInfo] = copy.deepcopy(list(global_user_info_dict.values()))
+    users: list[GlobalUserInfo] = list(global_user_info_dict.values())
     # 去重
     if remove_duplicates:
         users = user_remove_duplicates(users)
@@ -235,8 +236,19 @@ def model_add_report(**kwargs):
     session.close()
 
 
-def model_get_report(**kwargs):
-    user_id_sp = kwargs.get('user_id_sp')
+def model_get_today_report(user_id_sp):
+    """获取今日日报数据 用于判断日报是否需要推送"""
+    if not user_id_sp:
+        return None
+    session = DBSession()
+    report = session.query(Report).filter(
+        and_(Report.user_id_sp == user_id_sp, Report.create_time > datetime.datetime.utcnow() - datetime.timedelta(hours=4))).first()
+    session.close()
+    return report
+
+
+def model_get_report(user_id_sp):
+    """获取日报"""
     if not user_id_sp:
         return None
     session = DBSession()
@@ -258,6 +270,7 @@ order by create_time desc""")
 
 
 def model_get_report_all(user_id_sp):
+    """获取全部日报"""
     if not user_id_sp:
         return None
     session = DBSession()

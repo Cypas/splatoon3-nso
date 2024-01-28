@@ -7,8 +7,10 @@ from datetime import datetime as dt, timedelta
 
 from ..report import get_report
 from ..send_msg import notify_to_private
-from ... import DIR_RESOURCE, get_battle_time_or_coop_time, get_game_sp_id
-from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user
+from ...utils import DIR_RESOURCE
+from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
+from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
+    model_get_today_report
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 
@@ -16,7 +18,7 @@ from ...utils import get_msg_id
 async def create_set_report_tasks():
     """7点时请求并提前写好日报数据"""
     cron_logger.info(f'create_set_report_tasks start')
-    t = dt.utcnow()
+    t = time.time()
     users = model_get_all_user()
     # 去重
     users = user_remove_duplicates(users)
@@ -32,7 +34,7 @@ async def create_set_report_tasks():
         tasks = [set_user_report_task(p_and_id) for p_and_id in _p_and_id_list]
         res = await asyncio.gather(*tasks)
 
-    cron_logger.info(f'create_set_report_tasks end: {dt.utcnow() - t}')
+    cron_logger.info(f'create_set_report_tasks end: {time.time() - t}')
 
 
 async def set_user_report_task(p_and_id):
@@ -78,7 +80,7 @@ async def set_user_report_task(p_and_id):
             await set_user_report(u, res_summary, res_coop, last_play_time, splatoon, game_sp_id)
 
     except Exception as ex:
-        cron_logger.warning(f'set_user_report_task error: {msg_id}, {ex}')
+        cron_logger.warning(f'set_user_report_task error: {msg_id}, error:{ex}')
 
 
 async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, player_code):
@@ -111,7 +113,7 @@ async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, pl
     p = coop['scale']
 
     _report = {
-        'user_id': u.id,
+        'user_id': u.db_id,
         'user_id_sp': player_code,
         'nickname': nickname,
         'name_id': player['nameId'],
@@ -156,12 +158,16 @@ async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, pl
 async def send_report_task():
     """8点时进行发信"""
     cron_logger.info(f'create_send_report_tasks start')
-    t = dt.utcnow()
+    t = time.time()
 
     users = model_get_all_user()
     for user in users:
         # 排除qq平台发信 和 日报通知未打开的用户
         if user.platform == "QQ" or not user.report_notify:
+            continue
+        # 根据sp_id查询今天是否生成新日报
+        have_report = model_get_today_report(user.game_sp_id)
+        if not have_report:
             continue
         # 每次循环强制睡眠0.5s，使一分钟内最多触发120次发信，避免超出阈值
         time.sleep(0.5)
@@ -173,4 +179,4 @@ async def send_report_task():
             cron_logger.warning(f'create_send_report_tasks error: {e}')
             continue
 
-    cron_logger.info(f'create_send_report_tasks end: {dt.utcnow() - t}')
+    cron_logger.info(f'create_send_report_tasks end: {time.time() - t}')

@@ -1,11 +1,15 @@
 import secrets
+import threading
 import time
 from datetime import datetime as dt, timedelta
 
+from .cron import update_s3si_ts
+from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, get_event_info, get_game_sp_id
 from .send_msg import bot_send, notify_to_channel
 from ..config import plugin_config
-from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict
+from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict, \
+    model_get_or_set_user
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id, DIR_RESOURCE, get_or_init_client
@@ -301,6 +305,6 @@ first sync will be in minutes.
         '''
     await bot_send(bot, event, message=msg)
 
-    # update_s3si_ts()
-
-    # threading.Thread(target=sync_stat_ink_func, args=(user_id,)).start()
+    update_s3si_ts()
+    db_user = model_get_or_set_user(platform, user_id)
+    threading.Thread(target=sync_stat_ink_func, args=(db_user,)).start()

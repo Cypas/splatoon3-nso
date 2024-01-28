@@ -4,7 +4,7 @@ import time
 from datetime import datetime as dt
 
 from ...data.data_source import model_delete_top_player, model_delete_top_all, model_add_top_player, model_add_top_all, \
-    model_get_newest_user
+    model_get_newest_user, dict_get_or_set_user_info
 from ...s3s.splatoon import Splatoon
 from .utils import cron_logger
 
@@ -14,10 +14,11 @@ async def get_x_player():
     cron_logger.info(f'get_x_player start')
     s = time.time()
 
-    user = model_get_newest_user()
-    if not user:
+    db_user = model_get_newest_user()
+    if not db_user:
         cron_logger.info(f'no user login.')
         return
+    user = dict_get_or_set_user_info(db_user.platform, db_user.user_id)
     splatoon = Splatoon(None, None, user)
 
     # top_id是每个赛季日服美服的选择id
@@ -47,7 +48,7 @@ async def parse_x_data(top_id, splatoon):
         try:
             await get_top_x(first_rows, top_id, x_type, hash_mode, splatoon)
         except Exception as ex:
-            cron_logger.exception(f'get_top_x error: {top_id}, {x_type}, {ex}')
+            cron_logger.exception(f'get_top_x error: {top_id}, {x_type}, error:{ex}')
             continue
         time.sleep(5)
 
@@ -105,7 +106,7 @@ async def get_top_x(data_row, top_id, x_type, mode_hash, splatoon=None):
                 "variables": {'cursor': cursor, 'first': 25, 'page': page, 'id': top_id}
             }
             _d = json.dumps(_d)
-            _res = await splatoon._request(_d)
+            _res = await splatoon.get_custom_data(_d)
             for n in _res['data']['node'][f'xRanking{x_type}']['edges']:
                 parse_x_row(n, top_type, x_type, top_id)
 

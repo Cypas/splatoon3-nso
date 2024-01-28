@@ -29,8 +29,8 @@ class Splatoon:
     def __init__(self, bot: Bot, event: Event, user_info: GlobalUserInfo):
         self.bot = bot
         self.event = event
-        self.platform = bot.adapter.get_name()
-        self.user_id = event.get_user_id()
+        self.platform = user_info.platform or "no_platform"
+        self.user_id = user_info.user_id or "no_user_id"
         self.user_name = user_info.user_name
         self.session_token = user_info.session_token
         self.user_lang = 'zh-CN'
@@ -318,7 +318,7 @@ class Splatoon:
 
     async def get_x_ranking_500(self, top_id: str, try_again=False):
         """x排行榜500强查询"""
-        data = gen_graphql_body(translate_rid['XRankingQuery'], varname='id', varvalue=top_id)
+        data = gen_graphql_body(translate_rid['XRanking500Query'], varname='id', varvalue=top_id)
         res = await self._request(data, try_again=try_again)
         return res
 

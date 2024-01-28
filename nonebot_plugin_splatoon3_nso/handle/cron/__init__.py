@@ -48,11 +48,12 @@ def scheduler_controller():
         list_scheduler_type.append(_type)
 
     # parse x rank player at 2:40
-    add_scheduler("parse_x_rank", trigger='cron', hours=2, minutes=40)
+    add_scheduler("parse_x_rank", trigger='cron', hour=2, minute=40)
     # set_report at 7:00
-    add_scheduler("set_report", trigger='cron', hours=7, minutes=0)
+    add_scheduler("set_report", trigger='cron', hour=7, minute=0)
     # report at 8:00
-    add_scheduler("send_report", trigger='cron', hours=8, minutes=0)
+    add_scheduler("send_report", trigger='cron', hour=8, minute=0)
+    # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########
     # get_user_friends every 3 hours   仅为缓存内的用户提供定期获取好友信息
     add_scheduler("get_user_friends", trigger='interval', hours=3)
     # refresh_token every 1 hours 50 min   仅为缓存内的用户提供定期刷新token

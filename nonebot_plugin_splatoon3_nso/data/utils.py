@@ -11,6 +11,7 @@ class GlobalUserInfo:
     """全局公用用户类"""
 
     def __init__(self, **kwargs):
+        self.db_id = kwargs.get('db_id', None)
         self.platform = kwargs.get('platform', None)
         self.user_id = kwargs.get('user_id', None)
         self.user_name = kwargs.get('user_name', None)

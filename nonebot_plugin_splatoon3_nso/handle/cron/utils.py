@@ -2,7 +2,7 @@ from typing import Type
 
 from nonebot import logger
 
-from nonebot_plugin_splatoon3_nso.data.db_sqlite import UserTable
+from ...data.db_sqlite import UserTable
 
 cron_logger = logger.bind(cron=True)
 
