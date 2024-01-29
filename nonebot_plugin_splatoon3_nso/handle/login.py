@@ -120,7 +120,6 @@ async def login_in_2(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=user_name)
     # 刷新token
     await bot.send(event, message="登录中，正在刷新token，请等待大约10s")
-    req_client = get_or_init_client(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     await splatoon.refresh_gtoken_and_bullettoken()
 
@@ -156,7 +155,12 @@ https://docs.qq.com/sheet/DUkZHRWtCUkR0d2Nr?tab=BB08J2
     b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
     game_sp_id = get_game_sp_id(b_info['player']['id'])
     user = dict_get_or_set_user_info(platform, user_id, game_sp_id=game_sp_id)
+    # 登录完成后从用户池删除该残缺对象(缺少部分数据库的值，重新init后就正常了)
+    global_user_info_dict.pop(msg_id)
     _msg = f'new_login_user: 会话昵称:{user_name}\nns_player_code:{game_sp_id}\n{session_token}'
+
+    # 关闭连接池
+    await splatoon.req_client.close()
     await notify_to_channel(_msg)
 
 

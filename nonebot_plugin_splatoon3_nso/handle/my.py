@@ -38,6 +38,9 @@ async def get_me(bot, event, from_group):
     except Exception as e:
         logger.exception(e)
         msg = f'获取数据失败，请稍后再试'
+    finally:
+        # 关闭连接池
+        await splatoon.req_client.close()
     return msg
 
 
@@ -165,6 +168,8 @@ async def friends(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     msg = await get_friends_md(splatoon)
+    # 关闭连接池
+    await splatoon.req_client.close()
     await bot_send(bot, event, msg, image_width=600)
 
 
@@ -216,6 +221,8 @@ async def ns_friends(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     msg = await get_ns_friends_md(splatoon)
+    # 关闭连接池
+    await splatoon.req_client.close()
     await bot_send(bot, event, msg, image_width=680)
 
 
@@ -337,6 +344,8 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
             msg += f"已更新新好友码并缓存\n"
             msg += f"ns用户名: {res.get('name')}\n好友码(sw码): SW-{user.ns_friend_code}"
 
+        # 关闭连接池
+        await splatoon.req_client.close()
     await bot_send(bot, event, msg)
 
 

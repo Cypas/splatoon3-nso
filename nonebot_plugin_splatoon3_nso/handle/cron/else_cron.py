@@ -41,5 +41,7 @@ async def refresh_token_task(p_and_id):
         splatoon = Splatoon(None, None, u)
         # 刷新token
         await splatoon.refresh_gtoken_and_bullettoken()
+        # 关闭连接池
+        await splatoon.req_client.close()
     except Exception as e:
         cron_logger.warning(f'refresh_token_task error: {msg_id}, {e}')

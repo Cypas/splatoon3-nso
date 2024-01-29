@@ -52,22 +52,26 @@ class ReqClient:
         self.client = httpx.AsyncClient(proxies=proxies)
         self._type = _type  # 标记client的作用
 
-    def close(self):
+    async def close(self):
         """关闭client"""
-        self.client.aclose()
+        await self.client.aclose()
 
     async def get(self, url, **kwargs) -> Response:
         """client get"""
+        if self.client.is_closed:
+            self.client = httpx.AsyncClient(proxies=proxies)
         response = await self.client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
         return response
 
     async def post(self, url, **kwargs) -> Response:
         """client post"""
+        if self.client.is_closed:
+            self.client = httpx.AsyncClient(proxies=proxies)
         response = await self.client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
         return response
 
     @staticmethod
-    def close_all(_type: str):
+    async def close_all(_type: str):
         """关闭某一类型的全部client"""
         global global_client_dict
         global global_cron_client_dict
@@ -80,7 +84,7 @@ class ReqClient:
             client_dict = global_cron_client_dict
 
         for req_client in client_dict.values():
-            req_client.client.aclose()
+            await req_client.client.aclose()
         client_dict.clear()
 
 

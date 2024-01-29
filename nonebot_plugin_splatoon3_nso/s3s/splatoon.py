@@ -132,11 +132,11 @@ class Splatoon:
         return False
 
     def refresh_another_account(self):
-        # 刷新同一其他session_token的其他账号
+        # 刷新同一game_sp_id的其他账号
         platform = self.platform
         user_id = self.user_id
-        session_token = self.session_token
-        users = model_get_another_account_user(platform, user_id, session_token)
+        game_sp_id = self.user_db_info.game_sp_id
+        users = model_get_another_account_user(platform, user_id, game_sp_id)
         if len(users) > 0:
             for u in users:
                 msg_id = get_msg_id(u.platform, u.user_id)

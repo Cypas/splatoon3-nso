@@ -186,20 +186,14 @@ async def x_top(bot: Bot, event: Event):
 
 
 async def get_x_top_msg(bot, event):
-    if bot and event:
-        # 提供了bot和event 来自用户请求
-        platform = bot.adapter.get_name()
-        user_id = event.get_user_id()
-        user = dict_get_or_set_user_info(platform, user_id)
-        splatoon = Splatoon(bot, event, user)
-    else:
-        # 没有bot和event 来自定时任务
-        # 随机抽一名登录用户
-        db_user = model_get_newest_user()
-        user = dict_get_or_set_user_info(db_user.platform, db_user.user_id)
-        splatoon = Splatoon(None, None, user)
-
+    """获取x赛top1"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user = dict_get_or_set_user_info(platform, user_id)
+    splatoon = Splatoon(bot, event, user)
     msg = await get_x_top_md(splatoon)
+    # 关闭连接池
+    await splatoon.req_client.close()
     return msg
 
 

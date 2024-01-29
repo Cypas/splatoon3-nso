@@ -29,6 +29,8 @@ async def get_x_player():
     for top_id in ('WFJhbmtpbmdTZWFzb24tcDo2', 'WFJhbmtpbmdTZWFzb24tYTo2'):  # season-6
         await parse_x_data(top_id, splatoon)
 
+    # 关闭连接池
+    await splatoon.req_client.close()
     cron_logger.info(f'get_x_player end. {time.time() - s}')
 
 

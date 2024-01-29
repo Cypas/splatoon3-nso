@@ -39,12 +39,12 @@ async def get_friends_task(p_and_id):
     """任务：get_friends"""
     platform, user_id = p_and_id
     msg_id = get_msg_id(platform, user_id)
-    try:
-        u = dict_get_or_set_user_info(platform, user_id)
-        if not u or not u.session_token:
-            return
+    u = dict_get_or_set_user_info(platform, user_id)
+    if not u or not u.session_token:
+        return
 
-        splatoon = Splatoon(None, None, u)
+    splatoon = Splatoon(None, None, u)
+    try:
         # 获取好友
         res = await splatoon.get_friends()
         if not res:
@@ -67,3 +67,6 @@ async def get_friends_task(p_and_id):
 
     except Exception as e:
         cron_logger.warning(f'refresh_token_task error: {msg_id}, {e}')
+    finally:
+        # 关闭连接池
+        await splatoon.req_client.close()

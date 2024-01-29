@@ -27,6 +27,8 @@ async def history(bot: Bot, event: Event, args: Message = CommandArg()):
     splatoon = Splatoon(bot, event, user)
     await bot_send(bot, event, '开始努力作图，请稍等~', skip_log_cmd=True)
     msg = await get_history_md(splatoon, _type=_type)
+    # 关闭连接池
+    await splatoon.req_client.close()
     await bot_send(bot, event, msg, image_width=1000)
 
 

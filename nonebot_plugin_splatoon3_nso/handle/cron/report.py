@@ -36,7 +36,7 @@ async def create_set_report_tasks():
         res = await asyncio.gather(*tasks)
 
     cron_logger.info(f'clear cron user_info_dict...')
-    dict_clear_user_info_dict(_type="cron")
+    await dict_clear_user_info_dict(_type="cron")
     cron_logger.info(f'create_set_report_tasks end: {datetime.datetime.utcnow() - t}')
 
 
@@ -44,14 +44,14 @@ async def set_user_report_task(p_and_id):
     """任务:写用户最后游玩数据以及日报数据"""
     platform, user_id = p_and_id
     msg_id = get_msg_id(platform, user_id)
-    try:
-        u = dict_get_or_set_user_info(platform, user_id, _type="cron")
-        if not u or not u.session_token:
-            return
+    u = dict_get_or_set_user_info(platform, user_id, _type="cron")
+    if not u or not u.session_token:
+        return
 
-        cron_logger.debug(
-            f'set_user_info: {msg_id}, {u.user_name}')
-        splatoon = Splatoon(None, None, u, _type="cron")
+    cron_logger.debug(
+        f'set_user_info: {msg_id}, {u.user_name}')
+    splatoon = Splatoon(None, None, u, _type="cron")
+    try:
         # 刷新token
         await splatoon.refresh_gtoken_and_bullettoken()
 
@@ -86,6 +86,9 @@ async def set_user_report_task(p_and_id):
 
     except Exception as ex:
         cron_logger.warning(f'set_user_report_task error: {msg_id}, error:{ex}')
+    finally:
+        # 关闭连接池
+        await splatoon.req_client.close()
 
 
 async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, player_code):

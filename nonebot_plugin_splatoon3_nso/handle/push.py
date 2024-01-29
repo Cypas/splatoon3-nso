@@ -217,6 +217,8 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
         msg = ''
 
     image_width = 680
+    # 关闭连接池
+    await splatoon.req_client.close()
     r = await bot_send(bot, event, message=msg, photo=photo, image_width=image_width, skip_log_cmd=True)
 
     # tg撤回上一条push的消息

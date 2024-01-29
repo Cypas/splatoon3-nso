@@ -81,10 +81,10 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
     """获取全部公共缓存用户"""
 
     def user_remove_duplicates(lst: list[GlobalUserInfo]):
-        # 根据session_token值去重全部users
+        # 根据game_sp_id去重全部users
         result = []
         for u in lst:
-            if u.session_token and u.session_token not in [r.session_token for r in result]:
+            if u.game_sp_id and u.game_sp_id not in [r.game_sp_id for r in result]:
                 result.append(u)
         return result
 
@@ -95,7 +95,7 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
     return users
 
 
-def dict_clear_user_info_dict(_type: str):
+async def dict_clear_user_info_dict(_type: str):
     """关闭client对象，然后清空该类型用户字典"""
     # 选择不同的字典
     user_dict = {}
@@ -105,7 +105,7 @@ def dict_clear_user_info_dict(_type: str):
         # 定时任务
         user_dict = global_cron_user_info_dict
     # 关闭全部client
-    ReqClient.close_all(_type)
+    await ReqClient.close_all(_type)
     # 清空字典
     user_dict.clear()
 
@@ -184,11 +184,11 @@ def model_get_all_stat_user() -> list[UserTable]:
     return users
 
 
-def model_get_another_account_user(platform, user_id, session_token) -> list[Type[UserTable]]:
-    """查找同session_token的其他账号"""
+def model_get_another_account_user(platform, user_id, game_sp_id) -> list[Type[UserTable]]:
+    """查找同game_sp_id的其他账号"""
     session = DBSession()
     users = session.query(UserTable).filter(and_(and_(UserTable.platform != platform, UserTable.user_id != user_id),
-                                                 UserTable.session_token == session_token)).all()
+                                                 UserTable.game_sp_id == game_sp_id)).all()
     session.close()
     return users
 
