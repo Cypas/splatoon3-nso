@@ -184,7 +184,7 @@ async def get_myself_name_color(player_name, player_code):
     if my_icon:
         # 之前从/me缓存了头像
         img = f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{my_icon}'/>"
-        u_str = f'<span style="color:skyblue">{player_name} {img}</span>'
+        u_str = f'{player_name} {img}'
 
     return u_str
 
