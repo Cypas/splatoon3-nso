@@ -59,9 +59,9 @@ def scheduler_controller():
     # refresh_token every 1 hours 50 min   仅为缓存内的用户提供定期刷新token
     add_scheduler("refresh_token", trigger='interval', hours=1, minutes=50)
     # update_s3si_ts every 2 hours
-    add_scheduler("update_s3si_ts", trigger='interval', hours=2)
+    add_scheduler("update_s3si_ts", trigger='cron', hour="0,2,4,6,8,10,12,14,16,18,20,22")
     # sync_stat_ink every 2 hours
-    add_scheduler("sync_stat_ink", trigger='interval', hours=2)
+    add_scheduler("sync_stat_ink", trigger='cron', hour="0,2,4,6,8,10,12,14,16,18,20,22", minute=4)
 
 
 def cron(_type):
