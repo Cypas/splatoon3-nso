@@ -42,7 +42,7 @@ async def notify_to_channel(_msg, _type='msg', **kwargs):
 async def notify_to_private(platform: str, user_id: str, msg: str):
     """通知至私聊"""
     # 排除QQ平台
-    if platform != "QQ":
+    if platform == "QQ":
         return
     # tg_bot
     notify_tg_bot_id = plugin_config.splatoon3_notify_tg_bot_id

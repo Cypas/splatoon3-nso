@@ -49,7 +49,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await notify_to_private(u.platform, u.user_id, msg)
             time.sleep(0.5)
 
-        await bot_send(bot, event, message=msg)
+        await bot_send(bot, event, message="已关闭所有push")
 
     elif plain_text == 'parse_x_rank':
         await bot_send(bot, event, message="即将开始parse_x_rank")
