@@ -1,7 +1,7 @@
 import base64
 from datetime import datetime as dt, timedelta
 
-from .b_or_c_tools import PushStatistics, get_user_name_color
+from .b_or_c_tools import PushStatistics, get_user_name_color, get_myself_name_color
 from .utils import get_game_sp_id_and_name
 from ..data.data_source import model_get_temp_image_path
 from ..s3s.splatoon import Splatoon
@@ -181,11 +181,11 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False):
     if mask:
         p_name = f'~~我是马赛克~~'
 
+    player_code, player_name = get_game_sp_id_and_name(p['player'])
     if not is_myself:
-        player_code, player_name = get_game_sp_id_and_name(p['player'])
         p_name = await get_user_name_color(p_name, player_code)
     else:
-        p_name = f'<b>{p_name}</b>'
+        p_name = await get_myself_name_color(player_name, player_code)
 
     t = f"|x{p['defeatEnemyCount']}| {p['goldenDeliverCount']} |{p['rescuedCount']}d |" \
         f"{p['rescueCount']}r|{p['deliverCount']} | {uniform} {p_name}|{weapon}|"

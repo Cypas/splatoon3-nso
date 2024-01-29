@@ -1,7 +1,7 @@
 from datetime import datetime as dt, timedelta
 
 from .b_or_c_tools import get_b_point_and_process, get_x_power_and_process, get_top_user, get_top_all_name, \
-    PushStatistics, get_user_name_color
+    PushStatistics, get_user_name_color, get_myself_name_color
 from .utils import get_game_sp_id_and_name, dict_b_mode_trans
 from ..data.data_source import global_user_info_dict, model_get_temp_image_path, model_get_user_friend
 from ..data.db_sqlite import UserFriendTable
@@ -331,12 +331,12 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     sp_img = f'<img height="25" src="{weapon_sp_img}"/>'
 
     name = p['name'].replace('`', '&#96;').replace('|', '&#124;')
-    if p.get('isMyself'):
-        name = f'<b>{name}</b>'
-    elif mask:
-        name = f'~~我是马赛克~~'
 
     player_code, player_name = get_game_sp_id_and_name(p)
+    if p.get('isMyself'):
+        name = await get_myself_name_color(name, player_code)
+    elif mask:
+        name = f'~~我是马赛克~~'
     if not p.get('isMyself'):
         name = await get_user_name_color(name, player_code)
 

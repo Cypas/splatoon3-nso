@@ -175,6 +175,20 @@ async def get_user_name_color(player_name, player_code):
     return u_str
 
 
+async def get_myself_name_color(player_name, player_code):
+    """获取我自己的用户名以及头像"""
+    player_name = f"<b>{player_name}</b>"
+    u_str = player_name
+
+    my_icon = await model_get_temp_image_path('my_icon', player_code)
+    if my_icon:
+        # 之前从/me缓存了头像
+        img = f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{my_icon}'/>"
+        u_str = f'<span style="color:skyblue">{player_name} {img}</span>'
+
+    return u_str
+
+
 def remove_user_name_icon(name):
     """存在top_all榜单，或x榜时，移除用户名后面的好友头像，方便显示武器"""
     if '<img' in name:
