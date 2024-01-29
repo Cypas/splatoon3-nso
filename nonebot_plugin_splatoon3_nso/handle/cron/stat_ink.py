@@ -16,13 +16,18 @@ from .utils import user_remove_duplicates, cron_logger
 
 async def sync_stat_ink():
     """同步至stat"""
-    users = model_get_all_stat_user()
+    db_users = model_get_all_stat_user()
     # 去重
-    users = user_remove_duplicates(users)
+    db_users = user_remove_duplicates(db_users)
 
     # with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
     #     executor.map(sync_stat_ink_func, users)
-    await asyncio.gather(*users)
+
+    _pool = 4
+    for i in range(0, len(db_users), _pool):
+        pool_users_list = db_users[i:i + _pool]
+        tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
+        res = await asyncio.gather(*tasks)
 
 
 async def sync_stat_ink_func(db_user: UserTable):

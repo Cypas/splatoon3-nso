@@ -1,6 +1,9 @@
+import time
+
 from .cron import create_get_user_friends_tasks, get_x_player, create_set_report_tasks, sync_stat_ink, send_report_task, \
     create_refresh_token_tasks, update_s3si_ts
-from .send_msg import bot_send
+from .push import close_push
+from .send_msg import bot_send, notify_to_private
 from ..data.data_source import dict_get_all_global_users, model_clean_db_cache
 from ..utils import get_msg_id
 from ..utils.bot import *
@@ -29,8 +32,23 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             if not u.push:
                 continue
             msg_id = get_msg_id(u.platform, u.user_id)
-            msg += f'{msg_id:>4}, {u.user_name}, {u.push_cnt:>3},{u.game_name}\n'
+            msg += f'db_id:{u.db_id},{msg_id:>4}, n:{u.user_name}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n'
         msg = f'```\n{msg}```' if msg else 'no data'
+        await bot_send(bot, event, message=msg)
+
+    elif plain_text == 'close_push':
+        users = dict_get_all_global_users(False)
+        msg = ''
+        for u in users:
+            if not u.push:
+                continue
+            msg = 'push推送被管理员强制关闭，大概率是需要重启bot，等稍等几分钟完成重启后，重新对bot发送/push 命令\n'
+            # 获取统计数据
+            st_msg = close_push(u.platform, u.user_id)
+            msg += st_msg
+            await notify_to_private(u.platform, u.user_id, msg)
+            time.sleep(0.5)
+
         await bot_send(bot, event, message=msg)
 
     elif plain_text == 'parse_x_rank':

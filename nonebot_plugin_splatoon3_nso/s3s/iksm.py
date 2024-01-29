@@ -429,16 +429,25 @@ class S3S:
         # get_id_tokenaccess_token, f, uuid, timestamp, coral_user_id
         try:
             id_token, user_info = await self._get_id_token_and_user_info(session_token)
+            if not user_info or not id_token:
+                raise ValueError(f"no id_token or user_info")
         except Exception as e:
             logger.warning(f"get_id_token_and_user_info error:{e}")
             raise e
+
         try:
             access_token, f, uuid, timestamp, coral_user_id = await self._get_access_token(id_token, user_info)
+            if not access_token:
+                raise ValueError(f"no access_token")
+            if not f:
+                raise ValueError(f"no f")
         except Exception as e:
             logger.warning(f"get_access_token error:{e}")
             raise e
         try:
             g_token = await self._get_g_token(access_token, f, uuid, timestamp, coral_user_id)
+            if not g_token:
+                raise ValueError(f"no g_token")
         except Exception as e:
             logger.warning(f"get_g_token error:{e}")
             raise e
@@ -513,7 +522,7 @@ class S3S:
         except Exception as e:
             try:  # if api_response never gets set
                 logger.warning(
-                    f"Error during f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
+                    f"Error during f generation: \n{f_gen_url}\nbody:{json.dumps(api_body)}")
                 if api_response and api_response.text:
                     logger.error(
                         f"Error during f generation:\n{json.dumps(json.loads(api_response.text), ensure_ascii=False)}")

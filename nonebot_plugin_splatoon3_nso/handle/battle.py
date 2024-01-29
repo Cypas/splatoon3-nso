@@ -156,7 +156,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     title += ('##### 奖牌:' + ' '.join(award_list) + '\n')
 
     # 打印图例说明
-    user_create_dt = get_time_now_china_date(splatoon.user_db_info.create_time) + timedelta(days=7)
+    user_create_dt = splatoon.user_db_info.create_time + timedelta(days=7)
     plugin_release_dt = get_time_now_china_date(plugin_release_time) + timedelta(days=7)
     now_dt = get_time_now_china()
     if now_dt < plugin_release_dt or now_dt < user_create_dt:

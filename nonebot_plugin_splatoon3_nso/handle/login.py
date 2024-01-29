@@ -115,7 +115,7 @@ async def login_in_2(bot: Bot, event: Event):
     logger.info(f'session_token: {session_token}')
 
     event_info = await get_event_info(bot, event)
-    user_name = event_info.get('username', "")
+    user_name = event_info.get('user_name', "")
     # 更新数据库
     user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=user_name)
     # 刷新token

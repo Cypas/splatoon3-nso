@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import os
 import time
 
@@ -10,7 +11,7 @@ from ..send_msg import notify_to_private
 from ...utils import DIR_RESOURCE
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
-    model_get_today_report
+    model_get_today_report, dict_clear_user_info_dict
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 
@@ -18,7 +19,7 @@ from ...utils import get_msg_id
 async def create_set_report_tasks():
     """7点时请求并提前写好日报数据"""
     cron_logger.info(f'create_set_report_tasks start')
-    t = time.time()
+    t = datetime.datetime.utcnow()
     users = model_get_all_user()
     # 去重
     users = user_remove_duplicates(users)
@@ -28,13 +29,15 @@ async def create_set_report_tasks():
     for user in users:
         list_user.append((user.platform, user.user_id))
 
-    _pool = 50
+    _pool = 5
     for i in range(0, len(list_user), _pool):
         _p_and_id_list = list_user[i:i + _pool]
         tasks = [set_user_report_task(p_and_id) for p_and_id in _p_and_id_list]
         res = await asyncio.gather(*tasks)
 
-    cron_logger.info(f'create_set_report_tasks end: {time.time() - t}')
+    cron_logger.info(f'clear cron user_info_dict...')
+    dict_clear_user_info_dict(_type="cron")
+    cron_logger.info(f'create_set_report_tasks end: {datetime.datetime.utcnow() - t}')
 
 
 async def set_user_report_task(p_and_id):
@@ -42,13 +45,15 @@ async def set_user_report_task(p_and_id):
     platform, user_id = p_and_id
     msg_id = get_msg_id(platform, user_id)
     try:
-        u = dict_get_or_set_user_info(platform, user_id)
+        u = dict_get_or_set_user_info(platform, user_id, _type="cron")
         if not u or not u.session_token:
             return
 
         cron_logger.debug(
             f'set_user_info: {msg_id}, {u.user_name}')
         splatoon = Splatoon(None, None, u)
+        # 刷新token
+        await splatoon.refresh_gtoken_and_bullettoken()
 
         # 个人摘要数据
         res_summary = await splatoon.get_history_summary()

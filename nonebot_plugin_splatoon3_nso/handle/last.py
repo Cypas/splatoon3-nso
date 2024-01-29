@@ -3,7 +3,7 @@ from datetime import datetime as dt, timedelta
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
 from .send_msg import bot_send
-from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time
+from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time, get_event_info
 from ..data.data_source import dict_get_or_set_user_info
 from ..s3s.splatnet_image import get_app_screenshot
 from ..s3s.splatoon import Splatoon
@@ -89,6 +89,12 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     splatoon = Splatoon(bot, event, user)
     battle_t = ""
     coop_t = ""
+
+    # 先运行一段时间
+    event_info = await get_event_info(bot, event)
+    user_name = event_info.get('user_name', "")
+    # 更新数据库
+    user = dict_get_or_set_user_info(platform, user_id, user_name=user_name)
 
     # res = await splatoon.get_test()
     # res = await splatoon.get_battle_detail("VnNIaXN0b3J5RGV0YWlsLXUtYTQ3ajZtbm1jbWp5eDJoejdsdW06QkFOS0FSQToyMDI0MDExMlQwMjAyNDZfN2M5N2IyNWEtYWMzMi00OWQ5LWEyODAtYTE0YzllOTVmMTQ5")

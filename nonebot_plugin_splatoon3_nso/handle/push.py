@@ -136,21 +136,8 @@ async def stop_push(bot: Bot, event: Event):
     if not user.stat_key:
         msg += "/set_api_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工)\n"
 
-    job_id = f'{msg_id}_push'
-    logger.info(f'remove push_job {job_id}')
-    job_data = None
-    try:
-        r = scheduler.get_job(job_id)
-        job_data = r.args[2] or {}
-        scheduler.remove_job(job_id)
-    except Exception as e:
-        logger.error(f"get push job data error:{e}")
-
-    if job_data:
-        push_statistics: PushStatistics = job_data.get("push_statistics")
-        if push_statistics:
-            msg += push_statistics.get_battle_st_msg()
-            msg += push_statistics.get_coop_st_msg()
+    st_msg = close_push(platform, user_id)
+    msg += st_msg
 
     await bot_send(bot, event, msg)
 
@@ -198,7 +185,6 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     if last_battle_id == battle_id:
         if not is_playing and push_cnt * PUSH_INTERVAL / 60 > 20:
             # 关闭定时，更新push状态，发送统计
-            scheduler.remove_job(job_id)
             dict_get_or_set_user_info(platform, user_id, push=0)
             msg = 'No game record for 20 minutes, stop push.'
             if isinstance(bot, (V12_Bot, Kook_Bot)):
@@ -207,10 +193,9 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
                     msg += "\n/set_api_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工)\n"
 
             # 获取统计数据
-            push_statistics: PushStatistics = job_data.get("push_statistics")
-            if push_statistics:
-                msg += push_statistics.get_battle_st_msg()
-                msg += push_statistics.get_coop_st_msg()
+            st_msg = close_push(platform, user_id)
+            msg += st_msg
+
             logger.info(f'push auto end,user：{msg_id},gamer：{user.game_name}, push cycle count:{push_cnt}')
 
             await bot_send(bot, event, message=msg, skip_log_cmd=True)
@@ -241,3 +226,25 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
                 await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_channel_msg_id'])
         message_id = r.message_id
         job_data.update({"last_channel_msg_id": message_id})
+
+
+def close_push(platform, user_id):
+    """关闭push"""
+    msg_id = get_msg_id(platform, user_id)
+    job_id = f'{msg_id}_push'
+    logger.info(f'remove push_job {job_id}')
+    job_data = None
+    msg = ""
+    try:
+        r = scheduler.get_job(job_id)
+        job_data = r.args[2] or {}
+        scheduler.remove_job(job_id)
+    except Exception as e:
+        logger.error(f"get push job data error:{e}")
+
+    if job_data:
+        push_statistics: PushStatistics = job_data.get("push_statistics")
+        if push_statistics:
+            msg += push_statistics.get_battle_st_msg()
+            msg += push_statistics.get_coop_st_msg()
+    return msg

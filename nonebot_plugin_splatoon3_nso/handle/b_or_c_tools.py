@@ -59,7 +59,7 @@ async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splato
 async def get_x_power_and_process(battle_detail, splatoon: Splatoon, idx=0):
     """获取x赛分数和挑战进度"""
     try:
-        power = ''
+        power = 0
         x_process = ''
 
         x_res = await splatoon.get_x_battles()
@@ -83,8 +83,8 @@ async def get_x_power_and_process(battle_detail, splatoon: Splatoon, idx=0):
         x_process = f"{win_count}胜-{lose_count}负"
 
     except Exception as e:
-        logger.exception(e)
-        power = ''
+        logger.warning(f"get x power error:{e}")
+        power = 0
         x_process = ''
 
     return power, x_process
@@ -267,10 +267,12 @@ class PushStatistics:
             bankara_match = (battle_detail.get('bankaraMatch') or {}).get('mode') or ''
             if bankara_match:
                 # 蛮颓点数
-                b.b_point_change += int(point)
+                if point:
+                    b.b_point_change += float(point)
             elif battle_detail.get('xMatch'):
                 # x赛
-                b.x_point_change += int(point)
+                if point:
+                    b.x_point_change += float(point)
 
             # 统计个人kda
             for p in battle_detail['myTeam']['players']:

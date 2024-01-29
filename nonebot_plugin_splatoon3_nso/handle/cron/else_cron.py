@@ -20,7 +20,7 @@ async def create_refresh_token_tasks():
     for user in users:
         list_user.append((user.platform, user.user_id))
 
-    _pool = 50
+    _pool = 5
     for i in range(0, len(list_user), _pool):
         _p_and_id_list = list_user[i:i + _pool]
         tasks = [refresh_token_task(p_and_id) for p_and_id in _p_and_id_list]

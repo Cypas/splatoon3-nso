@@ -7,18 +7,30 @@ from sqlalchemy import and_
 
 from .db_sqlite import *
 from .utils import model_get_or_set_temp_image, get_insert_or_update_obj, GlobalUserInfo
-from ..utils import get_or_init_client, get_msg_id
+from ..utils import get_or_init_client, get_msg_id, ReqClient
 
 global_user_info_dict: dict[str:GlobalUserInfo] = {}  # 用于缓存今日已使用过指令的用户，并为这些活跃用户定期更新token
 
+global_cron_user_info_dict: dict[str:GlobalUserInfo] = {}  # 定时任务专用的字典，用完即销毁
 
-def dict_get_or_set_user_info(platform, user_id, **kwargs):
+
+def dict_get_or_set_user_info(platform, user_id, _type="normal", **kwargs):
     """获取 或 更新 用户信息
     优先读取字典内信息，没有则查询数据库
     """
     global global_user_info_dict
+    global global_cron_user_info_dict
     key = get_msg_id(platform, user_id)
-    user_info = global_user_info_dict.get(key)
+
+    # 选择不同的字典
+    user_dict = {}
+    if _type == "normal":
+        user_dict = global_user_info_dict
+    elif _type == "cron":
+        # 定时任务
+        user_dict = global_cron_user_info_dict
+
+    user_info = user_dict.get(key)
     if not user_info:
         # 不存在，从数据库获取信息再写入字典
         user = model_get_or_set_user(platform, user_id)
@@ -39,9 +51,9 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
                 stat_key=user.stat_key,
                 ns_name=user.ns_name,
                 ns_friend_code=user.ns_friend_code,
-                req_client=get_or_init_client(platform, user_id)
+                req_client=get_or_init_client(platform, user_id, _type)
             )
-            global_user_info_dict.update({key: user_info})
+            user_dict.update({key: user_info})
         else:
             # 该用户未登录
             user_info = GlobalUserInfo(
@@ -55,7 +67,9 @@ def dict_get_or_set_user_info(platform, user_id, **kwargs):
         for k, v in kwargs.items():
             if hasattr(user_info, k):
                 setattr(user_info, k, v)
-        global_user_info_dict.update({key: user_info})
+
+        user_dict.update({key: user_info})
+
         # 更新数据库
         user = model_get_or_set_user(platform, user_id, **kwargs)
         if not user:
@@ -79,6 +93,21 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
     if remove_duplicates:
         users = user_remove_duplicates(users)
     return users
+
+
+def dict_clear_user_info_dict(_type: str):
+    """关闭client对象，然后清空该类型用户字典"""
+    # 选择不同的字典
+    user_dict = {}
+    if _type == "normal":
+        user_dict = global_user_info_dict
+    elif _type == "cron":
+        # 定时任务
+        user_dict = global_cron_user_info_dict
+    # 关闭全部client
+    ReqClient.close_all(_type)
+    # 清空字典
+    user_dict.clear()
 
 
 async def model_get_temp_image_path(_type, name, link=None) -> str:
@@ -242,7 +271,8 @@ def model_get_today_report(user_id_sp):
         return None
     session = DBSession()
     report = session.query(Report).filter(
-        and_(Report.user_id_sp == user_id_sp, Report.create_time > datetime.datetime.utcnow() - datetime.timedelta(hours=4))).first()
+        and_(Report.user_id_sp == user_id_sp,
+             Report.create_time > datetime.datetime.utcnow() - datetime.timedelta(hours=20))).first()
     session.close()
     return report
 
