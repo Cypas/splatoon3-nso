@@ -84,4 +84,4 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
     elif plain_text == 'clean_s3s_cache':
         await bot_send(bot, event, message="即将开始clean_s3s_cache")
-        await clean_s3s_cache()
+        clean_s3s_cache()
