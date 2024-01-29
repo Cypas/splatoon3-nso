@@ -3,7 +3,7 @@ import threading
 
 from nonebot import require, logger
 
-from .else_cron import create_refresh_token_tasks
+from .else_cron import create_refresh_token_tasks, clean_s3s_cache
 from .stat_ink import update_s3si_ts, sync_stat_ink
 from .report import create_set_report_tasks, send_report_task
 from .user_friends import create_get_user_friends_tasks
@@ -49,6 +49,8 @@ def scheduler_controller():
 
     # parse x rank player at 2:40
     add_scheduler("parse_x_rank", trigger='cron', hour=2, minute=40)
+    # 清空s3sti.ts脚本生成的缓存文件
+    add_scheduler("clean_s3s_cache", trigger='cron', hour=4, minute=30)
     # set_report at 7:00
     add_scheduler("set_report", trigger='cron', hour=7, minute=0)
     # report at 8:00
@@ -58,9 +60,9 @@ def scheduler_controller():
     add_scheduler("get_user_friends", trigger='interval', hours=3)
     # refresh_token every 1 hours 50 min   仅为缓存内的用户提供定期刷新token
     add_scheduler("refresh_token", trigger='interval', hours=1, minutes=50)
-    # update_s3si_ts every 2 hours
+    # update_s3si_ts 在指定时间检查脚本更新
     add_scheduler("update_s3si_ts", trigger='cron', hour="0,2,4,6,8,10,12,14,16,18,20,22")
-    # sync_stat_ink every 2 hours
+    # sync_stat_ink 在指定时间进行同步
     add_scheduler("sync_stat_ink", trigger='cron', hour="0,2,4,6,8,10,12,14,16,18,20,22", minute=4)
 
 
@@ -81,6 +83,8 @@ def cron(_type):
             threading.Thread(target=update_s3si_ts, args=()).start()
         case "sync_stat_ink":
             threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
+        case "clean_s3s_cache":
+            threading.Thread(target=clean_s3s_cache, args=()).start()
 
 
 def remove_all_scheduler():

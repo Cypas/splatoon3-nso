@@ -1,8 +1,11 @@
 import asyncio
+import os
+import shutil
 
 from .utils import cron_logger
 from datetime import datetime as dt, timedelta
 
+from ...utils import DIR_RESOURCE
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, model_get_all_user, \
     model_get_newest_user
 from ...s3s.splatoon import Splatoon
@@ -45,3 +48,10 @@ async def refresh_token_task(p_and_id):
         await splatoon.req_client.close()
     except Exception as e:
         cron_logger.warning(f'refresh_token_task error: {msg_id}, {e}')
+
+
+def clean_s3s_cache():
+    """清理s3sti脚本的缓存文件夹"""
+    dir_s3s_cache = f'{DIR_RESOURCE}/s3sits_git/cache'
+    if os.path.exists(dir_s3s_cache):
+        shutil.rmtree(dir_s3s_cache)

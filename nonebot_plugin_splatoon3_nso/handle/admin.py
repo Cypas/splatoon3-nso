@@ -1,7 +1,7 @@
 import time
 
 from .cron import create_get_user_friends_tasks, get_x_player, create_set_report_tasks, sync_stat_ink, send_report_task, \
-    create_refresh_token_tasks, update_s3si_ts
+    create_refresh_token_tasks, update_s3si_ts, clean_s3s_cache
 from .push import close_push
 from .send_msg import bot_send, notify_to_private
 from ..data.data_source import dict_get_all_global_users, model_clean_db_cache
@@ -81,3 +81,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
     elif plain_text == 'sync_stat_ink':
         await bot_send(bot, event, message="即将开始sync_stat_ink")
         await sync_stat_ink()
+
+    elif plain_text == 'clean_s3s_cache':
+        await bot_send(bot, event, message="即将开始clean_s3s_cache")
+        await clean_s3s_cache()
