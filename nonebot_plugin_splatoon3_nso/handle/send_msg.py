@@ -18,7 +18,7 @@ async def cron_notify_to_channel(platform: str, user_id: str, msg: str, _type='j
     # 去掉msg原有的md格式
     msg = msg.replace("```", "")
     # 整体包裹md代码块
-    msg = f"```\n{title}\n{msg}```"
+    msg = f"{title}\n{msg}"
 
     # 消息过滤处理
     if platform == "Telegram":
@@ -54,6 +54,7 @@ async def notify_to_channel(_msg, _type='msg', **kwargs):
         tg_bot = bots.get(notify_tg_bot_id)
         if tg_bot:
             try:
+                _msg = f"```\n{_msg}```"
                 await tg_bot.send_message(tg_channel_chat_id, _msg)
             except Exception as e:
                 logger.warning(f'tg频道通知消息失败: {e}')
@@ -63,8 +64,9 @@ async def notify_to_channel(_msg, _type='msg', **kwargs):
         kook_bot = bots.get(notify_kk_bot_id)
         if kook_bot:
             try:
+                _msg = f"```\n{_msg}```"
                 await kook_bot.send_channel_msg(channel_id=kk_channel_chat_id,
-                                                message=Kook_MsgSeg.KMarkdown(f"{_msg}"))
+                                                message=Kook_MsgSeg.KMarkdown(_msg))
             except Exception as e:
                 logger.warning(f'kook频道通知消息失败: {e}')
 
