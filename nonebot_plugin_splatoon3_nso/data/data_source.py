@@ -84,7 +84,7 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
         # 根据session_token值去重全部users
         result = []
         for u in lst:
-            if u.session_token not in [r.session_token for r in result]:
+            if u.session_token and u.session_token not in [r.session_token for r in result]:
                 result.append(u)
         return result
 

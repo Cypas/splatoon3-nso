@@ -27,8 +27,8 @@ APP_USER_AGENT = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) ' \
 
 
 class S3S:
-    def __init__(self, platform, user_id):
-        self.req_client: ReqClient = get_or_init_client(platform, user_id)
+    def __init__(self, platform, user_id, _type="normal"):
+        self.req_client: ReqClient = get_or_init_client(platform, user_id, _type)
         self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
         self.user_nickname = ""
         self.user_lang = 'zh-CN'

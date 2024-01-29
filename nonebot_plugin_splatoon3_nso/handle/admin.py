@@ -42,7 +42,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
         for u in users:
             if not u.push:
                 continue
-            msg = 'push推送被管理员强制关闭，大概率是需要重启bot，等稍等几分钟完成重启后，重新对bot发送/push 命令\n'
+            msg = 'push推送被管理员强制关闭，大概率是需要重启bot，请稍等几分钟完成重启后，重新对bot发送/push 命令\n'
             # 获取统计数据
             st_msg = close_push(u.platform, u.user_id)
             msg += st_msg

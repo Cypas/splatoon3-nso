@@ -17,7 +17,7 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
             dt.strptime(report_day, '%Y-%m-%d')
         except:
             msg = '日期格式错误，正确格式: /report 2023-07-01 或 /report'
-            await bot_send(bot, event, message=msg, parse_mode='Markdown')
+            await bot_send(bot, event, message=msg)
             return
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -30,14 +30,12 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
         elif not msg and report_day:
             msg = f'```\n没有查询到所指定日期的日报数据```'
     else:
-        # if msg and not report_day and not u.report_type:
-        #     msg += f'```\n\n早报订阅成功\n/unsubscribe 取消订阅```'
         if not msg and not report_day:
-            msg = f'```\n数据准备中。。。\n\n早报订阅成功\n/unsubscribe 取消订阅```'
+            msg = f'```\n数据准备中，请明天再查询\n```'
         elif not msg and report_day:
-            msg = f'```\n数据准备中。。。```'
+            msg = f'```\n没有查询到所指定日期的日报数据```'
 
-    await bot_send(bot, event, message=msg, parse_mode='Markdown')
+    await bot_send(bot, event, message=msg)
 
 
 def get_report(platform, user_id, report_day=None):
@@ -144,7 +142,7 @@ async def report_all(bot: Bot, event: Event):
 
     user = dict_get_or_set_user_info(platform, user_id)
     msg = get_report_all_md(user.game_sp_id)
-    await bot_send(bot, event, msg, parse_mode='Markdown')
+    await bot_send(bot, event, msg)
 
 
 def get_report_all_md(player_code):

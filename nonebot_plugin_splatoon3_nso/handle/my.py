@@ -404,3 +404,42 @@ def get_cn_sp3_stat(_st):
         _st = '祭典三色'
     return _st
 
+
+@on_command("report_notify", block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
+    if isinstance(bot, QQ_Bot):
+        await bot_send(bot, event, 'QQ平台暂不支持本功能')
+        return
+    cmd = args.extract_plain_text().strip()
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    msg = f'```\n'
+    if cmd == "open":
+        user = dict_get_or_set_user_info(platform, user_id, report_notify=1)
+        msg += "日报 已开启每日主动推送，将会在每日早8点推送过去一天内战绩变化情况，您也可通过主动查询命令/report 进行查询\n"
+    elif cmd == "close":
+        user = dict_get_or_set_user_info(platform, user_id, report_notify=0)
+        msg += "日报 已关闭每日主动推送，日报数据仍会定时进行更新，您可通过主动查询命令/report 进行查询\n\n"
+    msg += f'/report_notify open 开启每日日报推送\n/report_notify close 关闭每日日报推送\n'
+    msg += f'```'
+    await bot_send(bot, event, message=msg)
+
+
+@on_command("stat_notify", block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
+    if isinstance(bot, QQ_Bot):
+        await bot_send(bot, event, 'QQ平台暂不支持本功能')
+        return
+    cmd = args.extract_plain_text().strip()
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    msg = f'```\n'
+    if cmd == "open":
+        user = dict_get_or_set_user_info(platform, user_id, stat_notify=1)
+        msg += "stat.ink同步情况 已开启主动推送，每2h将进行一次同步\n"
+    elif cmd == "close":
+        user = dict_get_or_set_user_info(platform, user_id, stat_notify=0)
+        msg += "stat.ink同步情况 已关闭主动推送，后台仍会2h进行一次同步\n\n"
+    msg += f'/stat_notify open 开启stat.ink同步情况推送\n/stat_notify close 关闭stat.ink同步情况推送\n/sync_now 手动发起同步请求\n'
+    msg += f'```'
+    await bot_send(bot, event, message=msg)

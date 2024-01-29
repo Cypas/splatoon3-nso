@@ -164,7 +164,7 @@ https://docs.qq.com/sheet/DUkZHRWtCUkR0d2Nr?tab=BB08J2
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     if 'group' in event.get_event_name():
-        await bot_send(bot, event, '请私聊机器人', parse_mode='Markdown')
+        await bot_send(bot, event, '请私聊机器人')
         return
 
     platform = bot.adapter.get_name()

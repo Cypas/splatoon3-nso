@@ -26,7 +26,7 @@ class UserDBInfo:
 
 
 class Splatoon:
-    def __init__(self, bot: Bot, event: Event, user_info: GlobalUserInfo):
+    def __init__(self, bot: Bot, event: Event, user_info: GlobalUserInfo, _type="normal"):
         self.bot = bot
         self.event = event
         self.platform = user_info.platform or "no_platform"
@@ -38,10 +38,10 @@ class Splatoon:
         self.bullet_token = ''
         self.g_token = ''
         self.access_token = ''
-        s3s = S3S(self.platform, self.user_id)
+        s3s = S3S(self.platform, self.user_id, _type=_type)
         self.s3s = s3s
         self.nso_app_version = s3s.get_nsoapp_version()
-        self.req_client = user_info.req_client or get_or_init_client(self.platform, self.user_id)
+        self.req_client = user_info.req_client or get_or_init_client(self.platform, self.user_id, _type=_type)
 
         user = model_get_or_set_user(self.platform, self.user_id)
         if user:

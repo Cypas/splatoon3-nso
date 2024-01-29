@@ -7,7 +7,7 @@ from .utils import cron_logger, user_remove_duplicates
 from datetime import datetime as dt, timedelta
 
 from ..report import get_report
-from ..send_msg import notify_to_private
+from ..send_msg import notify_to_private, cron_notify_to_channel
 from ...utils import DIR_RESOURCE
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
@@ -51,7 +51,7 @@ async def set_user_report_task(p_and_id):
 
         cron_logger.debug(
             f'set_user_info: {msg_id}, {u.user_name}')
-        splatoon = Splatoon(None, None, u)
+        splatoon = Splatoon(None, None, u, _type="cron")
         # 刷新token
         await splatoon.refresh_gtoken_and_bullettoken()
 
@@ -174,11 +174,15 @@ async def send_report_task():
         have_report = model_get_today_report(user.game_sp_id)
         if not have_report:
             continue
-        # 每次循环强制睡眠0.5s，使一分钟内最多触发120次发信，避免超出阈值
-        time.sleep(0.5)
+        # 每次循环强制睡眠0.6s，使一分钟内不超过120次发信阈值
+        time.sleep(0.6)
         try:
             msg = get_report(user.platform, user.user_id)
             if msg:
+                # 通知到频道
+                await cron_notify_to_channel(user.platform, user.user_id, msg, _type='job')
+                # 通知到私信
+                msg += "/report_notify close 关闭每日日报推送"
                 await notify_to_private(user.platform, user.user_id, msg)
         except Exception as e:
             cron_logger.warning(f'create_send_report_tasks error: {e}')

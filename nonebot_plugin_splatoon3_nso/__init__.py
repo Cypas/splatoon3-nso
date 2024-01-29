@@ -1,3 +1,5 @@
+import time
+
 from nonebot.message import event_preprocessor
 from nonebot.plugin import PluginMetadata
 
@@ -53,9 +55,6 @@ async def _help(bot: Bot, event: Event):
 
 @driver.on_startup
 async def bot_on_start():
-    version = BOT_VERSION
-    logger.info(f' bot start, version: {version} '.center(120, '-'))
-    await notify_to_channel(f'bot start, version: {version}')
     # 检查旧数据库文件与新数据库文件是否存在
     old_db_path = f'{DIR_RESOURCE}/data.sqlite'
     new_db_path = f'{DIR_RESOURCE}/nso_data.sqlite'
@@ -69,6 +68,9 @@ async def bot_on_start():
 
     # 创建定时任务
     scheduler_controller()
+    version = BOT_VERSION
+    logger.info(f' bot start, version: {version} '.center(120, '-'))
+    await notify_to_channel(f'bot start, version: {version}')
 
 
 @driver.on_shutdown

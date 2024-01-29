@@ -1,3 +1,5 @@
+import copy
+
 from nonebot.adapters.qq import AuditException, ActionFailed
 
 from ..utils import DIR_RESOURCE, get_msg_id
@@ -6,6 +8,30 @@ from ..config import plugin_config
 
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
+
+
+async def cron_notify_to_channel(platform: str, user_id: str, msg: str, _type='job'):
+    """任务处理通知到频道"""
+    # 通知标题
+    msg_id = get_msg_id(platform, user_id)
+    title = f"#{msg_id}"
+    # 去掉msg原有的md格式
+    msg = msg.replace("```", "")
+    # 整体包裹md代码块
+    msg = f"```\n{title}\n{msg}```"
+
+    # 消息过滤处理
+    if platform == "Telegram":
+        if "stat.ink" in msg:
+            msg = msg.replace('Exported', '#Exported')
+        else:
+            if "早报" in msg:
+                msg = '#report\n' + msg
+    elif platform == "OneBot V12":
+        msg = msg.replace('```', '').strip()
+    elif platform == "Kaiheila":
+        pass
+    await notify_to_channel(msg, _type=_type)
 
 
 async def notify_to_channel(_msg, _type='msg', **kwargs):
@@ -20,21 +46,25 @@ async def notify_to_channel(_msg, _type='msg', **kwargs):
     kk_channel_chat_id = kwargs.get('kook_chat_id', None) or plugin_config.splatoon3_kk_channel_msg_chat_id
     if _type == 'job':
         kk_channel_chat_id = kwargs.get('kook_chat_id', None) or plugin_config.splatoon3_kk_channel_job_chat_id
-    for bot in get_bots().values():
-        if isinstance(bot, Tg_Bot):
+
+    bots = get_bots()
+
+    # 推送至tg
+    if notify_tg_bot_id and tg_channel_chat_id:
+        tg_bot = bots.get(notify_tg_bot_id)
+        if tg_bot:
             try:
-                # 推送至tg
-                if notify_tg_bot_id and tg_channel_chat_id and (bot.self_id == notify_tg_bot_id):
-                    await bot.send_message(tg_channel_chat_id, _msg)
+                await tg_bot.send_message(tg_channel_chat_id, _msg)
             except Exception as e:
                 logger.warning(f'tg频道通知消息失败: {e}')
 
-        if isinstance(bot, Kook_Bot):
+    # 推送至kook
+    if notify_kk_bot_id and kk_channel_chat_id:
+        kook_bot = bots.get(notify_kk_bot_id)
+        if kook_bot:
             try:
-                # 推送至kook
-                if notify_kk_bot_id and kk_channel_chat_id and (bot.self_id == notify_kk_bot_id):
-                    await bot.send_channel_msg(channel_id=kk_channel_chat_id,
-                                               message=Kook_MsgSeg.KMarkdown(f"```\n{_msg}```"))
+                await kook_bot.send_channel_msg(channel_id=kk_channel_chat_id,
+                                                message=Kook_MsgSeg.KMarkdown(f"{_msg}"))
             except Exception as e:
                 logger.warning(f'kook频道通知消息失败: {e}')
 
@@ -48,38 +78,25 @@ async def notify_to_private(platform: str, user_id: str, msg: str):
     notify_tg_bot_id = plugin_config.splatoon3_notify_tg_bot_id
     # kook_bot
     notify_kk_bot_id = plugin_config.splatoon3_notify_kk_bot_id
-    # 通知标题
-    msg_id = get_msg_id(platform, user_id)
-    title = f'#{msg_id} \n'
-    bot = None
-    for _bot in get_bots().values():
-        # 确定平台
-        if _bot.adapter.get_name() == platform:
-            # 确认发信bot
-            if isinstance(_bot, Tg_Bot) and notify_tg_bot_id and _bot.self_id == notify_tg_bot_id:
-                bot = _bot
-                break
-            if isinstance(_bot, Kook_Bot) and notify_kk_bot_id and _bot.self_id == notify_kk_bot_id:
-                bot = _bot
-                break
 
-    # 消息过滤处理
-    if isinstance(bot, Tg_Bot):
-        if 'stat.ink' in msg:
-            msg = msg.replace('Exported', '#Exported')
-        else:
-            if '早报' in msg:
-                msg = '#report\n' + msg
-    elif isinstance(bot, V12_Bot):
-        msg = msg.replace('```', '').strip()
-    elif isinstance(bot, Kook_Bot):
-        pass
+    bot = None
+    bots = get_bots()
+
+    # tg平台
+    if platform == "Telegram" and notify_tg_bot_id:
+        tg_bot = bots.get(notify_tg_bot_id)
+        if tg_bot:
+            bot = tg_bot
+
+    # kook平台
+    elif platform == "Kaiheila" and notify_kk_bot_id:
+        kook_bot = bots.get(notify_kk_bot_id)
+        if kook_bot:
+            bot = kook_bot
 
     if bot:
         # 发送私信
         await send_private_msg(bot, user_id, msg)
-        # 通知到频道
-        await notify_to_channel(title + msg, _type='job')
 
 
 async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):

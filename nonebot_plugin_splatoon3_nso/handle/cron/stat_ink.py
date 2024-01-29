@@ -8,9 +8,9 @@ from datetime import datetime as dt
 
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
-from ...utils.utils import DIR_RESOURCE, init_path
+from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
 from ...data.data_source import model_get_all_stat_user
-from ..send_msg import notify_to_private
+from ..send_msg import notify_to_private, notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 
 
@@ -36,8 +36,13 @@ async def sync_stat_ink_func(db_user: UserTable):
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
 
     msg = get_post_stat_msg(db_user)
+
     if msg and db_user.stat_notify:
         cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
+        # 通知到频道
+        await cron_notify_to_channel(db_user.platform, db_user.user_id, msg, _type='job')
+        # 通知到私信
+        msg += "/stat_notify close 关闭stat.ink同步情况推送"
         await notify_to_private(db_user.platform, db_user.user_id, msg)
 
 
