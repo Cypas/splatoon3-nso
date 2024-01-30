@@ -1,4 +1,6 @@
+import asyncio
 import secrets
+import threading
 import time
 from datetime import datetime as dt, timedelta
 
@@ -338,4 +340,5 @@ async def sync_now(bot: Bot, event: Event):
     if db_user:
         await bot_send(bot, event, msg)
         await sync_stat_ink_func(db_user)
+        threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
     return

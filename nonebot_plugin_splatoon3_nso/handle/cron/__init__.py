@@ -1,3 +1,6 @@
+import asyncio
+import threading
+
 from nonebot import require, logger
 
 from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict
@@ -81,7 +84,7 @@ async def cron(_type):
         case "update_s3si_ts":
             update_s3si_ts()
         case "sync_stat_ink":
-            await sync_stat_ink()
+            threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
         case "clean_s3s_cache":
             await clean_s3s_cache()
         case "clean_global_user_info_dict":
