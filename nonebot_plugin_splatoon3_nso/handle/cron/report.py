@@ -33,15 +33,20 @@ async def create_set_report_tasks():
         list_user.append((user.platform, user.user_id))
 
     _pool = 5
+    set_report_count = 0
     for i in range(0, len(list_user), _pool):
         _p_and_id_list = list_user[i:i + _pool]
         tasks = [set_user_report_task(p_and_id) for p_and_id in _p_and_id_list]
         res = await asyncio.gather(*tasks)
+        # 统计有多少人更新了日报
+        for r in res:
+            if r:
+                set_report_count += 1
 
     cron_logger.info(f'clear cron user_info_dict...')
     await dict_clear_user_info_dict(_type="cron")
 
-    cron_msg = f"create_set_report_tasks end: {datetime.datetime.utcnow() - t}"
+    cron_msg = f"create_set_report_tasks end: {datetime.datetime.utcnow() - t}\nset_report_count: {set_report_count}"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
 
@@ -89,6 +94,7 @@ async def set_user_report_task(p_and_id):
         if last_play_time.date() >= (dt.utcnow() - timedelta(days=1)).date():
             # 写新的日报
             await set_user_report(u, res_summary, res_coop, last_play_time, splatoon, game_sp_id)
+            return True
 
     except Exception as ex:
         cron_logger.warning(f'set_user_report_task error: {msg_id}, error:{ex}')
