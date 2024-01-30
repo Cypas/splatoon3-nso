@@ -34,7 +34,7 @@ MSG_HELP = f"""
 /screen_shot - ss, get screen shot of SplatNet
 
 settings:
-/set_api_key - set stat.ink api_key for post data
+/set_stat_key - set stat.ink api_key for post data
 /sync_now - sync data to stat.ink now
 /show_db_info - show db info
 

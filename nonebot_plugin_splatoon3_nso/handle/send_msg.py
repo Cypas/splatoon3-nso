@@ -14,6 +14,7 @@ async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type=
     msg_id = get_msg_id(platform, user_id)
     title = f"#{msg_id}"
     # 去掉msg原有的md格式
+    msg = msg.replace("```\n", "")
     msg = msg.replace("```", "")
     # 整体包裹md代码块
     msg = f"{title}\n{msg}"
@@ -37,7 +38,7 @@ async def cron_notify_to_channel(msg: str, _type='job'):
     title = f"#cron_notify\n"
     title += get_time_now_china_str()
     title += "\n"
-    await notify_to_channel(f"title{msg}", _type)
+    await notify_to_channel(f"{title}{msg}", _type)
 
 
 notify_tg_bot_id = plugin_config.splatoon3_notify_tg_bot_id

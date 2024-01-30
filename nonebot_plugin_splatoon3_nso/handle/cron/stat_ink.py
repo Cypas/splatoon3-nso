@@ -64,7 +64,7 @@ def get_post_stat_msg(db_user):
         return
 
     battle_cnt, coop_cnt, url = res
-    msg = '```\nExported'
+    msg = '```Exported'
     if battle_cnt:
         msg += f' {battle_cnt} battles'
     if coop_cnt:
@@ -76,7 +76,7 @@ def get_post_stat_msg(db_user):
         url += '/salmon3'
     msg += f' to\n{url}\n'
 
-    msg += f'```\n'
+    msg += f'```'
     cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
 
     return msg

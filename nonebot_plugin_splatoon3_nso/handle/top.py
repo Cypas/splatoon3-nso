@@ -53,7 +53,7 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
     _msg = ""
     if not cmd_message:
         _msg += "未查询到自己的任何上榜数据"
-        _msg += "\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中查询数据，若以上榜单都未上榜，则查不到数据，/top命令具体参数可查看/nso详细帮助"
+        _msg += "\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中查询数据，若以上榜单都未上榜，则查不到数据，/top命令具体参数可查看/nso帮助"
     else:
         _msg = ''
 
@@ -174,7 +174,7 @@ async def get_top_md(player_code: str | list, player_name=""):
            '</br>&emsp;&emsp;&emsp;&emsp;&nbsp;' \
            '[a-h]: a-h的八个字母对应从上往下的8名玩家，指定查找该玩家全部上榜记录，如 /top 2 e' \
            '</br>&emsp;&emsp;&emsp;&emsp;&nbsp;' \
-           '[all]: all为查询第n场对战中除自己外的7名玩家的全部上榜记录，如 /top 2 all'
+           'all: all为查询第n场对战中除自己外的7名玩家的全部上榜记录，如 /top 2 all'
     return msg
 
 

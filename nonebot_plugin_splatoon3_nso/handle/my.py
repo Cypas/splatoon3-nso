@@ -161,7 +161,7 @@ async def get_me_md(user, summary, total, coops, from_group=False):
     return msg
 
 
-@on_command("friends", aliases={'fr'}, priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("friends", aliases={'friend', 'fr'}, priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def friends(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -212,7 +212,7 @@ async def get_friends_md(splatoon, lang='zh-CN'):
     return msg
 
 
-@on_command("ns_friends", aliases={'ns_fr'}, priority=10, block=True).handle(
+@on_command("ns_friends", aliases={'ns_friend', 'ns_fr'}, priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def ns_friends(bot: Bot, event: Event):
     """获取ns好友"""
@@ -318,7 +318,7 @@ async def get_ns_friends_md(splatoon: Splatoon):
     return msg
 
 
-@on_command("friend_code", aliases={'fc'}, priority=10, block=True).handle(
+@on_command("friend_code", aliases={'friends_code', 'fc'}, priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
     """获取ns 好友码"""
@@ -434,7 +434,7 @@ async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     await bot_send(bot, event, message=msg)
 
 
-@on_command("stat_notify", block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("stat_notify", aliases={'api_notify'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     if isinstance(bot, QQ_Bot):
         await bot_send(bot, event, 'QQ平台暂不支持本功能')

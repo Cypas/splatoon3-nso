@@ -127,7 +127,7 @@ Login success! Bot now can get your splatoon3 data from SplatNet.
 /me - show your info
 /last - show the latest battle or coop
 /start_push - start push mode
-/set_api_key - set stat.ink api_key, bot will sync your data to stat.ink
+/set_stat_key - set stat.ink api_key, bot will sync your data to stat.ink
 """
     if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
         msg = f"""登录成功！机器人现在可以从App获取你的数据。
@@ -141,7 +141,7 @@ Login success! Bot now can get your splatoon3 data from SplatNet.
 /last - 显示最近一场对战或打工
 /report - 获取昨天或指定日期的日报数据
 /start_push - 开启推送模式
-/set_api_key - 设置 api_key, 同步数据到 https://stat.ink
+/set_stat_key - 设置 api_key, 同步数据到 https://stat.ink
 更多完整nso操作指令:
 https://docs.qq.com/sheet/DUkZHRWtCUkR0d2Nr?tab=BB08J2
 """
@@ -166,11 +166,11 @@ https://docs.qq.com/sheet/DUkZHRWtCUkR0d2Nr?tab=BB08J2
 @on_command("clear_db_info", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
-    if 'group' in event.get_event_name():
+    platform = bot.adapter.get_name()
+    if 'group' in event.get_event_name() and platform != "QQ":
         await bot_send(bot, event, '请私聊机器人')
         return
 
-    platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
     model_delete_user(platform, user_id)
@@ -261,7 +261,7 @@ async def set_login_code(bot: QQ_Bot, event: Event):
     await notify_to_channel(f'绑定QQ成功: {msg_id}, 旧用户为{old_msg_id},{old_user.user_name}')
 
 
-matcher_set_api_key = on_command("set_api_key", priority=10, block=True)
+matcher_set_api_key = on_command("set_api_key", aliases={'set_stat_key'}, priority=10, block=True)
 
 
 @matcher_set_api_key.handle(parameterless=[Depends(_check_session_handler)])
@@ -304,7 +304,7 @@ first sync will be in minutes.
     '''
     if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
         msg = f'''设置成功，机器人会检查一次并同步你的数据到 stat.ink
-/api_notify 关 - 设置关闭推送通知
+/stat_notify 关 - 设置关闭推送通知
         '''
     await bot_send(bot, event, message=msg)
 
@@ -326,9 +326,9 @@ async def sync_now(bot: Bot, event: Event):
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)
     if not (user and user.session_token and user.stat_key):
-        msg = 'Please set api_key first, /set_api_key'
+        msg = 'Please set api_key first, /set_stat_key'
         if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
-            msg = '请先设置 api_key, /set_api_key'
+            msg = '请先设置 stat api_key, /set_stat_key'
         await bot_send(bot, event, msg)
         return
 
