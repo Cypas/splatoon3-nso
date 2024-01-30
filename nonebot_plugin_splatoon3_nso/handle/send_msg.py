@@ -1,5 +1,3 @@
-import copy
-
 from nonebot.adapters.qq import AuditException, ActionFailed
 
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china_str

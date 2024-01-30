@@ -1,7 +1,6 @@
 import shutil
 
-from sqlalchemy import Column, String, create_engine, Integer, Boolean, Text, DateTime, func, Float, \
-    UniqueConstraint, MetaData
+from sqlalchemy import Column, String, create_engine, Integer, Boolean, Text, DateTime, func
 from sqlalchemy.sql import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -71,6 +70,9 @@ def transfer_user_db():
     # 创建新结构
     init_db()
     init_old_user_db()
+    # 旧表添加唯一约数   索引index会自动更新，无需管
+    # sql lite 在表创建后，无法更改约束，先放弃
+
     # 创建双方会话对象
     session = DBSession()
     old_session = DBSession_Old_User()

@@ -88,20 +88,6 @@ class TopAll(Base_Main):
     update_time = Column(DateTime(), onupdate=func.now())
 
 
-# class Weapon(Base_Main):
-#     __tablename__ = 'weapon'
-#
-#     id = Column(Integer, primary_key=True, autoincrement=True)
-#     weapon_id = Column(String(), default='')
-#     weapon_name = Column(String(), default='')
-#     image2d = Column(String(), default='')
-#     image2d_thumb = Column(String(), default='')
-#     image3d = Column(String(), default='')
-#     image3d_thumb = Column(String(), default='')
-#     create_time = Column(String(), default=get_time_now_china_str())
-#     update_time = Column(String(), onupdate=get_time_now_china_str())  # sqlalchemy自带的fun.now()会返回utc时间，而非本地时间，故弃用改为自定义函数
-
-
 class TempImageTable(Base_Main):
     __tablename__ = 'temp_image'
 
