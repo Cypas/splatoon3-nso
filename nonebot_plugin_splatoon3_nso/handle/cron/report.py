@@ -185,7 +185,7 @@ async def send_report_task():
                 # 通知到频道
                 await cron_notify_to_channel(user.platform, user.user_id, msg, _type='job')
                 # 通知到私信
-                msg += "/report_notify close 关闭每日日报推送"
+                msg += "\n/report_notify close 关闭每日日报推送"
                 await notify_to_private(user.platform, user.user_id, msg)
         except Exception as e:
             cron_logger.warning(f'create_send_report_tasks error: {e}')

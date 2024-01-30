@@ -22,7 +22,6 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg = get_report(platform, user_id, report_day=report_day)
-
     if isinstance(bot, QQ_Bot):
         # QQ要单独考虑提示文案
         if not msg and not report_day:
@@ -131,7 +130,7 @@ def get_report(platform, user_id, report_day=None):
     # u = get_user(user_id=user_id)
     # if report_day and fst_day and not u.report_type:
     #     msg += f'```\n\n订阅早报: /report```'
-    logger.info(msg)
+    logger.debug(msg)
     return msg
 
 
