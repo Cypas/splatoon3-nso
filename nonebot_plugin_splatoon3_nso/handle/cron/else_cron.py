@@ -5,16 +5,19 @@ import shutil
 from .utils import cron_logger
 from datetime import datetime as dt, timedelta
 
+from ..send_msg import cron_notify_to_channel
 from ...utils import DIR_RESOURCE
-from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, model_get_all_user, \
-    model_get_newest_user, dict_clear_user_info_dict
+from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 
 
 async def create_refresh_token_tasks():
     """创建刷新token任务"""
-    cron_logger.info(f'create_refresh_token_tasks start')
+    cron_msg = f"create_refresh_token_tasks start"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
+
     t = dt.utcnow()
     users = dict_get_all_global_users()
 
@@ -29,7 +32,9 @@ async def create_refresh_token_tasks():
         tasks = [refresh_token_task(p_and_id) for p_and_id in _p_and_id_list]
         res = await asyncio.gather(*tasks)
 
-    cron_logger.info(f'create_set_report_tasks end: {dt.utcnow() - t}')
+    cron_msg = f"create_refresh_token_tasks end: {dt.utcnow() - t}\nusers_count:{len(list_user)}"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
 
 
 async def refresh_token_task(p_and_id):
@@ -56,7 +61,15 @@ def clean_s3s_cache():
     if os.path.exists(dir_s3s_cache):
         shutil.rmtree(dir_s3s_cache)
 
+    cron_msg = f"clean_s3s_cache end"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
+
 
 async def clean_global_user_info_dict():
     """清理公共用户字典"""
     await dict_clear_user_info_dict("normal")
+
+    cron_msg = f"clean_global_user_info_dict end"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)

@@ -7,7 +7,7 @@ from .utils import cron_logger, user_remove_duplicates
 from datetime import datetime as dt, timedelta
 
 from ..report import get_report
-from ..send_msg import notify_to_private, cron_notify_to_channel
+from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from ...utils import DIR_RESOURCE
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
@@ -18,7 +18,10 @@ from ...utils import get_msg_id
 
 async def create_set_report_tasks():
     """7点时请求并提前写好日报数据"""
-    cron_logger.info(f'create_set_report_tasks start')
+    cron_msg = f'create_set_report_tasks start'
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
+
     t = datetime.datetime.utcnow()
     users = model_get_all_user()
     # 去重
@@ -37,7 +40,10 @@ async def create_set_report_tasks():
 
     cron_logger.info(f'clear cron user_info_dict...')
     await dict_clear_user_info_dict(_type="cron")
-    cron_logger.info(f'create_set_report_tasks end: {datetime.datetime.utcnow() - t}')
+
+    cron_msg = f"create_set_report_tasks end: {datetime.datetime.utcnow() - t}"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
 
 
 async def set_user_report_task(p_and_id):
@@ -165,7 +171,9 @@ async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, pl
 
 async def send_report_task():
     """8点时进行发信"""
-    cron_logger.info(f'create_send_report_tasks start')
+    cron_msg = f'create_send_report_tasks start'
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
     t = time.time()
 
     users = model_get_all_user()
@@ -182,8 +190,8 @@ async def send_report_task():
         try:
             msg = get_report(user.platform, user.user_id)
             if msg:
-                # 通知到频道
-                await cron_notify_to_channel(user.platform, user.user_id, msg, _type='job')
+                # # 通知到频道
+                # await report_notify_to_channel(user.platform, user.user_id, msg, _type='job')
                 # 通知到私信
                 msg += "\n/report_notify close 关闭每日日报推送"
                 await notify_to_private(user.platform, user.user_id, msg)
@@ -191,4 +199,6 @@ async def send_report_task():
             cron_logger.warning(f'create_send_report_tasks error: {e}')
             continue
 
-    cron_logger.info(f'create_send_report_tasks end: {time.time() - t}')
+    cron_msg = f"create_send_report_tasks end: {time.time() - t}"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)

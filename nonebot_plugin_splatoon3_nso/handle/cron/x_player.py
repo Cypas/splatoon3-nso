@@ -3,6 +3,7 @@ import json
 import time
 from datetime import datetime as dt
 
+from ..send_msg import cron_notify_to_channel
 from ...data.data_source import model_delete_top_player, model_delete_top_all, model_add_top_player, model_add_top_all, \
     model_get_newest_user, dict_get_or_set_user_info
 from ...s3s.splatoon import Splatoon
@@ -11,8 +12,10 @@ from .utils import cron_logger
 
 async def get_x_player():
     """获取x赛数据"""
-    cron_logger.info(f'get_x_player start')
-    s = time.time()
+    cron_msg = f"get_x_player start"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
+    t = time.time()
 
     db_user = model_get_newest_user()
     if not db_user:
@@ -31,7 +34,10 @@ async def get_x_player():
 
     # 关闭连接池
     await splatoon.req_client.close()
-    cron_logger.info(f'get_x_player end. {time.time() - s}')
+
+    cron_msg = f"get_x_player end. {time.time() - t}"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
 
 
 async def parse_x_data(top_id, splatoon):

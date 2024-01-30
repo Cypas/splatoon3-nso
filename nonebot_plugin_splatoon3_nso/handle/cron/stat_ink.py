@@ -2,7 +2,7 @@ import asyncio
 import os
 import json
 import subprocess
-import concurrent.futures
+import time
 
 from datetime import datetime as dt
 
@@ -10,24 +10,30 @@ from ...data.db_sqlite import UserTable
 from ...config import plugin_config
 from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
 from ...data.data_source import model_get_all_stat_user
-from ..send_msg import notify_to_private, notify_to_channel, cron_notify_to_channel
+from ..send_msg import notify_to_private, notify_to_channel, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 
 
 async def sync_stat_ink():
     """同步至stat"""
+    cron_msg = f'sync_stat_ink start'
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
+    t = time.time()
+
     db_users = model_get_all_stat_user()
     # 去重
     db_users = user_remove_duplicates(db_users)
-
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-    #     executor.map(sync_stat_ink_func, users)
 
     _pool = 4
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks)
+
+    cron_msg = f"sync_stat_ink end: {time.time() - t}"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
 
 
 async def sync_stat_ink_func(db_user: UserTable):
@@ -40,7 +46,7 @@ async def sync_stat_ink_func(db_user: UserTable):
     if msg and db_user.stat_notify:
         cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
         # 通知到频道
-        await cron_notify_to_channel(db_user.platform, db_user.user_id, msg, _type='job')
+        await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type='job')
         # 通知到私信
         msg += "/stat_notify close 关闭stat.ink同步情况推送"
         await notify_to_private(db_user.platform, db_user.user_id, msg)

@@ -2,7 +2,7 @@ import copy
 
 from nonebot.adapters.qq import AuditException, ActionFailed
 
-from ..utils import DIR_RESOURCE, get_msg_id
+from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china_str
 from ..utils.bot import *
 from ..config import plugin_config
 
@@ -10,8 +10,8 @@ require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
 
 
-async def cron_notify_to_channel(platform: str, user_id: str, msg: str, _type='job'):
-    """任务处理通知到频道"""
+async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type='job'):
+    """stat同步 和 report 通知到频道"""
     # 通知标题
     msg_id = get_msg_id(platform, user_id)
     title = f"#{msg_id}"
@@ -34,38 +34,56 @@ async def cron_notify_to_channel(platform: str, user_id: str, msg: str, _type='j
     await notify_to_channel(msg, _type=_type)
 
 
-async def notify_to_channel(_msg, _type='msg', **kwargs):
+async def cron_notify_to_channel(msg: str, _type='job'):
+    """任务处理通知到频道"""
+    title = f"#cron_notify\n"
+    title += get_time_now_china_str()
+    title += "\n"
+    await notify_to_channel(f"title{msg}", _type)
+
+
+notify_tg_bot_id = plugin_config.splatoon3_notify_tg_bot_id
+tg_c_chat_id = plugin_config.splatoon3_tg_channel_msg_chat_id
+tg_c_job_id = plugin_config.splatoon3_tg_channel_job_chat_id
+
+notify_kk_bot_id = plugin_config.splatoon3_notify_kk_bot_id
+kk_c_chat_id = plugin_config.splatoon3_kk_channel_msg_chat_id
+kk_c_job_id = plugin_config.splatoon3_kk_channel_job_chat_id
+
+
+async def notify_to_channel(_msg, _type='msg'):
+    """消息通知至频道"""
+    channel_id = ""
     # log to telegram
-    notify_tg_bot_id = kwargs.get('tg_bot_id', None) or plugin_config.splatoon3_notify_tg_bot_id
-    tg_channel_chat_id = kwargs.get('tg_chat_id', None) or plugin_config.splatoon3_tg_channel_msg_chat_id
-    if _type == 'job':
-        tg_channel_chat_id = kwargs.get('tg_chat_id', None) or plugin_config.splatoon3_tg_channel_job_chat_id
+    if _type == 'msg':
+        channel_id = tg_c_chat_id
+    elif _type == 'job':
+        channel_id = tg_c_job_id
 
     # log to kook
-    notify_kk_bot_id = kwargs.get('kook_bot_id', None) or plugin_config.splatoon3_notify_kk_bot_id
-    kk_channel_chat_id = kwargs.get('kook_chat_id', None) or plugin_config.splatoon3_kk_channel_msg_chat_id
-    if _type == 'job':
-        kk_channel_chat_id = kwargs.get('kook_chat_id', None) or plugin_config.splatoon3_kk_channel_job_chat_id
+    if _type == 'msg':
+        channel_id = kk_c_chat_id
+    elif _type == 'job':
+        channel_id = kk_c_job_id
 
     bots = get_bots()
-
     # 推送至tg
-    if notify_tg_bot_id and tg_channel_chat_id:
+    if notify_tg_bot_id and channel_id:
         tg_bot = bots.get(notify_tg_bot_id)
         if tg_bot:
             try:
                 _msg = f"```\n{_msg}```"
-                await tg_bot.send_message(tg_channel_chat_id, _msg)
+                await tg_bot.send_message(channel_id, _msg)
             except Exception as e:
                 logger.warning(f'tg频道通知消息失败: {e}')
 
     # 推送至kook
-    if notify_kk_bot_id and kk_channel_chat_id:
+    if notify_kk_bot_id and channel_id:
         kook_bot = bots.get(notify_kk_bot_id)
         if kook_bot:
             try:
                 _msg = f"```\n{_msg}```"
-                await kook_bot.send_channel_msg(channel_id=kk_channel_chat_id,
+                await kook_bot.send_channel_msg(channel_id=channel_id,
                                                 message=Kook_MsgSeg.KMarkdown(_msg))
             except Exception as e:
                 logger.warning(f'kook频道通知消息失败: {e}')
@@ -76,14 +94,9 @@ async def notify_to_private(platform: str, user_id: str, msg: str):
     # 排除QQ平台
     if platform == "QQ":
         return
-    # tg_bot
-    notify_tg_bot_id = plugin_config.splatoon3_notify_tg_bot_id
-    # kook_bot
-    notify_kk_bot_id = plugin_config.splatoon3_notify_kk_bot_id
 
     bot = None
     bots = get_bots()
-
     # tg平台
     if platform == "Telegram" and notify_tg_bot_id:
         tg_bot = bots.get(notify_tg_bot_id)
