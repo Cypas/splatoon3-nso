@@ -23,7 +23,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
     _type = "default"
     # 列表类
     for _k in ('最近', '涂地', '蛮颓', 'X', 'x', 'X赛', 'x赛', '活动', '私房', '武器', '打工', '鲑鱼跑', '徽章'):
-        if _k in key:
+        if _k in key and key != "打工记录":
             height = 2500
             _type = "list"
             break
@@ -31,7 +31,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
         # 对战打码且隐藏奖牌
         height = 740
         _type = "battle_mask"
-    if 'coop' in url:
+    if 'coop' in url or key == "打工记录":
         height = 1500
         _type = "coop_detail"
     viewport = ViewportSize({"width": 500, "height": height})
@@ -61,19 +61,20 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             '最近': 'history/latest',
             '涂地': 'history/regular',
             '蛮颓': 'history/bankara',
-            'X': 'history/xmatch',
-            'x': 'history/xmatch',
             'X赛': 'history/xmatch',
             'x赛': 'history/xmatch',
+            'X': 'history/xmatch',
+            'x': 'history/xmatch',
             '活动': 'history/event',
             '私房': 'history/private',
             '武器': 'weapon_record',
             '徽章': 'history_record/badge',
+            '打工记录': 'coop_record/play_record',
             '打工': 'coop',
             '鲑鱼跑': 'coop',
-            '打工记录': 'coop_record/play_record',
             '击倒数量': 'coop_record/enemies',
             '祭典': 'fest_record',
+            '英雄模式': 'hero_record',
             '英雄': 'hero_record',
             '地图': 'stage_record',
         }

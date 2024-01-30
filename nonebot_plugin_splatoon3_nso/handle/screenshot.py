@@ -17,14 +17,17 @@ async def screen_shot(bot: Bot, event: Event, args: Message = CommandArg()):
     user_id = event.get_user_id()
     key = ""
     message = ""
-    if not args.extract_plain_text().strip():
+    cmd = args.extract_plain_text().strip()
+    if not cmd:
         # 没有任何参数
         await bot_send(bot, event, message="未提供任何截图参数，将截图最近对战，截图需要10秒以上时间，请稍等...")
     else:
         await bot_send(bot, event, message="截图需要10秒以上时间，请稍等...")
-    if " " in args.extract_plain_text():
+    if " " in cmd:
         # 取末尾的关键词
-        key = args.extract_plain_text().split(' ')[-1].strip()
+        key = cmd.split(' ')[-1].strip()
+    else:
+        key = cmd
     try:
         img = await get_screenshot_image(bot, event, platform, user_id, key=key)
     except ValueError as e:
