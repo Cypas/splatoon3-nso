@@ -46,7 +46,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id)
     if user and user.session_token:
-        msg = '用户已经登录\n如需重新登录或切换账号请继续下面操作\n登出或清空账号数据 /clear_db_info'
+        msg = '用户已经登录\n如需重新登录或切换账号请继续下面操作\n登出或清空账号数据 /clear_db_info\n/get_login_code 获取绑定码以绑定其他平台bot账号'
         await bot_send(bot, event, msg)
         await matcher.finish()
 
@@ -145,8 +145,12 @@ Login success! Bot now can get your splatoon3 data from SplatNet.
 /start_push - 开启推送模式
 /set_stat_key - 设置 api_key, 同步数据到 https://stat.ink
 更多完整nso操作指令:
-https://docs.qq.com/sheet/DUkZHRWtCUkR0d2Nr?tab=BB08J2
 """
+    if plugin_config.splatoon3_schedule_plugin_priority_mode:
+        # 日程插件帮助优先模式
+        msg += "/nso帮助"
+    else:
+        msg += "https://docs.qq.com/sheet/DUkZHRWtCUkR0d2Nr?tab=BB08J2"
     await bot.send(event, message=msg)
     global_login_status_dict.pop(msg_id)
     logger.info(f'login success:{msg_id} {user_name}')
@@ -256,6 +260,10 @@ async def set_login_code(bot: QQ_Bot, event: Event):
 /last - 显示最近一场对战或打工
 /report - 喷喷早报
 """
+    if plugin_config.splatoon3_schedule_plugin_priority_mode:
+        # 日程插件帮助优先模式
+        msg += "更多完整nso操作指令:\n/nso帮助"
+
     await bot_send(bot, event, msg)
 
     logger.info(f'set_login success: {msg_id},old user is {old_msg_id}')
@@ -279,8 +287,8 @@ async def set_api_key(bot: Bot, event: Event):
     msg = '''Please copy you api_key from https://stat.ink/profile then paste below'''
     if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
         msg = '''请从 https://stat.ink/profile 页面复制你的 api_key 后,将key直接发送给机器人
-注册stat.ink账号后，无需其他操作，设置api_key
-机器人会同步你的数据到 stat.ink (App最多保存最近50*5场对战和50场打工数据,该网站可记录全部对战或打工)
+注册stat.ink账号后，无需其他操作，设置api_key后，
+机器人会同步你的数据到 stat.ink (App最多保存最近50*5场对战和50场打工数据,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)
         '''
     await bot_send(bot, event, message=msg)
 
@@ -312,7 +320,8 @@ first sync will be in minutes.
 
     update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
-    await sync_stat_ink_func(db_user,)
+    # await sync_stat_ink_func(db_user,)
+    threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
 
 
 @on_command("sync_now", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
@@ -330,7 +339,7 @@ async def sync_now(bot: Bot, event: Event):
     if not (user and user.session_token and user.stat_key):
         msg = 'Please set api_key first, /set_stat_key'
         if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
-            msg = '请先设置 stat api_key, /set_stat_key'
+            msg = '请先设置 stat_api_key, 指令:/set_stat_key'
         await bot_send(bot, event, msg)
         return
 
@@ -339,6 +348,6 @@ async def sync_now(bot: Bot, event: Event):
     db_user = model_get_or_set_user(platform, user_id)
     if db_user:
         await bot_send(bot, event, msg)
-        await sync_stat_ink_func(db_user)
+        # await sync_stat_ink_func(db_user)
         threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
     return

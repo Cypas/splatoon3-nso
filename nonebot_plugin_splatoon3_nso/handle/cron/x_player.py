@@ -1,4 +1,5 @@
 import base64
+import datetime
 import json
 import time
 from datetime import datetime as dt
@@ -15,7 +16,7 @@ async def get_x_player():
     cron_msg = f"get_x_player start"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
-    t = time.time()
+    t = datetime.datetime.utcnow()
 
     db_user = model_get_newest_user()
     if not db_user:
@@ -35,7 +36,7 @@ async def get_x_player():
     # 关闭连接池
     await splatoon.req_client.close()
 
-    cron_msg = f"get_x_player end. {time.time() - t}"
+    cron_msg = f"get_x_player end. {datetime.datetime.utcnow() - t}"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
 

@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import os
 import json
 import subprocess
@@ -19,7 +20,7 @@ async def sync_stat_ink():
     cron_msg = f'sync_stat_ink start'
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
-    t = time.time()
+    t = datetime.datetime.utcnow()
 
     db_users = model_get_all_stat_user()
     # 去重
@@ -31,7 +32,7 @@ async def sync_stat_ink():
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks)
 
-    cron_msg = f"sync_stat_ink end: {time.time() - t}"
+    cron_msg = f"sync_stat_ink end: {datetime.datetime.utcnow() - t}"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
 
@@ -48,7 +49,7 @@ async def sync_stat_ink_func(db_user: UserTable):
         # 通知到频道
         await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type='job')
         # 通知到私信
-        msg += "/stat_notify close 关闭stat.ink同步情况推送"
+        msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
         await notify_to_private(db_user.platform, db_user.user_id, msg)
 
 
@@ -64,7 +65,7 @@ def get_post_stat_msg(db_user):
         return
 
     battle_cnt, coop_cnt, url = res
-    msg = '```Exported'
+    msg = '```\nExported'
     if battle_cnt:
         msg += f' {battle_cnt} battles'
     if coop_cnt:

@@ -11,7 +11,7 @@ from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_
 from ...utils import DIR_RESOURCE
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
-    model_get_today_report, dict_clear_user_info_dict
+    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 
@@ -73,6 +73,9 @@ async def set_user_report_task(p_and_id):
         first_play_time = history['gameStartTime']
         first_play_time = dt.strptime(first_play_time, '%Y-%m-%dT%H:%M:%SZ')
         game_name = player['name']
+        # 从个人数据缓存头像
+        # 我的头像，使用sp_id进行储存
+        icon_img = await model_get_temp_image_path('my_icon', u.game_sp_id, player['userIcon']['url'])
 
         # 最近对战数据
         res_battle = await splatoon.get_recent_battles()

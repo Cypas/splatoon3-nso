@@ -187,8 +187,9 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             # 关闭定时，更新push状态，发送统计
             dict_get_or_set_user_info(platform, user_id, push=0)
             msg = 'No game record for 20 minutes, stop push.'
+            push_time_minute: float = float(push_cnt * PUSH_INTERVAL) / 60
             if isinstance(bot, (V12_Bot, Kook_Bot)):
-                msg = '20分钟内没有游戏记录，停止推送。'
+                msg = f'20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟'
                 if not user.stat_key:
                     msg += "\n/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
 
@@ -196,11 +197,10 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             st_msg = close_push(platform, user_id)
             msg += st_msg
 
-            logger.info(f'push auto end,user：{msg_id},gamer：{user.game_name}, push cycle count:{push_cnt}')
+            logger.info(f'push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push cycle count:{push_cnt:>3}')
 
             await bot_send(bot, event, message=msg, skip_log_cmd=True)
-
-            msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，线程循环次数{push_cnt}"
+            msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
             await notify_to_channel(msg)
             return
         return

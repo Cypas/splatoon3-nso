@@ -32,7 +32,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             if not u.push:
                 continue
             msg_id = get_msg_id(u.platform, u.user_id)
-            msg += f'db_id:{u.db_id},{msg_id:>4}, n:{u.user_name}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n'
+            msg += f'db_id:{u.db_id:>3},{msg_id}, n:{u.user_name:>7}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n'
         msg = f'```\n{msg}```' if msg else 'no data'
         await bot_send(bot, event, message=msg)
 

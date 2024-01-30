@@ -16,7 +16,7 @@ async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type=
     # 去掉msg原有的md格式
     msg = msg.replace("```\n", "")
     msg = msg.replace("```", "")
-    # 整体包裹md代码块
+
     msg = f"{title}\n{msg}"
 
     # 消息过滤处理
@@ -207,12 +207,9 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
                 await bot.send(event, message=QQ_MsgSeg.file_image(img))
             else:
                 # 目前q群只支持url图片，得想办法上传图片获取url
-                kook_bot = None
                 bots = nonebot.get_bots()
-                for k, b in bots.items():
-                    if isinstance(b, Kook_Bot):
-                        kook_bot = b
-                        break
+                kook_bot = bots.get(notify_kk_bot_id)
+
                 if kook_bot is not None:
                     # 使用kook的接口传图片
                     url = await kook_bot.upload_file(img)
