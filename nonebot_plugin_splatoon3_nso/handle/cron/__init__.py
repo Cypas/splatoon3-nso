@@ -83,7 +83,7 @@ async def cron(_type):
         case "sync_stat_ink":
             await sync_stat_ink()
         case "clean_s3s_cache":
-            clean_s3s_cache()
+            await clean_s3s_cache()
         case "clean_global_user_info_dict":
             await clean_global_user_info_dict()
 

@@ -55,7 +55,7 @@ async def refresh_token_task(p_and_id):
         cron_logger.warning(f'refresh_token_task error: {msg_id}, {e}')
 
 
-def clean_s3s_cache():
+async def clean_s3s_cache():
     """清理s3sti脚本的缓存文件夹"""
     dir_s3s_cache = f'{DIR_RESOURCE}/s3sits_git/cache'
     if os.path.exists(dir_s3s_cache):
