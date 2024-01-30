@@ -258,7 +258,7 @@ async def set_login_code(bot: QQ_Bot, event: Event):
 
     logger.info(f'set_login success: {msg_id},old user is {old_msg_id}')
 
-    await notify_to_channel(f'绑定QQ成功: {msg_id}, 旧用户为{old_msg_id}')
+    await notify_to_channel(f'绑定QQ成功: {msg_id}, 旧用户为{old_msg_id},{old_user.user_name}')
 
 
 matcher_set_api_key = on_command("set_api_key", priority=10, block=True)
