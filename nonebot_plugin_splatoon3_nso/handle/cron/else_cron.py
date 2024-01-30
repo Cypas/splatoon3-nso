@@ -7,7 +7,7 @@ from datetime import datetime as dt, timedelta
 
 from ...utils import DIR_RESOURCE
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, model_get_all_user, \
-    model_get_newest_user
+    model_get_newest_user, dict_clear_user_info_dict
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 
@@ -55,3 +55,8 @@ def clean_s3s_cache():
     dir_s3s_cache = f'{DIR_RESOURCE}/s3sits_git/cache'
     if os.path.exists(dir_s3s_cache):
         shutil.rmtree(dir_s3s_cache)
+
+
+async def clean_global_user_info_dict():
+    """清理公共用户字典"""
+    await dict_clear_user_info_dict("normal")

@@ -181,6 +181,7 @@ DBSession_Friends = sessionmaker()
 # DBSession = sessionmaker(bind=engine)
 # DBSession_Friends = sessionmaker(bind=engine_friends)
 
+
 def init_db():
     """初始化数据库"""
     global DBSession

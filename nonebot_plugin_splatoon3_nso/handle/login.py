@@ -1,5 +1,4 @@
 import secrets
-import threading
 import time
 from datetime import datetime as dt, timedelta
 
@@ -311,7 +310,7 @@ first sync will be in minutes.
 
     update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
-    threading.Thread(target=sync_stat_ink_func, args=(db_user,)).start()
+    await sync_stat_ink_func(db_user,)
 
 
 @on_command("sync_now", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
