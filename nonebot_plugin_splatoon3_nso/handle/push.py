@@ -131,12 +131,12 @@ async def stop_push(bot: Bot, event: Event):
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id, push=0)
 
+    st_msg, push_time_minute = close_push(platform, user_id)
     if isinstance(bot, (V12_Bot, Kook_Bot)):
-        msg = '停止推送！\n'
-    if not user.stat_key:
+        msg = f'停止推送！推送持续 {push_time_minute}分钟\n'
+    if not user.stat_key and user.push_cnt <= 10:
         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
 
-    st_msg = close_push(platform, user_id)
     msg += st_msg
 
     await bot_send(bot, event, msg)
@@ -187,14 +187,13 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             # 关闭定时，更新push状态，发送统计
             dict_get_or_set_user_info(platform, user_id, push=0)
             msg = 'No game record for 20 minutes, stop push.'
-            push_time_minute: float = float(push_cnt * PUSH_INTERVAL) / 60
-            if isinstance(bot, (V12_Bot, Kook_Bot)):
-                msg = f'20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟'
-                if not user.stat_key:
-                    msg += "\n/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
 
             # 获取统计数据
-            st_msg = close_push(platform, user_id)
+            st_msg, push_time_minute = close_push(platform, user_id)
+            if isinstance(bot, (V12_Bot, Kook_Bot)):
+                msg = f'20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟'
+                if not user.stat_key and user.push_cnt <= 10:
+                    msg += "\n/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
             msg += st_msg
 
             logger.info(f'push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push cycle count:{push_cnt:>3}')
@@ -237,6 +236,7 @@ def close_push(platform, user_id):
     logger.info(f'remove push_job {job_id}')
     job_data = None
     msg = ""
+    push_time_minute = 0
     try:
         r = scheduler.get_job(job_id)
         job_data = r.args[2] or {}
@@ -249,4 +249,7 @@ def close_push(platform, user_id):
         if push_statistics:
             msg += push_statistics.get_battle_st_msg()
             msg += push_statistics.get_coop_st_msg()
-    return msg
+        # 计算推送持续时间
+        push_cnt = job_data.get('this_push_cnt', 0)
+        push_time_minute: float = float(push_cnt * PUSH_INTERVAL) / 60
+    return msg, push_time_minute
