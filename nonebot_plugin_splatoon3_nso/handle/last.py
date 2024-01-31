@@ -1,9 +1,13 @@
 from datetime import datetime as dt, timedelta
 
+from nonebot.adapters.qq.models import MessageMarkdown
+
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
-from .send_msg import bot_send, notify_to_private
+from .qq_md import last_md
+from .send_msg import bot_send, notify_to_private, bot_send_qq_md
 from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time, get_event_info
+from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
 from ..s3s.splatnet_image import get_app_screenshot
 from ..s3s.splatoon import Splatoon
@@ -62,21 +66,26 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     if get_screenshot:
         photo = msg
         msg = ''
-    await bot_send(bot, event, msg, photo=photo, image_width=image_width)
 
-    user = dict_get_or_set_user_info(platform, user_id)
-    if user.push_cnt < 3 and (not isinstance(bot, QQ_Bot)):
-        logger.info(f'is_playing: {is_playing}')
-        if is_playing:
-            msg = ''
-            if 'group' in event.get_event_name():
-                if not user.push_cnt:
-                    msg = '正在游玩时可以 /push 开启推送模式~'
-            else:
-                if user.push_cnt < 3:
-                    msg = '正在游玩时可以 /push 开启推送模式~'
-            if msg:
-                await bot_send(bot, event, msg)
+    if platform == "QQ" and plugin_config.splatoon3_qq_md_mode:
+        await bot_send_qq_md(bot, event, msg, user_id, image_width=image_width)
+    else:
+        await bot_send(bot, event, msg, photo=photo, image_width=image_width, qq_md=True)
+
+    if not isinstance(bot, QQ_Bot):
+        user = dict_get_or_set_user_info(platform, user_id)
+        if user.push_cnt < 3:
+            logger.info(f'is_playing: {is_playing}')
+            if is_playing:
+                msg = ''
+                if 'group' in event.get_event_name():
+                    if not user.push_cnt:
+                        msg = '正在游玩时可以 /push 开启推送模式~'
+                else:
+                    if user.push_cnt < 3:
+                        msg = '正在游玩时可以 /push 开启推送模式~'
+                if msg:
+                    await bot_send(bot, event, msg)
 
 
 async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, get_coop=False,
@@ -89,8 +98,6 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     splatoon = Splatoon(bot, event, user)
     battle_t = ""
     coop_t = ""
-
-
 
     # 更新平台用户名
     event_info = await get_event_info(bot, event)

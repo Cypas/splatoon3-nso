@@ -1,5 +1,9 @@
+import io
+
+from PIL import Image
 from nonebot.adapters.qq import AuditException, ActionFailed
 
+from .qq_md import last_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china_str
 from ..utils.bot import *
 from ..config import plugin_config
@@ -156,6 +160,29 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
         #     await log_cmd_to_db(bot, event)
 
 
+async def bot_send_qq_md(bot: Bot, event: Event, message: str, user_id: str, image_width=None):
+    """发送qq md消息"""
+    img_data = ''
+    width = 1000
+    if message and message.strip().startswith('####'):
+        if image_width:
+            width = image_width
+        # 打工
+        if 'W1 ' in message and 'duration: ' not in message:
+            width = 680
+        img_data = await md_to_pic(message, width=width, css_path=f'{DIR_RESOURCE}/md.css')
+
+    if img_data:
+        # 通过pillow库获取图片宽高数据
+        image = Image.open(io.BytesIO(img_data))
+        width, height = image.size
+        image.close()
+        # 获取图片url
+        url = await get_image_url(img_data)
+        qq_msg = last_md(user_id, image_size=(width, height), url=url)
+        await bot.send(event, qq_msg)
+
+
 async def send_msg(bot: Bot, event: Event, msg: str | bytes):
     """公用send_msg"""
     # 指定回复模式
@@ -206,14 +233,20 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
             if not isinstance(event, GroupAtMessageCreateEvent):
                 await bot.send(event, message=QQ_MsgSeg.file_image(img))
             else:
-                # 目前q群只支持url图片，得想办法上传图片获取url
-                bots = nonebot.get_bots()
-                kook_bot = bots.get(notify_kk_bot_id)
-
-                if kook_bot is not None:
-                    # 使用kook的接口传图片
-                    url = await kook_bot.upload_file(img)
+                url = await get_image_url(img)
+                if url:
                     await bot.send(event, message=QQ_MsgSeg.image(url))
+
+
+async def get_image_url(img: bytes) -> str:
+    """通过kook获取图片url"""
+    bots = nonebot.get_bots()
+    kook_bot = bots.get(notify_kk_bot_id)
+    url = ""
+    if kook_bot is not None:
+        # 使用kook的接口传图片
+        url = await kook_bot.upload_file(img)
+    return url
 
 
 async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):

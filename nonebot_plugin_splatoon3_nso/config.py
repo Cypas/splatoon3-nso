@@ -27,6 +27,8 @@ class Config(BaseModel):
     splatoon3_bot_disconnect_notify: bool = True
     # 日程插件优先模式(主要影响帮助菜单，该配置项与nso查询插件公用)
     splatoon3_schedule_plugin_priority_mode: bool = False
+    # 部分消息使用qq平台md卡片,开启了也不一定有用，md模版id目前在代码里是写死的
+    splatoon3_qq_md_mode: bool = False
 
 
 driver = get_driver()
