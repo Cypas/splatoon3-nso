@@ -11,7 +11,8 @@ from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_
 from ...utils import DIR_RESOURCE
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
-    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path
+    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, model_get_newest_user, \
+    global_user_info_dict
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 
@@ -26,7 +27,6 @@ async def create_set_report_tasks():
     users = model_get_all_user()
     # 去重
     users = user_remove_duplicates(users)
-    # users = sorted(users, key=lambda x: (-(x.report_type or 0), x.id))
 
     list_user: list[tuple] = []  # 简要记录平台和user_id信息，等到具体任务内再获取user数据
     for user in users:
@@ -44,9 +44,11 @@ async def create_set_report_tasks():
                 set_report_count += 1
 
     cron_logger.info(f'clear cron user_info_dict...')
-    await dict_clear_user_info_dict(_type="cron")
+    clear_count = await dict_clear_user_info_dict(_type="cron")
 
-    cron_msg = f"create_set_report_tasks end: {datetime.datetime.utcnow() - t}\nset_report_count: {set_report_count}"
+    cron_msg = f"create_set_report_tasks end: {datetime.datetime.utcnow() - t}\n" \
+               f"set_report_count: {set_report_count}\n" \
+               f"clear_count: {clear_count}"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
 
@@ -55,13 +57,24 @@ async def set_user_report_task(p_and_id):
     """任务:写用户最后游玩数据以及日报数据"""
     platform, user_id = p_and_id
     msg_id = get_msg_id(platform, user_id)
-    u = dict_get_or_set_user_info(platform, user_id, _type="cron")
-    if not u or not u.session_token:
-        return
+    # token复用，如果在公共缓存存在该用户，直接使用该缓存对象而不是创建新对象
+    global_user_info = global_user_info_dict.get(msg_id)
+    if global_user_info:
+        u = global_user_info
+        if not u or not u.session_token:
+            return
+        cron_logger.debug(
+            f'set_user_info: {msg_id}, {u.user_name}')
+        splatoon = Splatoon(None, None, u)
+    else:
+        # 新建cron任务对象
+        u = dict_get_or_set_user_info(platform, user_id, _type="cron")
+        if not u or not u.session_token:
+            return
 
-    cron_logger.debug(
-        f'set_user_info: {msg_id}, {u.user_name}')
-    splatoon = Splatoon(None, None, u, _type="cron")
+        cron_logger.debug(
+            f'set_user_info: {msg_id}, {u.user_name}')
+        splatoon = Splatoon(None, None, u, _type="cron")
     try:
         # 刷新token
         await splatoon.refresh_gtoken_and_bullettoken()
@@ -183,7 +196,7 @@ async def send_report_task():
     cron_msg = f'create_send_report_tasks start'
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
-    t = time.time()
+    t = datetime.datetime.utcnow()
 
     users = model_get_all_user()
     for user in users:
@@ -208,6 +221,6 @@ async def send_report_task():
             cron_logger.warning(f'create_send_report_tasks error: {e}')
             continue
 
-    cron_msg = f"create_send_report_tasks end: {time.time() - t}"
+    cron_msg = f"create_send_report_tasks end: {datetime.datetime.utcnow() - t}"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)

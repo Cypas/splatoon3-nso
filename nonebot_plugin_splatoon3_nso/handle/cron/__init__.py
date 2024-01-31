@@ -50,7 +50,7 @@ def scheduler_controller():
     # parse x rank player at 2:40
     add_scheduler("parse_x_rank", trigger='cron', hour=2, minute=40)
     # 清空s3sti.ts脚本生成的缓存文件
-    add_scheduler("clean_s3s_cache", trigger='cron', hour=4, minute=30)
+    add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
     # set_report at 7:00
     add_scheduler("set_report", trigger='cron', hour=7, minute=0)
     # report at 8:00

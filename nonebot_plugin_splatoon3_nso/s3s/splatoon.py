@@ -41,6 +41,7 @@ class Splatoon:
         s3s = S3S(self.platform, self.user_id, _type=_type)
         self.s3s = s3s
         self.nso_app_version = s3s.get_nsoapp_version()
+        self.dict_type = _type
         self.req_client = user_info.req_client or get_or_init_client(self.platform, self.user_id, _type=_type)
 
         user = model_get_or_set_user(self.platform, self.user_id)
@@ -61,7 +62,7 @@ class Splatoon:
             if hasattr(self, k):
                 setattr(self, k, v)
         # 修改全局字典
-        dict_get_or_set_user_info(self.platform, self.user_id, **kwargs)
+        dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, **kwargs)
 
     async def refresh_gtoken_and_bullettoken(self):
         """刷新gtoken 和 bullettoken"""

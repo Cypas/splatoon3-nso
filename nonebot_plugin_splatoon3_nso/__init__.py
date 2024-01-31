@@ -12,8 +12,6 @@ from .handle.send_msg import bot_send, notify_to_channel
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
 from .utils.bot import *
 
-# require("nonebot_plugin_apscheduler")
-# from nonebot_plugin_apscheduler import scheduler
 
 __plugin_meta__ = PluginMetadata(
     name="splatoon3游戏nso查询",
