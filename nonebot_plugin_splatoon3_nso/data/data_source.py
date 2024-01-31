@@ -295,8 +295,9 @@ FROM report WHERE (user_id_sp, last_play_time, create_time) IN
   FROM report
   GROUP BY user_id_sp, last_play_time)
 and user_id_sp=:user_id_sp
-order by create_time desc""")
-                                                  ).params(user_id_sp=user_id_sp).limit(30).all()
+order by create_time desc
+limit 30""")
+                                                  ).params(user_id_sp=user_id_sp).all()
     session.close()
     return report
 
@@ -324,7 +325,8 @@ FROM report WHERE (user_id_sp, last_play_time, create_time) IN
   FROM report
   GROUP BY user_id_sp, last_play_time)
 and user_id_sp=:user_id_sp
-order by create_time""")).params(user_id_sp=user_id_sp).limit(50).all()
+order by create_time
+limit 50""")).params(user_id_sp=user_id_sp).all()
 
     session.close()
     return reports
