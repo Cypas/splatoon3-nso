@@ -7,7 +7,7 @@ from datetime import datetime as dt, timedelta
 from .cron import update_s3si_ts
 from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, get_event_info, get_game_sp_id
-from .send_msg import bot_send, notify_to_channel
+from .send_msg import bot_send, notify_to_channel, bot_send_last_md, bot_send_login_md
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict, \
     model_get_or_set_user
@@ -26,10 +26,17 @@ matcher_login_in = on_command("login", priority=10, block=True)
 @matcher_login_in.handle()
 async def login_in(bot: Bot, event: Event, matcher: Matcher):
     """登录"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+
     if isinstance(bot, QQ_Bot):
-        kk_guild_id = plugin_config.splatoon3_kk_guild_id
-        msg = f"Q群当前无法登录nso，请至其他平台完成登录后获取绑定码\nKook服务器id：{kk_guild_id}"
-        await bot_send(bot, event, msg)
+        if platform == "QQ" and plugin_config.splatoon3_qq_md_mode:
+            await bot_send_login_md(bot, event, user_id)
+        else:
+            kk_guild_id = plugin_config.splatoon3_kk_guild_id
+            msg = f"Q群当前无法登录nso，请至其他平台完成登录后获取绑定码\nKook服务器id：{kk_guild_id}"
+            await bot_send(bot, event, msg)
+
         await matcher.finish()
         return
 
@@ -41,8 +48,6 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         await matcher.finish()
         return
 
-    platform = bot.adapter.get_name()
-    user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id)
     if user and user.session_token:

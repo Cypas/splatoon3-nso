@@ -22,7 +22,7 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     button_show3 = "/last c"
     button_cmd3 = "/last c"
 
-    #不能有空变量
+    # 不能有空变量
     md = MessageMarkdown.parse_obj({
         "custom_template_id": f"{template_id}",
         "params": [{"key": "at_user_id", "values": [f"<@{user_id}>"]},
@@ -101,12 +101,48 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
             ]
         }
     })
+    qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
+    return qq_msg
 
 
-    # button1 = Button(id="", render_data=RenderData(label=f"{button_show}", visited_label=f"{button_show}", style=0),
-    #                  )
-    # keyboard = QQ_MsgSeg.keyboard(
-    #     MessageKeyboard(id="", content=InlineKeyboard(rows=[InlineKeyboardRow(buttons=[button1])])))
+def login_md(user_id) -> QQ_Msg:
+    template_id = "102083290_1705923685"
+    data1 = "Q群当前无法登录nso，请至其他平台完成登录后获取绑定码"
+    data2 = "Kook服务器id：85644423"
+    button_show = "kook服务器"
+    kook_jump_link = "https://www.kookapp.cn/app/invite/mkjIOn"
 
+    md = MessageMarkdown.parse_obj({
+        "custom_template_id": f"{template_id}",
+        "params": [{"key": "title", "values": [f"<@{user_id}>"]},
+                   {"key": "data1", "values": [f"{data1}"]},
+                   {"key": "data2", "values": [f"{data2}"]},
+                   ]
+    })
+
+    keyboard = MessageKeyboard.parse_obj({
+        "content": {
+            "rows": [{"buttons": [
+                {
+                    "id": "1",
+                    "render_data": {
+                        "label": f"{button_show}",
+                        "visited_label": f"{button_show}",
+                        "style": 0
+                    },
+                    "action": {
+                        "type": 0,
+                        "permission": {
+                            "type": 2,
+                        },
+                        "unsupport_tips": "客户端不支持",
+                        "data": f"{kook_jump_link}",
+                    }
+                }
+
+            ]},
+            ]
+        }
+    })
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
     return qq_msg

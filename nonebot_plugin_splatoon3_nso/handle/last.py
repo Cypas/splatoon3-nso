@@ -5,7 +5,7 @@ from nonebot.adapters.qq.models import MessageMarkdown
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
 from .qq_md import last_md
-from .send_msg import bot_send, notify_to_private, bot_send_qq_md
+from .send_msg import bot_send, notify_to_private, bot_send_last_md
 from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time, get_event_info
 from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
@@ -68,9 +68,9 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
         msg = ''
 
     if platform == "QQ" and plugin_config.splatoon3_qq_md_mode:
-        await bot_send_qq_md(bot, event, msg, user_id, image_width=image_width)
+        await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
     else:
-        await bot_send(bot, event, msg, photo=photo, image_width=image_width, qq_md=True)
+        await bot_send(bot, event, msg, photo=photo, image_width=image_width)
 
     if not isinstance(bot, QQ_Bot):
         user = dict_get_or_set_user_info(platform, user_id)

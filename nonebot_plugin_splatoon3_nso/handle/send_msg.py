@@ -3,7 +3,7 @@ import io
 from PIL import Image
 from nonebot.adapters.qq import AuditException, ActionFailed
 
-from .qq_md import last_md
+from .qq_md import last_md, login_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china_str
 from ..utils.bot import *
 from ..config import plugin_config
@@ -160,7 +160,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
         #     await log_cmd_to_db(bot, event)
 
 
-async def bot_send_qq_md(bot: Bot, event: Event, message: str, user_id: str, image_width=None):
+async def bot_send_last_md(bot: Bot, event: Event, message: str, user_id: str, image_width=None):
     """发送qq md消息"""
     img_data = ''
     width = 1000
@@ -181,6 +181,12 @@ async def bot_send_qq_md(bot: Bot, event: Event, message: str, user_id: str, ima
         url = await get_image_url(img_data)
         qq_msg = last_md(user_id, image_size=(width, height), url=url)
         await bot.send(event, qq_msg)
+
+
+async def bot_send_login_md(bot: Bot, event: Event, user_id: str):
+    """发送login md消息"""
+    qq_msg = login_md(user_id)
+    await bot.send(event, qq_msg)
 
 
 async def send_msg(bot: Bot, event: Event, msg: str | bytes):
