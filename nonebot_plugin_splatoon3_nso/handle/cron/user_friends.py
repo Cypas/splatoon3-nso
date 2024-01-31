@@ -30,14 +30,14 @@ async def create_get_user_friends_tasks():
         cron_logger.info(f'get friends for {i}-{i + _pool} ...')
         tasks = [get_friends_task(p_and_id) for p_and_id in _p_and_id_list]
         res = await asyncio.gather(*tasks)
-        for r in res:
-            if not r:
+        for f_list in res:
+            if not f_list:
                 continue
-            model_set_user_friend(r)
-            friends_count += 1
+            model_set_user_friend(f_list)
+            friends_count += len(f_list)
     cron_logger.info(f"get friends: {friends_count}")
 
-    cron_msg = f"create_get_user_friends_tasks end: {(dt.utcnow() - t).seconds}\nget friends: {friends_count}"
+    cron_msg = f"create_get_user_friends_tasks end: {(dt.utcnow() - t).seconds}s\nget friends: {friends_count}"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
 
