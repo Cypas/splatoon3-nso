@@ -3,7 +3,7 @@ import threading
 import time
 
 from .cron import create_get_user_friends_tasks, get_x_player, create_set_report_tasks, sync_stat_ink, send_report_task, \
-    create_refresh_token_tasks, update_s3si_ts, clean_s3s_cache, clean_global_user_info_dict
+    create_refresh_token_tasks, update_s3si_ts, clean_s3s_cache, clean_global_user_info_dict, get_event_top
 from .push import close_push
 from .send_msg import bot_send, notify_to_private
 from ..data.data_source import dict_get_all_global_users, model_clean_db_cache
@@ -19,15 +19,6 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
     logger.info(f'admin: {plain_text}')
 
     match plain_text:
-        case 'get_event_top':
-            pass
-            # from .scripts.top_player import task_get_league_player
-            # from .splat import Splatoon, get_or_set_user
-            # user_id = event.get_user_id()
-            # user = get_or_set_user(user_id=user_id)
-            # splt = Splatoon(user_id, user.session_token)
-            # await task_get_league_player(splt)
-            # await bot_send(bot, event, message=f'get_event_top end')
 
         case 'get_push':
             users = dict_get_all_global_users(False)
@@ -59,6 +50,10 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await bot_send(bot, event, message="即将开始parse_x_rank")
             await get_x_player()
 
+        case 'get_event_top':
+            await bot_send(bot, event, message="即将开始get_event_top")
+            await get_event_top()
+
         case 'clean_cache':
             model_clean_db_cache()
             await bot_send(bot, event, message="数据库缓存已清空")
@@ -80,7 +75,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
         case 'update_s3si_ts':
             await bot_send(bot, event, message="即将开始update_s3si_ts")
-            update_s3si_ts()
+            await update_s3si_ts()
 
         case 'sync_stat_ink':
             await bot_send(bot, event, message="即将开始sync_stat_ink")

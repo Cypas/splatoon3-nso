@@ -83,10 +83,12 @@ def get_post_stat_msg(db_user):
     return msg
 
 
-def update_s3si_ts():
+async def update_s3si_ts():
     # 更新 s3si_ts 上传脚本
-    t = dt.now()
-    cron_logger.debug(f'update_s3si_ts start')
+    cron_msg = f'update_s3si_ts start'
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
+    t = datetime.datetime.utcnow()
 
     path_folder = DIR_RESOURCE
     init_path(path_folder)
@@ -116,7 +118,10 @@ def update_s3si_ts():
 
     dir_user_configs = f'{s3s_folder}/user_configs'
     init_path(dir_user_configs)
-    cron_logger.debug(f'update_s3si_ts end, {(dt.now() - t).seconds}s')
+
+    cron_msg = f"update_s3si_ts end, {(datetime.datetime.utcnow() - t).seconds}s"
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
 
 
 def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN"):

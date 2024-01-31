@@ -296,7 +296,7 @@ FROM report WHERE (user_id_sp, last_play_time, create_time) IN
   GROUP BY user_id_sp, last_play_time)
 and user_id_sp=:user_id_sp
 order by create_time desc""")
-                                                  ).params(user_id_sp=user_id_sp).all()
+                                                  ).params(user_id_sp=user_id_sp).limit(30).all()
     session.close()
     return report
 
@@ -324,7 +324,7 @@ FROM report WHERE (user_id_sp, last_play_time, create_time) IN
   FROM report
   GROUP BY user_id_sp, last_play_time)
 and user_id_sp=:user_id_sp
-order by create_time""")).params(user_id_sp=user_id_sp).all()
+order by create_time""")).params(user_id_sp=user_id_sp).limit(50).all()
 
     session.close()
     return reports
@@ -444,3 +444,32 @@ def model_add_top_all(row):
     session.add(new_user)
     session.commit()
     session.close()
+
+
+def model_get_top_all_count_by_top_type(top_type):
+    """通过top_all类型取得top_all记录的count"""
+    session = DBSession()
+    top_count = session.query(func.count(TopAll.id)).where(TopAll.top_type.contains(top_type)).scalar()
+    session.close()
+    return top_count
+
+# def model_get_newest_event_top_all():
+#     """获取最新的event比赛排行榜数据"""
+#     """
+#     SELECT
+#         *,
+#         top_all.top_type
+#     FROM
+#         top_all
+#     WHERE
+#         top_all.top_type LIKE 'LeagueMatchRankingTeam%'
+#     GROUP BY
+#         top_all.top_type
+#     ORDER BY
+#         top_all.create_time DESC
+#     """
+#     session = DBSession()
+#     top = session.query(TopAll).where(TopAll.top_type.like("LeagueMatchRankingTeam%")).group_by(TopAll.top_type) \
+#         .order_by(TopAll.create_time.desc()).first()
+#     session.close()
+#     return top

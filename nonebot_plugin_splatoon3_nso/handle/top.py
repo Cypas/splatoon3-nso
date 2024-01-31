@@ -145,7 +145,8 @@ async def get_top_md(player_code: str | list, player_name=""):
             t_lst = t_type.split(':')
             t_type = f'{t_lst[0]}:{t_lst[3]}'
             i.play_time += timedelta(hours=8)
-        t_type = t_type.replace('LeagueMatchRankingTeam-', 'L-')
+        # LeagueMatchRankingTeam代表的实际是活动
+        t_type = t_type.replace('LeagueMatchRankingTeam-', 'E-')
         _t = f"{i.play_time:%y-%m-%d %H}".replace(' 00', '')
 
         img_type = "battle_weapon_main"

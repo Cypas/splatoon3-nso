@@ -381,6 +381,19 @@ class Splatoon:
         res = await self._request(data, try_again=try_again)
         return res
 
+    async def get_event_list(self, try_again=False):
+        """获取活动条目"""
+        data = gen_graphql_body(translate_rid['EventListQuery'])
+        res = await self._request(data, try_again=try_again)
+        return res
+
+    async def get_event_items(self, top_id, try_again=False):
+        """获取活动内容"""
+        data = gen_graphql_body(translate_rid['EventBoardQuery'],
+                                varname='eventMatchRankingPeriodId', varvalue=top_id)
+        res = await self._request(data, try_again=try_again)
+        return res
+
     def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
         graphql_head = {

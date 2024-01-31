@@ -4,6 +4,7 @@ import threading
 from nonebot import require, logger
 
 from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict
+from .event_top import get_event_top
 from .stat_ink import update_s3si_ts, sync_stat_ink
 from .report import create_set_report_tasks, send_report_task
 from .user_friends import create_get_user_friends_tasks
@@ -49,6 +50,8 @@ def scheduler_controller():
 
     # parse x rank player at 2:40
     add_scheduler("parse_x_rank", trigger='cron', hour=2, minute=40)
+    # 更新活动排行榜
+    add_scheduler("get_event_top", trigger='cron', hour="6", minute=20)
     # 清空s3sti.ts脚本生成的缓存文件
     add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
     # set_report at 7:00
@@ -73,6 +76,8 @@ async def cron(_type):
     match _type:
         case "parse_x_rank":
             await get_x_player()
+        case "get_event_top":
+            await get_event_top()
         case "set_report":
             await create_set_report_tasks()
         case "send_report":
@@ -82,7 +87,7 @@ async def cron(_type):
         case "refresh_token":
             await create_refresh_token_tasks()
         case "update_s3si_ts":
-            update_s3si_ts()
+            await update_s3si_ts()
         case "sync_stat_ink":
             threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
         case "clean_s3s_cache":

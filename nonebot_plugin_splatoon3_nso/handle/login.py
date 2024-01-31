@@ -318,7 +318,7 @@ first sync will be in minutes.
         '''
     await bot_send(bot, event, message=msg)
 
-    update_s3si_ts()
+    await update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
     # await sync_stat_ink_func(db_user,)
     threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
@@ -343,7 +343,7 @@ async def sync_now(bot: Bot, event: Event):
         await bot_send(bot, event, msg)
         return
 
-    update_s3si_ts()
+    await update_s3si_ts()
     msg = "战绩手动同步任务已开始，请稍等..."
     db_user = model_get_or_set_user(platform, user_id)
     if db_user:

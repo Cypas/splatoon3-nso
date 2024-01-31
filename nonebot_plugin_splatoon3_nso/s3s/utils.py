@@ -43,7 +43,8 @@ translate_rid = {
     'StageRecordsQuery': 'c8b31c491355b4d889306a22bd9003ac68f8ce31b2d5345017cdd30a2c8056f3',  # 主页 - 场地 (查各地图胜率)
     'EventBattleHistoriesQuery': 'e47f9aac5599f75c842335ef0ab8f4c640e8bf2afe588a3b1d4b480ee79198ac',  # 对战 - 活动
     'EventListQuery': '875a827a6e460c3cd6b1921e6a0872d8b95a1fce6d52af79df67734c5cc8b527',  # 主页 - 活动比赛
-    'EventBoardQuery': 'ad4097d5fb900b01f12dffcb02228ef6c20ddbfba41f0158bb91e845335c708e',  # 日程 - 活动比赛 - 详细排行榜
+    'EventBoardQuery': 'ad4097d5fb900b01f12dffcb02228ef6c20ddbfba41f0158bb91e845335c708e',
+    # 日程 - 活动比赛 - 详细排行榜   参数2:"eventMatchRankingPeriodId" 参数3:top_id
     'CoopPagerLatestCoopQuery': 'bc8a3d48e91d5d695ef52d52ae466920670d4f4381cb288cd570dc8160250457',
     # 打工页面获取最新打工数据，但数据其实还是输出的全部打工列表
     'PagerLatestVsDetailQuery': '73462e18d464acfdf7ac36bde08a1859aa2872a90ed0baed69c94864c20de046',  # 查询最新一局的对战id
