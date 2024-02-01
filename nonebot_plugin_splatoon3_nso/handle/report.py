@@ -64,7 +64,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     if report_day:
         s_date = max(report_day.replace('-', ''), s_date)
     e_date = (new.last_play_time + timedelta(hours=8)).strftime('%Y%m%d %H:%M')
-    msg += f'统计区间HKT: {s_date[2:]} 08:00 ~ {e_date[2:]}\n\n'
+    msg += f'统计区间HKT: {s_date[2:]} 07:00 ~ {e_date[2:]}\n\n'
 
     msg += f'{new.nickname}\n'
     for k in ('nickname', 'name_id', 'byname'):
