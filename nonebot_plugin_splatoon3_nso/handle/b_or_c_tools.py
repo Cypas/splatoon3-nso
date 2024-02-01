@@ -398,10 +398,11 @@ class PushStatistics:
                     msg += f"最高分数：{b.max_open_power:.2f}\n"
             # 击杀
             # kd比  避免除数和被除数为0的情况
-            if b.d == 0:
-                b.d = 1
-            if b.k != 0 and b.d != 0:
-                k_rate = b.k / b.d
+            if b.k != 0:
+                if b.d == 0:
+                    k_rate = b.k / 1
+                else:
+                    k_rate = b.k / b.d
             else:
                 k_rate = 0
             msg += f"总击杀：{b.ka}，"
