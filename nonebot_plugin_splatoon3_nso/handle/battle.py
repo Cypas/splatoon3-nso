@@ -318,10 +318,11 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     d = re['death']
     sp = re['special']
     # 避免除数和被除数为0的情况
-    if d == 0:
-        d = 1
-    if k != 0 and d != 0:
-        ration = k / d
+    if k != 0:
+        if d == 0:
+            ration = k / 1
+        else:
+            ration = k / d
     else:
         ration = 0
 
