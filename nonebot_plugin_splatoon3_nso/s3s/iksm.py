@@ -15,7 +15,7 @@ S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-a
 NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "2.8.1"  # fallback
 WEB_VIEW_VERSION = "unknown"
-WEB_VIEW_VER_FALLBACK = "6.0.0-daea5c11"  # fallback
+WEB_VIEW_VER_FALLBACK = "6.0.0-1249ecb9"  # fallback
 
 F_GEN_URL = 'https://api.imink.app/f'
 F_GEN_URL_2 = 'https://nxapi-znca-api.fancy.org.uk/api/znca/f'
