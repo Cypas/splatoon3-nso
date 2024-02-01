@@ -22,7 +22,7 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     button_show3 = "/last c"
     button_cmd3 = "/last c"
 
-    # 不能有空变量
+    # 如果kv值为空，那只能不传，空值似乎最多只允许一个
     md = MessageMarkdown.parse_obj({
         "custom_template_id": f"{template_id}",
         "params": [{"key": "at_user_id", "values": [f"<@{user_id}>"]},
@@ -32,6 +32,7 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
                    ]
     })
 
+    # 完整kv对
     # md = MessageMarkdown.parse_obj({
     #     "custom_template_id": f"{template_id}",
     #     "params": [{"key": "at_user_id", "values": [f"<@{user_id}>"]},

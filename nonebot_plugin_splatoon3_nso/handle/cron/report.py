@@ -43,6 +43,7 @@ async def create_set_report_tasks():
             if r:
                 set_report_count += 1
 
+    # 清理任务字典
     cron_logger.info(f'clear cron user_info_dict...')
     clear_count = await dict_clear_user_info_dict(_type="cron")
 
@@ -210,7 +211,7 @@ async def send_report_task():
         # 每次循环强制睡眠0.6s，使一分钟内不超过120次发信阈值
         time.sleep(0.6)
         try:
-            msg = get_report(user.platform, user.user_id)
+            msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:
                 # # 通知到频道
                 # await report_notify_to_channel(user.platform, user.user_id, msg, _type='job')
@@ -221,6 +222,9 @@ async def send_report_task():
             cron_logger.warning(f'create_send_report_tasks error: {e}')
             continue
 
-    cron_msg = f"create_send_report_tasks end: {datetime.datetime.utcnow() - t}"
+    # 清理任务字典
+    cron_logger.info(f'clear cron user_info_dict...')
+    clear_count = await dict_clear_user_info_dict(_type="cron")
+    cron_msg = f"create_send_report_tasks end: {datetime.datetime.utcnow() - t}\nclear_count: {clear_count}"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)

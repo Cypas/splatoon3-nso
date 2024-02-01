@@ -37,13 +37,13 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     await bot_send(bot, event, message=msg)
 
 
-def get_report(platform, user_id, report_day=None):
+def get_report(platform, user_id, report_day=None, _type="normal"):
     """获取昨天或指定日期的早报数据"""
     msg = '\n喷喷早报\n'
     if report_day:
         msg = '\n喷喷小报\n'
 
-    u = dict_get_or_set_user_info(platform, user_id)
+    u = dict_get_or_set_user_info(platform, user_id, _type=_type)
     report_list = model_get_report(user_id_sp=u.game_sp_id)
 
     if not report_list or len(report_list) == 1:
