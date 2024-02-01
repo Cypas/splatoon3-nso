@@ -2,6 +2,8 @@ import base64
 import json
 import os
 
+from .send_msg import bot_send_login_md
+from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
 from ..utils import DIR_RESOURCE
 from ..utils.bot import *
@@ -90,6 +92,10 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
             _msg = "Permission denied. /login first."
         elif isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot, QQ_Bot)):
             _msg = '无权限查看，请先 /login 登录'
+            if isinstance(bot, QQ_Bot) and plugin_config.splatoon3_qq_md_mode:
+                # 发送md
+                await bot_send_login_md(bot, event, user_id, check_session=True)
+                await matcher.finish()
         await matcher.finish(_msg)
 
 
