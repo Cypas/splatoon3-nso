@@ -191,9 +191,9 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             # 获取统计数据
             st_msg, push_time_minute = close_push(platform, user_id)
             if isinstance(bot, (V12_Bot, Kook_Bot)):
-                msg = f'20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟'
+                msg = f'20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟\n'
                 if not user.stat_key and user.push_cnt <= 10:
-                    msg += "\n/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
+                    msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
             msg += st_msg
 
             logger.info(f'push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push cycle count:{push_cnt:>3}')
