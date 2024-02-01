@@ -139,6 +139,11 @@ async def get_top_md(player_code: str | list, player_name=""):
     p_code = ''
     if res:
         p_code = res[0].player_code
+
+    max_power = 0
+    if isinstance(player_code, str) and len(res) > 1:
+        max_power = max([i.power for i in res])
+
     for i in res:
         t_type = i.top_type
         if 'LeagueMatchRankingTeam' in t_type:
@@ -161,7 +166,12 @@ async def get_top_md(player_code: str | list, player_name=""):
             msg += f'||\n'
             p_code = i.player_code
         if isinstance(player_code, str):
-            msg += f'{t_type}|{i.rank}|{i.power}|{str_w}|{i.player_name}|{_t}\n'
+            if max_power and max_power == i.power:
+                msg += (f'<span style="color:red">{t_type}</span>|'
+                        f'<span style="color:red">{i.rank}</span>|'
+                        f'<span style="color:red">{i.power}</span>|{str_w}|{i.player_name}|{_t}\n')
+            else:
+                msg += f'{t_type}|{i.rank}|{i.power}|{str_w}|{i.player_name}|{_t}\n'
         else:
             msg += f'{t_type}|{i.rank}|{i.power}|{str_w}|{i.player_name}|{dict_p[i.player_code]}|{_t}\n'
 
