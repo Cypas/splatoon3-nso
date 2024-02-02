@@ -155,14 +155,13 @@ def get_report_all_md(player_code):
     for r in res[:30]:
         _d = r
         win_rate_change = _d.get('win_rate_change')
-        str_win_rate_change = "0"
+        str_win_rate_change = ""
         if win_rate_change:
             if win_rate_change > 0:
                 str_win_rate_change = f'<span style="color:red">+{win_rate_change}</span>'
-            if win_rate_change < 0:
-                str_win_rate_change = f'<span style="color:green">{win_rate_change}</span>'
-        else:
-            str_win_rate_change = win_rate_change
+            elif win_rate_change < 0:
+                str_win_rate_change = f'{win_rate_change}'
+
         text += (f"|{_d.get('last_play_time')}|{_d.get('total_cnt')}|{_d.get('total_inc_cnt')}|{_d.get('win_cnt')}|"
                  f"{_d.get('win_rate')}|{str_win_rate_change}|{_d.get('coop_cnt')}|{_d.get('coop_inc_cnt')}|"
                  f"{_d.get('coop_boss_cnt')}|{_d.get('coop_boss_change')}|"
