@@ -134,7 +134,10 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     return msg
 
 
-@on_command("report_all", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+matcher_report_all = on_command("report_all", priority=10, block=True)
+
+
+@matcher_report_all.handle(parameterless=[Depends(_check_session_handler)])
 async def report_all(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -149,16 +152,24 @@ def get_report_all_md(player_code):
     if not res:
         return '数据准备中'
     text = ''
-    for r in res[-30:]:
-        # logger.info(f'rrr {r.__dict__}')
-        _d = r.__dict__
-        text += (f"{_d.get('last_play_time')}|{_d.get('total_cnt')}|{_d.get('user_id_sp')}|{_d.get('win_cnt')}|"
-                 f"{_d.get('win_rate')}|{_d.get('nickname')}|{_d.get('coop_cnt')}|{_d.get('name_id')}|"
-                 f"{_d.get('coop_boss_cnt')}|{_d.get('by_name') or ''}|{_d.get('badges')}|{_d.get('rank')}|"
-                 f"{_d.get('udemae')}\n")
-    msg = f'''####
-||||||||||||||
-|---|---|---:|---|---|---:|---|---|---|---|---:|---|---|
-{text}|||
-    '''
+    for r in res[:30]:
+        _d = r
+        win_rate_change = _d.get('win_rate_change')
+        str_win_rate_change = "0"
+        if win_rate_change:
+            if win_rate_change > 0:
+                str_win_rate_change = f'<span style="color:red">+{win_rate_change}</span>'
+            if win_rate_change < 0:
+                str_win_rate_change = f'<span style="color:green">{win_rate_change}</span>'
+        else:
+            str_win_rate_change = win_rate_change
+        text += (f"|{_d.get('last_play_time')}|{_d.get('total_cnt')}|{_d.get('total_inc_cnt')}|{_d.get('win_cnt')}|"
+                 f"{_d.get('win_rate')}|{str_win_rate_change}|{_d.get('coop_cnt')}|{_d.get('coop_inc_cnt')}|"
+                 f"{_d.get('coop_boss_cnt')}|{_d.get('coop_boss_change')}|"
+                 f"{_d.get('rank')}|{_d.get('udemae')}|\n")
+    msg = f'''#### 最近30份日报如下
+|||||||||||||
+|---|---|---:|---|---|---:|---|---|---|---|---|---|
+|最后游玩时间|总对战|增|胜场|胜率|变化|总打工|增|总boss|增|等级|技术|
+{text}'''
     return msg
