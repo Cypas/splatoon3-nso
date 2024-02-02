@@ -1,3 +1,4 @@
+import datetime
 from datetime import datetime as dt, timedelta
 
 from .send_msg import bot_send
@@ -154,19 +155,35 @@ def get_report_all_md(player_code):
     text = ''
     for r in res[:30]:
         _d = r
+        last_time = _d.get('last_play_time')
+        if last_time:
+            last_play_time = datetime.datetime.strptime(last_time, "%Y-%m-%d %H:%M:%S").strftime("%m-%d  %H:%M")
+        else:
+            last_play_time = ""
+
         win_rate_change = _d.get('win_rate_change')
         str_win_rate_change = ""
+        # if win_rate_change:
+        #     if win_rate_change > 0:
+        #         str_win_rate_change = f'<span style="color:rgb(255, 148, 157)">+{win_rate_change}</span>'
+        #     elif win_rate_change < 0:
+        #         str_win_rate_change = f'<span style="color:rgb(96, 58, 255)">{win_rate_change}</span>'
+        # else:
+        #     str_win_rate_change = 0
+
         if win_rate_change:
             if win_rate_change > 0:
-                str_win_rate_change = f'<span style="color:red">+{win_rate_change}</span>'
+                str_win_rate_change = f'{win_rate_change}'
             elif win_rate_change < 0:
                 str_win_rate_change = f'{win_rate_change}'
+        else:
+            str_win_rate_change = 0
 
-        text += (f"|{_d.get('last_play_time')}|{_d.get('total_cnt')}|{_d.get('total_inc_cnt')}|{_d.get('win_cnt')}|"
+        text += (f"|{last_play_time}|{_d.get('total_cnt')}|{_d.get('total_inc_cnt')}|{_d.get('win_cnt')}|"
                  f"{_d.get('win_rate')}|{str_win_rate_change}|{_d.get('coop_cnt')}|{_d.get('coop_inc_cnt')}|"
                  f"{_d.get('coop_boss_cnt')}|{_d.get('coop_boss_change')}|"
                  f"{_d.get('rank')}|{_d.get('udemae')}|\n")
-    msg = f'''#### 最近30份日报如下
+    msg = f'''#### 最近30份日报数据如下
 |||||||||||||
 |---|---|---:|---|---|---:|---|---|---|---|---|---|
 |最后游玩时间|总对战|增|胜场|胜率|变化|总打工|增|总boss|增|等级|技术|
