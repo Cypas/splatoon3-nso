@@ -307,27 +307,27 @@ def model_get_report_all(user_id_sp):
     if not user_id_sp:
         return None
     session = DBSession()
-
-    reports = session.query(Report).from_statement(text("""
-SELECT id, DATETIME(last_play_time, '+8 hours') last_play_time,
+    data = session.execute(text(f"""
+SELECT id, DATETIME(last_play_time, '+8 hours') as last_play_time,
 total_cnt,
-total_cnt - LAG(total_cnt) OVER (ORDER BY last_play_time) AS user_id_sp,
+total_cnt - LAG(total_cnt) OVER (ORDER BY last_play_time) AS total_inc_cnt,
 win_cnt, win_rate,
-round(win_rate - LAG(win_rate) OVER (ORDER BY last_play_time), 2) AS nickname,
+round(win_rate - LAG(win_rate) OVER (ORDER BY last_play_time), 2) AS win_rate_change,
 coop_cnt,
-coop_cnt - LAG(coop_cnt) OVER (ORDER BY last_play_time) AS name_id,
+coop_cnt - LAG(coop_cnt) OVER (ORDER BY last_play_time) AS coop_inc_cnt,
 coop_boss_cnt,
-coop_boss_cnt - LAG(coop_boss_cnt) OVER (ORDER BY last_play_time) AS by_name,
-total_cnt - LAG(total_cnt) OVER (ORDER BY last_play_time) + coop_cnt - LAG(coop_cnt) OVER (ORDER BY last_play_time) badges,
+coop_boss_cnt - LAG(coop_boss_cnt) OVER (ORDER BY last_play_time) AS coop_boss_change,
 rank, udemae
 FROM report WHERE (user_id_sp, last_play_time, create_time) IN
 ( SELECT user_id_sp, last_play_time, MAX(create_time)
   FROM report
   GROUP BY user_id_sp, last_play_time)
-and user_id_sp=:user_id_sp
-order by create_time
-limit 50""")).params(user_id_sp=user_id_sp).all()
+and user_id_sp='{user_id_sp}'
+order by create_time desc
+limit 60
+""")).all()
 
+    reports = [row._mapping for row in data]
     session.close()
     return reports
 
