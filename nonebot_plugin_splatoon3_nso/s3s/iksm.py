@@ -519,6 +519,14 @@ class S3S:
             uuid = resp["request_id"]
             timestamp = resp["timestamp"]
             return f, uuid, timestamp
+        except (httpx.ConnectError, httpx.ConnectTimeout):
+            if self.f_gen_url == F_GEN_URL:
+                # 改为f_url并递归一次
+                self.f_gen_url = F_GEN_URL_2
+                f, uuid, timestamp = await self.call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=coral_user_id)
+                return f, uuid, timestamp
+            else:
+                raise ValueError('NetConnectError')
         except Exception as e:
             try:  # if api_response never gets set
                 logger.warning(
