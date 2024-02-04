@@ -27,6 +27,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     get_coop = False
     get_equip = False
     get_screenshot = False
+    get_image = False
     mask = False
     idx = 0
     cmd_message = args.extract_plain_text().strip()
@@ -43,6 +44,8 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
             get_coop = False
         if 'e' in cmd_lst or 'equip' in cmd_lst:
             get_equip = True
+        if 'i' in cmd_lst or 'image' in cmd_lst:
+            get_image = True
         if 'ss' in cmd_lst or 'screenshot' in cmd_lst:
             get_screenshot = True
         if 'm' in cmd_lst or 'mask' in cmd_lst:
@@ -67,7 +70,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
         photo = msg
         msg = ''
 
-    if platform == "QQ" and plugin_config.splatoon3_qq_md_mode:
+    if platform == "QQ" and plugin_config.splatoon3_qq_md_mode and not get_image:
         await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
     else:
         await bot_send(bot, event, msg, photo=photo, image_width=image_width)
