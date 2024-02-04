@@ -8,13 +8,13 @@ from datetime import datetime as dt, timedelta
 
 from ..report import get_report
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
-from ...utils import DIR_RESOURCE
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
     model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, model_get_newest_user, \
     global_user_info_dict
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
+from ...utils.bot import *
 
 
 async def create_set_report_tasks():
@@ -204,12 +204,13 @@ async def send_report_task():
         # 排除qq平台发信 和 日报通知未打开的用户
         if user.platform == "QQ" or not user.report_notify:
             continue
+        msg_id = get_msg_id(user.platform, user.user_id)
         # 根据sp_id查询今天是否生成新日报
         have_report = model_get_today_report(user.game_sp_id)
         if not have_report:
             continue
-        # 每次循环强制睡眠0.6s，使一分钟内不超过120次发信阈值
-        time.sleep(0.6)
+        # 每次循环强制睡眠1s，使一分钟内不超过120次发信阈值
+        time.sleep(1)
         try:
             msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:
@@ -218,8 +219,16 @@ async def send_report_task():
                 # 通知到私信
                 msg += "\n/report_notify close 关闭每日日报推送"
                 await notify_to_private(user.platform, user.user_id, msg)
+        except Kook_ActionFailed as e:
+            if e.status_code == 40000:
+                if e.message.startswith("无法发起私信"):
+                    time.sleep(10)
+                elif e.message.startswith("你已被对方屏蔽"):
+                    model_get_or_set_user(user.platform, user.user_id, stat_notify=0, report_notify=0)
+                    cron_logger.warning(
+                        f'create_send_report_tasks error:{msg_id},error:用户已屏蔽发信bot，已关闭其通知权限')
         except Exception as e:
-            cron_logger.warning(f'create_send_report_tasks error: {e}')
+            cron_logger.warning(f'create_send_report_tasks error:{msg_id},error:{e}')
             continue
 
     # 清理任务字典

@@ -1,7 +1,6 @@
 import io
 
 from PIL import Image
-from nonebot.adapters.qq import AuditException, ActionFailed
 
 from .qq_md import last_md, login_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china_str
@@ -264,9 +263,9 @@ async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):
         elif isinstance(bot, QQ_Bot):
             try:
                 await bot.send_to_channel(channel_id=source_id, message=QQ_MsgSeg.text(msg))
-            except AuditException as e:
+            except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
-            except ActionFailed as e:
+            except QQ_ActionFailed as e:
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_message(chat_id=source_id, text=msg)
@@ -279,9 +278,9 @@ async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):
         elif isinstance(bot, QQ_Bot):
             try:
                 await bot.send_to_channel(channel_id=source_id, message=QQ_MsgSeg.file_image(img))
-            except AuditException as e:
+            except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
-            except ActionFailed as e:
+            except QQ_ActionFailed as e:
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_photo(source_id, img)
@@ -297,9 +296,9 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
             try:
                 if event:
                     await bot.send_to_dms(guild_id=event.guild_id, message=msg, msg_id=event.id)
-            except AuditException as e:
+            except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
-            except ActionFailed as e:
+            except QQ_ActionFailed as e:
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_message(chat_id=source_id, text=msg)
@@ -313,9 +312,9 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
         elif isinstance(bot, QQ_Bot):
             try:
                 await bot.send_to_dms(guild_id=event.guild_id, message=QQ_MsgSeg.file_image(img), msg_id=event.id)
-            except AuditException as e:
+            except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
-            except ActionFailed as e:
+            except QQ_ActionFailed as e:
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_photo(source_id, img)

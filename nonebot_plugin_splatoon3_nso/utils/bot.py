@@ -42,6 +42,7 @@ from nonebot.adapters.kaiheila.event import MessageEvent as Kook_ME
 from nonebot.adapters.kaiheila import MessageSegment as Kook_MsgSeg
 from nonebot.adapters.kaiheila.event import PrivateMessageEvent as Kook_PME
 from nonebot.adapters.kaiheila.event import ChannelMessageEvent as Kook_CME
+from nonebot.adapters.kaiheila.exception import ActionFailed as Kook_ActionFailed
 
 # qq官方协议
 from nonebot.adapters.qq import Bot as QQ_Bot
@@ -52,6 +53,7 @@ from nonebot.adapters.qq.event import GroupAtMessageCreateEvent as QQ_GME  # 群
 from nonebot.adapters.qq.event import C2CMessageCreateEvent as QQ_C2CME  # Q私聊信息
 from nonebot.adapters.qq.event import DirectMessageCreateEvent as QQ_PME  # 频道私聊信息
 from nonebot.adapters.qq.event import AtMessageCreateEvent as QQ_CME  # 频道艾特信息
+from nonebot.adapters.qq import AuditException as QQ_AuditException, ActionFailed as QQ_ActionFailed
 
 
 # BOT = Union[V11_Bot, V12_Bot, Tg_Bot, Kook_Bot, QQ_Bot]
