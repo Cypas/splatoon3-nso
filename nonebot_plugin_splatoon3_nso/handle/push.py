@@ -182,7 +182,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     #     return
 
     # 如果battle_id未改变
-    if last_battle_id == battle_id:
+    if last_battle_id == battle_id or (not last_battle_id):
         if not is_playing and push_cnt * PUSH_INTERVAL / 60 > 20:
             # 关闭定时，更新push状态，发送统计
             dict_get_or_set_user_info(platform, user_id, push=0)
