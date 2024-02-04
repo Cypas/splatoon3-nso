@@ -9,8 +9,9 @@ from datetime import datetime as dt
 
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
+from ...data.utils import GlobalUserInfo
 from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
-from ...data.data_source import model_get_all_stat_user
+from ...data.data_source import model_get_all_stat_user, global_user_info_dict, model_get_another_account_user
 from ..send_msg import notify_to_private, notify_to_channel, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 
@@ -60,7 +61,27 @@ def get_post_stat_msg(db_user):
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
 
-    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key)
+    # 判断用户是否位于缓存
+    msg_id = get_msg_id(db_user.platform, db_user.user_id)
+    user: GlobalUserInfo = global_user_info_dict.get(msg_id)
+    if not user:
+        # 查找同sp_id的其他用户
+        another_users = model_get_another_account_user(db_user.platform, db_user.user_id, db_user.game_sp_id)
+        if len(another_users) > 0:
+            for u in another_users:
+                # 判断同sp_id的其他账号是否位于缓存
+                u_msg_id = get_msg_id(u.platform, u.user_id)
+                uu = global_user_info_dict.get(u_msg_id)
+                if uu:
+                    user = uu
+                    break
+
+    if user:
+        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, g_token=user.g_token,
+                                   bullet_token=user.bullet_token)
+    else:
+        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key)
+
     if not res:
         return
 
@@ -124,7 +145,7 @@ async def update_s3si_ts():
     await cron_notify_to_channel(cron_msg)
 
 
-def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN"):
+def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_token="", bullet_token=""):
     """同步战绩文件至stat.ink"""
     cron_logger.debug(f'exported_to_stat_ink: {user_id}')
     cron_logger.debug(f'session_token: {session_token}')
@@ -136,21 +157,30 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN"):
 
     path_config_file = f'{s3sits_folder}/user_configs/config_{user_id}.json'
     if not os.path.exists(path_config_file):
+        # 新建文件
         config_data = {
             "userLang": user_lang,
             "loginState": {
-                "sessionToken": session_token
+                "sessionToken": session_token,
+                "gToken": g_token,
+                "bulletToken": bullet_token,
             },
             "statInkApiKey": api_key
         }
         with open(path_config_file, 'w') as f:
             f.write(json.dumps(config_data, indent=2, sort_keys=False, separators=(',', ': ')))
     else:
-        for cmd in (
-                f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/g' {path_config_file}""",
-                f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/g' {path_config_file}""",
-                f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/g' {path_config_file}""",
-        ):
+        # 写入配置文件
+        cmds = [
+            f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/' {path_config_file}""",
+            f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/' {path_config_file}""",
+            f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/' {path_config_file}""",
+        ]
+        if g_token and bullet_token:
+            cmds.append(f"""sed -i 's/gToken[^,]*,/gToken\": \"{g_token}\",/' {path_config_file}""")
+            cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
+
+        for cmd in cmds:
             cron_logger.debug(f'cli: {cmd}')
             os.system(cmd)
 
