@@ -180,6 +180,11 @@ async def bot_send_last_md(bot: Bot, event: Event, message: str, user_id: str, i
         url = await get_image_url(img_data)
         qq_msg = last_md(user_id, image_size=(width, height), url=url)
         await bot.send(event, qq_msg)
+    else:
+        # 文字消息，例如网络错误文字
+        if isinstance(bot, QQ_Bot):
+            message = message.replace('```', '').replace('\_', '_').strip().strip('`')
+        await send_msg(bot, event, message)
 
 
 async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=False):
