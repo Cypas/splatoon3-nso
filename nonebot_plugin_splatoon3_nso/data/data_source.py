@@ -48,6 +48,7 @@ def dict_get_or_set_user_info(platform, user_id, _type="normal", **kwargs):
                 game_sp_id=user.game_sp_id,
                 push=0,
                 push_cnt=user.push_cnt or 0,
+                cmd_cnt=user.cmd_cnt or 0,
                 stat_key=user.stat_key,
                 ns_name=user.ns_name,
                 ns_friend_code=user.ns_friend_code,

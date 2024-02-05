@@ -5,7 +5,7 @@ import httpx
 import requests
 import base64, hashlib, json, os, re, sys
 from bs4 import BeautifulSoup
-from nonebot import logger
+from nonebot import logger as nb_logger
 
 from ..utils import BOT_VERSION, get_or_init_client, AsHttpReq, HttpReq, ReqClient
 from .utils import SPLATNET3_URL, GRAPHQL_URL
@@ -34,6 +34,9 @@ class S3S:
         self.user_lang = 'zh-CN'
         self.user_country = 'JP'
         self.f_gen_url = F_GEN_URL
+        self.logger = nb_logger
+        if _type == "cron":
+            self.logger = nb_logger.bind(cron=True)
 
     @staticmethod
     def get_nsoapp_version(f_gen_url=None):
@@ -416,7 +419,7 @@ class S3S:
                 web_service_resp = json.loads(r.text)
                 web_service_token = web_service_resp["result"]["accessToken"]
             except:
-                logger.warning(json.dumps(web_service_resp))
+                self.logger.warning(json.dumps(web_service_resp))
                 if web_service_resp.get('errorMessage') == 'Membership required error.':
                     raise ValueError(f'Membership required error.')
                 return
@@ -432,7 +435,7 @@ class S3S:
             if not user_info or not id_token:
                 raise ValueError(f"no id_token or user_info")
         except Exception as e:
-            logger.warning(f"get_id_token_and_user_info error:{e}")
+            self.logger.warning(f"get_id_token_and_user_info error:{e}")
             raise e
 
         try:
@@ -442,14 +445,14 @@ class S3S:
             if not f:
                 raise ValueError(f"no f")
         except Exception as e:
-            logger.warning(f"get_access_token error:{e}")
+            self.logger.warning(f"get_access_token error:{e}")
             raise e
         try:
             g_token = await self._get_g_token(access_token, f, uuid, timestamp, coral_user_id)
             if not g_token:
                 raise ValueError(f"no g_token")
         except Exception as e:
-            logger.warning(f"get_g_token error:{e}")
+            self.logger.warning(f"get_g_token error:{e}")
             raise e
 
         return access_token, g_token, self.user_nickname, self.user_lang, self.user_country
@@ -481,13 +484,13 @@ class S3S:
             bullet_token = r_json['bulletToken']
             return bullet_token
         except json.JSONDecodeError as e:
-            logger.exception(f'{user_id} get_bullet error. {r.status_code}')
+            self.logger.exception(f'{user_id} get_bullet error. {r.status_code}')
             if r.status_code == 401:
-                logger.exception("Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
+                self.logger.exception("Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
             elif r.status_code == 403:
-                logger.exception("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
+                self.logger.exception("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
             elif r.status_code == 204:  # No Content, USER_NOT_REGISTERED
-                logger.exception("Cannot access SplatNet 3 without having played online.")
+                self.logger.exception("Cannot access SplatNet 3 without having played online.")
             raise Exception(f'{user_id} get_bullet error. {r.status_code}')
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
@@ -514,7 +517,7 @@ class S3S:
             api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
             resp = json.loads(api_response.text)
 
-            logger.debug(f"get f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
+            self.logger.debug(f"get f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
             f = resp["f"]
             uuid = resp["request_id"]
             timestamp = resp["timestamp"]
@@ -529,16 +532,16 @@ class S3S:
                 raise ValueError('NetConnectError')
         except Exception as e:
             try:  # if api_response never gets set
-                logger.warning(
+                self.logger.warning(
                     f"Error during f generation: \n{f_gen_url}\nbody:{json.dumps(api_body)}")
                 if api_response and api_response.text:
-                    logger.error(
+                    self.logger.error(
                         f"Error during f generation:\n{json.dumps(json.loads(api_response.text), ensure_ascii=False)}")
                 else:
-                    logger.error(f"Error during f generation: Error {api_response.status_code}.")
+                    self.logger.error(f"Error during f generation: Error {api_response.status_code}.")
                 raise ValueError(f"resp error:{json.dumps(api_response)}")
             except:
-                logger.error(f"Couldn't connect to f generation API ({f_gen_url}). Please try again later.")
+                self.logger.error(f"Couldn't connect to f generation API ({f_gen_url}). Please try again later.")
                 raise ValueError('NetConnectError')
 
 
