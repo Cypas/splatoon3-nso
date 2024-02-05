@@ -97,6 +97,10 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
                 await bot_send_login_md(bot, event, user_id, check_session=True)
                 await matcher.finish()
         await matcher.finish(_msg)
+    else:
+        # 已登录用户
+        # cmd_cnt+1
+        dict_get_or_set_user_info(platform, user_id, cmd_cnt=user_info.cmd_cnt + 1)
 
 
 async def get_event_info(bot, event):
