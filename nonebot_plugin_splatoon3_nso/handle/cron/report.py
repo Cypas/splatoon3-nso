@@ -79,9 +79,13 @@ async def set_user_report_task(p_and_id):
     try:
         # 刷新token
         await splatoon.refresh_gtoken_and_bullettoken()
-
+    except Exception as ex:
+        cron_logger.warning(f'set_user_report_task error: {msg_id},refresh_gtoken_and_bullettoken error:{ex}')
+    try:
         # 个人摘要数据
         res_summary = await splatoon.get_history_summary()
+        if not res_summary:
+            res_summary = await splatoon.get_history_summary(try_again=True)
         history = res_summary['data']['playHistory']
         player = res_summary['data']['currentPlayer']
         first_play_time = history['gameStartTime']
@@ -93,12 +97,16 @@ async def set_user_report_task(p_and_id):
 
         # 最近对战数据
         res_battle = await splatoon.get_recent_battles()
+        if not res_battle:
+            res_battle =await  splatoon.get_recent_battles(try_again=True)
         b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
         battle_t = get_battle_time_or_coop_time(b_info['id'])
         game_sp_id = get_game_sp_id(b_info['player']['id'])
 
         # 最近打工数据
         res_coop = await splatoon.get_coops()
+        if not res_coop:
+            res_coop =await splatoon.get_coops(try_again=True)
         coop_id = res_coop['data']['coopResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]['id']
         coop_t = get_battle_time_or_coop_time(coop_id)
 
@@ -111,6 +119,7 @@ async def set_user_report_task(p_and_id):
         if last_play_time.date() >= (dt.utcnow() - timedelta(days=1)).date():
             # 写新的日报
             await set_user_report(u, res_summary, res_coop, last_play_time, splatoon, game_sp_id)
+            cron_logger.info(f'set_user_report_task success: {msg_id}')
             return True
 
     except Exception as ex:
