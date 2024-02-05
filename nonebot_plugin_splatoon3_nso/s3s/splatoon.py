@@ -16,12 +16,13 @@ from ..utils import DIR_RESOURCE, get_msg_id, get_or_init_client
 
 
 class UserDBInfo:
-    def __init__(self, db_id, user_name, game_name, game_sp_id, create_time):
+    def __init__(self, db_id, user_name, game_name, game_sp_id, create_time, report_notify):
         self.db_id = db_id
         self.user_name = user_name
         self.game_name = game_name
         self.game_sp_id = game_sp_id
         self.create_time = create_time
+        self.report_notify = report_notify
 
 
 class Splatoon:
@@ -55,7 +56,8 @@ class Splatoon:
                                            user.user_name or "no user name",
                                            user.game_name or "no game name",
                                            user.game_sp_id or "",
-                                           user.create_time)
+                                           user.create_time,
+                                           user.report_notify)
 
     def set_user_info(self, **kwargs):
         """修改user信息"""
@@ -84,15 +86,16 @@ class Splatoon:
                     self.logger.warning(
                         f'invalid_grant_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
                     self.set_user_info(session_token=None)
-                    # 写入待发送文本
+                    # 待发送文本
                     msg = f'喷3账号 {user.game_name or ""} 登录过期，请重新登录 /login'
                     if self.bot and self.event:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
                     else:
                         # 来自定时任务
-                        await notify_to_private(self.platform, self.user_id, msg)
-
+                        if user.report_notify:
+                            await notify_to_private(self.platform, self.user_id, msg)
+                        raise ValueError('invalid_grant')
                     return
                 elif 'Membership required' in str(e):
                     # 会员过期
@@ -101,14 +104,17 @@ class Splatoon:
                     _ex, nickname = str(e).split('|')
                     nickname = nickname or ''
                     self.logger.warning('membership_required notify')
-                    # 写入待发送文本
+                    # 待发送文本
                     msg = f'喷3账号 {nickname} 会员过期'
                     if self.bot and self.event:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
                     else:
+                        msg += ',无法更新日报\n/report_notify close 关闭每日日报推送'
                         # 来自定时任务
-                        await notify_to_private(self.platform, self.user_id, msg)
+                        if user.report_notify:
+                            await notify_to_private(self.platform, self.user_id, msg)
+                        raise ValueError('Membership required')
                     return
                 self.logger.warning(
                     f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
