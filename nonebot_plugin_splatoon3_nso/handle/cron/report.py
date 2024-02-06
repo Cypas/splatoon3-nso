@@ -32,7 +32,7 @@ async def create_set_report_tasks():
     for user in users:
         list_user.append((user.platform, user.user_id))
 
-    _pool = 20
+    _pool = 5
     set_report_count = 0
     for i in range(0, len(list_user), _pool):
         _p_and_id_list = list_user[i:i + _pool]

@@ -24,7 +24,7 @@ async def create_get_user_friends_tasks():
         list_user.append((user.platform, user.user_id))
 
     friends_count = 0
-    _pool = 10
+    _pool = 5
     for i in range(0, len(list_user), _pool):
         _p_and_id_list = list_user[i:i + _pool]
         cron_logger.info(f'get friends for {i}-{i + _pool} ...')
