@@ -249,16 +249,17 @@ def model_get_all_top_all(player_code):
 
 def model_add_report(**kwargs):
     """添加日报数据"""
-    logger.debug(f'model_add_report: {kwargs}')
+    report_logger = logger.bind(report=True)
+    report_logger.debug(f'model_add_report: {kwargs}')
     _dict = kwargs
     user_id_sp = _dict.get('user_id_sp')
     if not user_id_sp:
-        logger.warning(f'no user_id_sp: {_dict}')
+        report_logger.warning(f'no user_id_sp: {_dict}')
         return
     session = DBSession()
     _res = session.query(Report).filter(Report.user_id_sp == user_id_sp).order_by(Report.create_time.desc()).first()
     if _res and _res.create_time.date() >= datetime.datetime.utcnow().date():
-        logger.debug(f'already saved report: {_dict.get("user_id")}, {user_id_sp}, {_dict.get("nickname")}')
+        report_logger.debug(f'already saved report: {_dict.get("user_id")}, {user_id_sp}, {_dict.get("nickname")}')
         session.close()
         return
 
@@ -275,7 +276,7 @@ def model_get_today_report(user_id_sp):
     session = DBSession()
     report = session.query(Report).filter(
         and_(Report.user_id_sp == user_id_sp,
-             Report.create_time > datetime.datetime.utcnow() - datetime.timedelta(hours=20))).first()
+             Report.create_time > datetime.datetime.utcnow() - datetime.timedelta(hours=4))).first()
     session.close()
     return report
 
