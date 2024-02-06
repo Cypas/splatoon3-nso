@@ -76,18 +76,18 @@ async def set_user_report_task(p_and_id):
         cron_logger.debug(
             f'set_user_info: {msg_id}, {u.user_name}')
         splatoon = Splatoon(None, None, u, _type="cron")
-    try:
-        # 刷新token
-        await splatoon.refresh_gtoken_and_bullettoken()
-    except ValueError as e:
-        if 'invalid_grant' in str(e) or 'Membership required' in str(e):
-            # 无效登录或会员过期
-            # 关闭连接池
-            await splatoon.req_client.close()
-            return False
-    except Exception as ex:
-        # 这里刷新token失败没太大影响，后续在请求时仍会刷新token
-        cron_logger.warning(f'set_user_report_task error: {msg_id},refresh_gtoken_and_bullettoken error:{ex}')
+        try:
+            # 刷新token
+            await splatoon.refresh_gtoken_and_bullettoken()
+        except ValueError as e:
+            if 'invalid_grant' in str(e) or 'Membership required' in str(e):
+                # 无效登录或会员过期
+                # 关闭连接池
+                await splatoon.req_client.close()
+                return False
+        except Exception as ex:
+            # 这里刷新token失败没太大影响，后续在请求时仍会刷新token
+            cron_logger.warning(f'set_user_report_task error: {msg_id},refresh_gtoken_and_bullettoken error:{ex}')
     try:
         # 个人摘要数据
         res_summary = await splatoon.get_history_summary(try_again=True)
@@ -105,7 +105,7 @@ async def set_user_report_task(p_and_id):
         # 最近对战数据
         res_battle = await splatoon.get_recent_battles(try_again=True)
         if not res_battle:
-            res_battle =await  splatoon.get_recent_battles(try_again=True)
+            res_battle = await  splatoon.get_recent_battles(try_again=True)
         b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
         battle_t = get_battle_time_or_coop_time(b_info['id'])
         game_sp_id = get_game_sp_id(b_info['player']['id'])
@@ -113,7 +113,7 @@ async def set_user_report_task(p_and_id):
         # 最近打工数据
         res_coop = await splatoon.get_coops(try_again=True)
         if not res_coop:
-            res_coop =await splatoon.get_coops(try_again=True)
+            res_coop = await splatoon.get_coops(try_again=True)
         coop_id = res_coop['data']['coopResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]['id']
         coop_t = get_battle_time_or_coop_time(coop_id)
 
@@ -212,6 +212,7 @@ async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, pl
 
 async def send_report_task():
     """8点时进行发信"""
+    report_logger = logger.bind(report=True)
     cron_msg = f'create_send_report_tasks start'
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
@@ -232,6 +233,9 @@ async def send_report_task():
         try:
             msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:
+                # 写日志
+                log_msg = msg.replace('\n', '')
+                report_logger.info(f"get {msg_id} report：{log_msg}")
                 # # 通知到频道
                 # await report_notify_to_channel(user.platform, user.user_id, msg, _type='job')
                 # 通知到私信

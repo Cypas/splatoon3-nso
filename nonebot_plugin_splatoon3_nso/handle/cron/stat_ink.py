@@ -27,7 +27,7 @@ async def sync_stat_ink():
     # 去重
     db_users = user_remove_duplicates(db_users)
 
-    _pool = 3
+    _pool = 4
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
@@ -61,26 +61,8 @@ def get_post_stat_msg(db_user):
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
 
-    # 判断用户是否位于缓存
-    msg_id = get_msg_id(db_user.platform, db_user.user_id)
-    user: GlobalUserInfo = global_user_info_dict.get(msg_id)
-    if not user:
-        # 查找同sp_id的其他用户
-        another_users = model_get_another_account_user(db_user.platform, db_user.user_id, db_user.game_sp_id)
-        if len(another_users) > 0:
-            for u in another_users:
-                # 判断同sp_id的其他账号是否位于缓存
-                u_msg_id = get_msg_id(u.platform, u.user_id)
-                uu = global_user_info_dict.get(u_msg_id)
-                if uu:
-                    user = uu
-                    break
-
-    if user:
-        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, g_token=user.g_token,
-                                   bullet_token=user.bullet_token)
-    else:
-        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key)
+    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, g_token=db_user.g_token,
+                               bullet_token=db_user.bullet_token)
 
     if not res:
         return
@@ -98,7 +80,8 @@ def get_post_stat_msg(db_user):
         url += '/salmon3'
     msg += f' to\n{url}\n\n'
 
-    cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
+    log_msg = msg.replace("\n", "")
+    cron_logger.info(f'{db_user.id}, {db_user.user_name}, {log_msg}')
 
     return msg
 
@@ -119,14 +102,14 @@ async def update_s3si_ts():
     if not os.path.exists(s3s_folder):
         cmd = f'git clone https://github.com/spacemeowx2/s3si.ts {s3s_folder}'
         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-        cron_logger.debug(f'cli: {rtn}')
+        cron_logger.info(f'cli: {rtn}')
         os.chdir(s3s_folder)
     else:
         os.chdir(s3s_folder)
         os.system('git restore .')
         cmd = f'git pull'
         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-        cron_logger.debug(f'cli: {rtn}')
+        cron_logger.info(f'cli: {rtn}')
 
     # edit agent
     cmd_list = [
@@ -146,7 +129,7 @@ async def update_s3si_ts():
 
 def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_token="", bullet_token=""):
     """同步战绩文件至stat.ink"""
-    cron_logger.debug(f'exported_to_stat_ink: {user_id}')
+    cron_logger.info(f'exported_to_stat_ink: {user_id}')
     cron_logger.debug(f'session_token: {session_token}')
     cron_logger.debug(f'api_key: {api_key}')
     user_lang = user_lang or 'zh-CN'
@@ -180,7 +163,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
             cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
 
         for cmd in cmds:
-            cron_logger.debug(f'cli: {cmd}')
+            cron_logger.info(f'cli: {cmd}')
             os.system(cmd)
 
     deno_path = plugin_config.splatoon3_deno_path
@@ -189,9 +172,9 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
         return
 
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
-    cron_logger.debug(cmd)
+    cron_logger.info(cmd)
     rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-    cron_logger.debug(f'{user_id} cli: {rtn}')
+    cron_logger.info(f'{user_id} cli: {rtn}')
 
     battle_cnt = 0
     coop_cnt = 0
@@ -207,6 +190,6 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
                 battle_cnt += 1
             url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
 
-    cron_logger.debug(f'{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
+    cron_logger.info(f'{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
     if battle_cnt or coop_cnt:
         return battle_cnt, coop_cnt, url

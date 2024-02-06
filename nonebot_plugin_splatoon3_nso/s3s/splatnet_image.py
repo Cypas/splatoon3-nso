@@ -2,8 +2,9 @@ from nonebot import logger
 from playwright.async_api import async_playwright, Browser, BrowserContext, ViewportSize
 
 from .utils import SPLATNET3_URL
+from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
-from ..utils import proxies, get_msg_id
+from ..utils import global_proxies, get_msg_id
 
 global_browser = None
 global_dict_context = {}
@@ -55,33 +56,11 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
         # 先进入首页(对于请求来说没必要模拟这一步)
         # await page.goto(f"{SPLATNET3_URL}/?lang=zh-CN")
         # await page.wait_for_timeout(1000)
-        trans = {
-            '个人穿搭': 'my_outfits',
-            '好友': 'friends',
-            '最近': 'history/latest',
-            '涂地': 'history/regular',
-            '蛮颓': 'history/bankara',
-            'X赛': 'history/xmatch',
-            'x赛': 'history/xmatch',
-            'X': 'history/xmatch',
-            'x': 'history/xmatch',
-            '活动': 'history/event',
-            '私房': 'history/private',
-            '武器': 'weapon_record',
-            '徽章': 'history_record/badge',
-            '打工记录': 'coop_record/play_record',
-            '打工': 'coop',
-            '鲑鱼跑': 'coop',
-            '击倒数量': 'coop_record/enemies',
-            '祭典': 'fest_record',
-            '英雄模式': 'hero_record',
-            '英雄': 'hero_record',
-            '地图': 'stage_record',
-        }
+
         # 未匹配，默认地址
         url = f"{SPLATNET3_URL}/history/latest"
 
-        for k, v in trans.items():
+        for k, v in ss_url_trans.items():
             if k in key:
                 url = f"{SPLATNET3_URL}/{v}"
                 break
@@ -106,17 +85,43 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
     return img_raw
 
 
+ss_url_trans = {
+    '个人穿搭': 'my_outfits',
+    '好友': 'friends',
+    '最近': 'history/latest',
+    '涂地': 'history/regular',
+    '蛮颓': 'history/bankara',
+    'X赛': 'history/xmatch',
+    'x赛': 'history/xmatch',
+    'X': 'history/xmatch',
+    'x': 'history/xmatch',
+    '活动': 'history/event',
+    '私房': 'history/private',
+    '武器': 'weapon_record',
+    '徽章': 'history_record/badge',
+    '打工记录': 'coop_record/play_record',
+    '打工': 'coop',
+    '鲑鱼跑': 'coop',
+    '击倒数量': 'coop_record/enemies',
+    '祭典': 'fest_record',
+    '英雄模式': 'hero_record',
+    '英雄': 'hero_record',
+    '地图': 'stage_record',
+}
+
+
 async def init_browser() -> Browser:
     """初始化 browser 并唤起"""
     global global_browser
     p = await async_playwright().start()
+    proxy = None
     # 代理
-    if proxies:
-        proxy = {"server": proxies}
+    if not plugin_config.splatoon3_proxy_list_mode and global_proxies:
+        proxy = {"server": global_proxies}
         # 代理访问
         global_browser = await p.chromium.launch(proxy=proxy)
     else:
-        global_browser = await p.chromium.launch()
+        global_browser = await p.chromium.launch(proxy=proxy)
     return global_browser
 
 
