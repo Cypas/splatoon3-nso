@@ -2,8 +2,9 @@ from nonebot import logger
 from playwright.async_api import async_playwright, Browser, BrowserContext, ViewportSize
 
 from .utils import SPLATNET3_URL
+from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
-from ..utils import proxies, get_msg_id
+from ..utils import global_proxies, get_msg_id
 
 global_browser = None
 global_dict_context = {}
@@ -113,13 +114,14 @@ async def init_browser() -> Browser:
     """初始化 browser 并唤起"""
     global global_browser
     p = await async_playwright().start()
+    proxy = None
     # 代理
-    if proxies:
-        proxy = {"server": proxies}
+    if not plugin_config.splatoon3_proxy_list_mode and global_proxies:
+        proxy = {"server": global_proxies}
         # 代理访问
         global_browser = await p.chromium.launch(proxy=proxy)
     else:
-        global_browser = await p.chromium.launch()
+        global_browser = await p.chromium.launch(proxy=proxy)
     return global_browser
 
 
