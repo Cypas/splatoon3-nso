@@ -61,26 +61,8 @@ def get_post_stat_msg(db_user):
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
 
-    # 判断用户是否位于缓存
-    msg_id = get_msg_id(db_user.platform, db_user.user_id)
-    user: GlobalUserInfo = global_user_info_dict.get(msg_id)
-    if not user:
-        # 查找同sp_id的其他用户
-        another_users = model_get_another_account_user(db_user.platform, db_user.user_id, db_user.game_sp_id)
-        if len(another_users) > 0:
-            for u in another_users:
-                # 判断同sp_id的其他账号是否位于缓存
-                u_msg_id = get_msg_id(u.platform, u.user_id)
-                uu = global_user_info_dict.get(u_msg_id)
-                if uu:
-                    user = uu
-                    break
-
-    if user:
-        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, g_token=user.g_token,
-                                   bullet_token=user.bullet_token)
-    else:
-        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key)
+    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, g_token=db_user.g_token,
+                               bullet_token=db_user.bullet_token)
 
     if not res:
         return
