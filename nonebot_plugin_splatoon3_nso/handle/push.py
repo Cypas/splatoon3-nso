@@ -181,8 +181,8 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     #     job_data.update({"last_battle_id": battle_id})
     #     return
 
-    # 如果battle_id未改变
-    if last_battle_id == battle_id or (not last_battle_id):
+    # 如果battle_id未改变  或  last_battle_id长时间未赋值
+    if last_battle_id == battle_id or (push_cnt > 2 and not last_battle_id):
         if not is_playing and push_cnt * PUSH_INTERVAL / 60 > 20:
             # 关闭定时，更新push状态，发送统计
             dict_get_or_set_user_info(platform, user_id, push=0)
@@ -203,6 +203,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             await notify_to_channel(msg)
             return
         return
+
     # 获取新对战信息
     splatoon = Splatoon(bot, event, user)
     logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
