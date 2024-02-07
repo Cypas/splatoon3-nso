@@ -6,7 +6,7 @@ from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
 from ..utils import global_proxies, get_msg_id
 
-global_browser = None
+global_browser: Browser = None
 global_dict_context = {}
 
 

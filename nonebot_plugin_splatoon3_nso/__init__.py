@@ -9,6 +9,7 @@ from .data.transfer import transfer_user_db
 from .handle import *
 from .handle.cron import remove_all_scheduler, scheduler_controller
 from .handle.send_msg import bot_send, notify_to_channel
+from .s3s.splatnet_image import global_browser
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
 from .utils.bot import *
 
@@ -79,6 +80,8 @@ async def bot_on_shutdown():
     logger.info(f'bot: {bots}')
     # 删除全部定时任务
     remove_all_scheduler()
+    # 关闭浏览器对象
+    await global_browser.close()
 
 
 @driver.on_bot_connect

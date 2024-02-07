@@ -416,6 +416,7 @@ class S3S:
             web_service_token = web_service_resp["result"]["accessToken"]
         except:
             # retry once if code 9403/9599 error from nintendo
+            self.logger.warning(f"retry once if code 9403/9599 error from nintendo")
             try:
                 f, uuid, timestamp = await self.call_f_api(access_token, 2, self.f_gen_url, self.r_user_id,
                                                            coral_user_id=coral_user_id)
@@ -427,7 +428,7 @@ class S3S:
                 web_service_resp = json.loads(r.text)
                 web_service_token = web_service_resp["result"]["accessToken"]
             except:
-                self.logger.warning(json.dumps(web_service_resp))
+                self.logger.warning(f"f_api retry error:resp:{json.dumps(web_service_resp)}")
                 if web_service_resp.get('errorMessage') == 'Membership required error.':
                     raise ValueError(f'Membership required error.')
                 return
@@ -552,7 +553,7 @@ class S3S:
         except Exception as e:
             try:  # if api_response never gets set
                 self.logger.warning(
-                    f"Error during f generation: \n{f_gen_url}\nbody:{json.dumps(api_body)}")
+                    f"Error during f generation: \n{f_gen_url}")
                 if api_response and api_response.text:
                     self.logger.error(
                         f"Error during f generation:\n{json.dumps(json.loads(api_response.text), ensure_ascii=False)}")
