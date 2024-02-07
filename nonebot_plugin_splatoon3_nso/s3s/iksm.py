@@ -261,8 +261,10 @@ class S3S:
         try:
             r = await self.req_client.post(url, headers=app_head, json=body)
             id_response = json.loads(r.text)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
+        except httpx.ConnectError:
             raise ValueError('NetConnectError')
+        except httpx.ConnectTimeout:
+            raise ValueError('NetConnectTimeout')
         except json.JSONDecodeError as e:
             raise ValueError('JSONDecodeError')
         except Exception as e:
@@ -289,8 +291,10 @@ class S3S:
         url = "https://api.accounts.nintendo.com/2.0.0/users/me"
         try:
             r = await self.req_client.get(url, headers=app_head)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
+        except httpx.ConnectError:
             raise ValueError('NetConnectError')
+        except httpx.ConnectTimeout:
+            raise ValueError('NetConnectTimeout')
         except Exception as e:
             raise e
         user_info = json.loads(r.text)
@@ -335,8 +339,10 @@ class S3S:
         try:
             r = await self.req_client.post(url, headers=app_head, json=body)
             splatoon_token = json.loads(r.text)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
+        except httpx.ConnectError:
             raise ValueError('NetConnectError')
+        except httpx.ConnectTimeout:
+            raise ValueError('NetConnectTimeout')
         except json.JSONDecodeError as e:
             raise ValueError('JSONDecodeError')
         except Exception as e:
@@ -397,8 +403,10 @@ class S3S:
         try:
             r = await self.req_client.post(url, headers=app_head, json=body)
             web_service_resp = json.loads(r.text)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
+        except httpx.ConnectError:
             raise ValueError('NetConnectError')
+        except httpx.ConnectTimeout:
+            raise ValueError('NetConnectTimeout')
         except json.JSONDecodeError as e:
             raise ValueError('JSONDecodeError')
         except Exception as e:
@@ -522,7 +530,8 @@ class S3S:
             uuid = resp["request_id"]
             timestamp = resp["timestamp"]
             return f, uuid, timestamp
-        except (httpx.ConnectError, httpx.ConnectTimeout):
+        except httpx.ConnectError:
+            self.logger.warning(f"F_GEN_URL ConnectError，try F_GEN_URL_2 again")
             if self.f_gen_url == F_GEN_URL:
                 # 改为f_url并递归一次
                 self.f_gen_url = F_GEN_URL_2
@@ -530,6 +539,16 @@ class S3S:
                 return f, uuid, timestamp
             else:
                 raise ValueError('NetConnectError')
+        except httpx.ConnectTimeout:
+            self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
+            if self.f_gen_url == F_GEN_URL:
+                # 改为f_url并递归一次
+                self.f_gen_url = F_GEN_URL_2
+                f, uuid, timestamp = await self.call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=coral_user_id)
+                return f, uuid, timestamp
+            else:
+                raise ValueError('NetConnectTimeout')
+
         except Exception as e:
             try:  # if api_response never gets set
                 self.logger.warning(
@@ -540,9 +559,12 @@ class S3S:
                 else:
                     self.logger.error(f"Error during f generation: Error {api_response.status_code}.")
                 raise ValueError(f"resp error:{json.dumps(api_response)}")
-            except:
+            except httpx.ConnectError:
                 self.logger.error(f"Couldn't connect to f generation API ({f_gen_url}). Please try again later.")
                 raise ValueError('NetConnectError')
+            except httpx.ConnectTimeout:
+                self.logger.error(f"connectTimeout to f generation API ({f_gen_url}). Please try again later.")
+                raise ValueError('NetConnectTimeout')
 
 
 if __name__ == "__main__":

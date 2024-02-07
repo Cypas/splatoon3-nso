@@ -6,7 +6,7 @@ from httpx import Response
 from .utils import get_msg_id
 from ..config import plugin_config
 
-HTTP_TIME_OUT = 5.0  # 请求超时，秒
+HTTP_TIME_OUT = 12.0  # 请求超时，秒
 proxy_address = plugin_config.splatoon3_proxy_address
 if proxy_address:
     global_proxies = "http://{}".format(proxy_address)
