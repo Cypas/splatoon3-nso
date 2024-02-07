@@ -19,7 +19,7 @@ matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, p
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'q群不支持该功能，该功能可在其他平台使用')
+        await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
         return
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -122,7 +122,7 @@ matcher_stop_push = on_command("stop_push", aliases={'stp', 'st', 'stop'}, prior
 async def stop_push(bot: Bot, event: Event):
     """停止推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'q群不支持该功能，该功能可在其他平台使用')
+        await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
         return
     msg = f'Stop push!'
 

@@ -70,7 +70,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
         photo = msg
         msg = ''
 
-    if isinstance(bot, QQ_GME) and plugin_config.splatoon3_qq_md_mode and not get_image:
+    if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode and not get_image:
         await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
     else:
         await bot_send(bot, event, msg, photo=photo, image_width=image_width)
@@ -81,13 +81,8 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
             logger.info(f'is_playing: {is_playing}')
             if is_playing:
                 msg = ''
-                if 'group' in event.get_event_name():
-                    if not user.push_cnt:
-                        msg = '正在游玩时可以 /push 开启推送模式~'
-                else:
-                    if user.push_cnt < 3:
-                        msg = '正在游玩时可以 /push 开启推送模式~'
-                if msg:
+                if user.push_cnt < 5:
+                    msg = '正在游玩时可以 /push 开启推送模式~'
                     await bot_send(bot, event, msg)
 
 
