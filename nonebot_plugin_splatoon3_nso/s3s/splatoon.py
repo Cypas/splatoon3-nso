@@ -256,32 +256,36 @@ class Splatoon:
 
     async def _ns_api_request(self, url, try_again=False):
         """ns接口层操作，如ns好友列表，我的 页面"""
-        app_access_token = self.access_token
-        headers = self._head_access(app_access_token)
-        json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
-
         res = ''
         msg_id = get_msg_id(self.platform, self.user_id)
         try:
             t = time.time()
-            res = await self.req_client.post(url, headers=headers, json=json_body)
+            json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
+            res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
-            if res.status_code != 200:
-                if res.status_code == 401:
-                    # 更新token提醒一下用户
-                    if not try_again and self.bot and self.event:
-                        await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
-                    try:
-                        self.logger.info(f'{msg_id}  tokens expired,start refresh tokens soon')
-                        await self.refresh_gtoken_and_bullettoken()
-                        self.logger.info(f'{msg_id} refresh tokens complete，try again')
-                    except Exception as e:
-                        self.logger.info(f'{msg_id} refresh tokens fail,reason:{e}')
-                    t = time.time()
-                    res = await self.req_client.post(url, headers=headers, json=json_body)
-                    t2 = f'{time.time() - t:.3f}'
-                    self.logger.debug(f'_request: {t2}s')
+            status = res.json()["status"]
+            if status == 9404:
+                # 更新token提醒一下用户
+                if not try_again and self.bot and self.event:
+                    await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
+                try:
+                    self.logger.info(f'{msg_id}  tokens expired,start refresh tokens soon')
+                    await self.refresh_gtoken_and_bullettoken()
+                    self.logger.info(f'{msg_id} refresh tokens complete，try again')
+                except Exception as e:
+                    self.logger.info(f'{msg_id} refresh tokens fail,reason:{e}')
+                # 再次请求
+                json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
+                t = time.time()
+                res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
+                t2 = f'{time.time() - t:.3f}'
+                self.logger.debug(f'_request: {t2}s')
+
+                status = res.json()["status"] or ""
+                if status == 9404:
+                    return None
+                else:
                     return res.json()
             else:
                 return res.json()
