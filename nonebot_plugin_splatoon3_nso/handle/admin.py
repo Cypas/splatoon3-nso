@@ -34,6 +34,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
         case 'close_push':
             users = dict_get_all_global_users(False)
             msg = ''
+            push_cnt = 0
             for u in users:
                 if not u.push:
                     continue
@@ -42,9 +43,10 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                 st_msg, _ = close_push(u.platform, u.user_id)
                 msg += st_msg
                 await notify_to_private(u.platform, u.user_id, msg)
+                push_cnt += 1
                 time.sleep(0.5)
 
-            await bot_send(bot, event, message="已关闭所有push")
+            await bot_send(bot, event, message=f"已关闭全部{push_cnt}个push")
 
         case 'parse_x_rank':
             await bot_send(bot, event, message="即将开始parse_x_rank")

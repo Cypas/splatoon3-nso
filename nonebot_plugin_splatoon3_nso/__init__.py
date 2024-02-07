@@ -80,8 +80,6 @@ async def bot_on_shutdown():
     logger.info(f'bot: {bots}')
     # 删除全部定时任务
     remove_all_scheduler()
-    # 关闭浏览器对象
-    await global_browser.close()
 
 
 @driver.on_bot_connect
