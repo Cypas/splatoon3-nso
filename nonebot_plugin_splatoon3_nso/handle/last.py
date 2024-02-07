@@ -70,7 +70,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
         photo = msg
         msg = ''
 
-    if platform == "QQ" and plugin_config.splatoon3_qq_md_mode and not get_image:
+    if isinstance(bot, QQ_GME) and plugin_config.splatoon3_qq_md_mode and not get_image:
         await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
     else:
         await bot_send(bot, event, msg, photo=photo, image_width=image_width)

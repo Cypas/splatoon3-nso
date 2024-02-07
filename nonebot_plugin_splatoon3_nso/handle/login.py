@@ -29,7 +29,8 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
 
-    if isinstance(bot, QQ_Bot):
+    # 只有q平台 且 q群才发md
+    if isinstance(bot, QQ_GME):
         if plugin_config.splatoon3_qq_md_mode:
             # 发送md
             await bot_send_login_md(bot, event, user_id)

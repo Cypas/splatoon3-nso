@@ -138,16 +138,6 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
         #     await log_cmd_to_db(bot, event)
     else:
         # 下面为文字消息
-        if isinstance(bot, (Tg_Bot, Kook_Bot, QQ_Bot)):
-            if 'group' in event.get_event_name() or isinstance(bot, QQ_Bot):
-                # /me 截断
-                if '开放' in message and ': (+' not in message:
-                    coop_lst = message.split('2022-')[-1].split('2023-')[-1].strip().split('\n')
-                    message = message.split('2022-')[0].split('2023-')[0].strip() + '\n'
-                    for l in coop_lst:
-                        if '打工次数' in l or '头目鲑鱼' in l:
-                            message += '\n' + l
-                    # message += '```'
         try:
             if isinstance(bot, QQ_Bot):
                 message = message.replace('```', '').replace('\_', '_').strip().strip('`')
