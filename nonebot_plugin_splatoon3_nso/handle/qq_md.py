@@ -4,6 +4,7 @@ from nonebot.adapters.qq.message import Keyboard
 from nonebot.adapters.qq.models import MessageKeyboard, InlineKeyboard, InlineKeyboardRow, Button, RenderData, \
     MessageMarkdown
 
+from ..config import plugin_config
 from ..utils.bot import *
 
 
@@ -106,12 +107,10 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     return qq_msg
 
 
-def login_md(user_id, check_session=False) -> QQ_Msg:
+def login_md(user_id) -> QQ_Msg:
     template_id = "102083290_1705923685"
-    data1 = "Q群当前无法登录nso，请至其他平台完成登录后获取绑定码"
-    if check_session:
-        data1 = "nso相关功能需要登录ns账号，Q群当前无法完成登录，请至其他平台完成登录后获取绑定码"
-    data2 = "Kook服务器id：85644423"
+    data1 = "nso未登录，无法使用相关查询，QQ平台当前无法完成登录流程，请至其他平台完成登录后获取绑定码"
+    data2 = f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
     button_show = "kook服务器"
     kook_jump_link = "https://www.kookapp.cn/app/invite/mkjIOn"
 

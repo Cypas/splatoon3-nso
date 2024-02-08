@@ -30,13 +30,13 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
     user_id = event.get_user_id()
 
     # 只有q平台 且 q群才发md
-    if isinstance(event, QQ_GME):
-        if plugin_config.splatoon3_qq_md_mode:
+    if isinstance(bot, QQ_Bot):
+        if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
             # 发送md
             await bot_send_login_md(bot, event, user_id)
         else:
-            kk_guild_id = plugin_config.splatoon3_kk_guild_id
-            msg = f"Q群当前无法登录nso，请至其他平台完成登录后获取绑定码\nKook服务器id：{kk_guild_id}"
+            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后获取绑定码\n" \
+                  f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
             await bot_send(bot, event, msg)
 
         await matcher.finish()
@@ -47,7 +47,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id)
     if user and user.session_token:
-        msg = '用户已经登录\n如需重新登录或切换账号请继续下面操作\n登出或清空账号数据 /clear_db_info\n/get_login_code 获取绑定码以绑定其他平台bot账号'
+        msg = '用户已经登录nso\n如需重新登录或绑定账号请继续下面操作\n/clear_db_info 登出并清空账号数据\n/get_login_code 获取绑定码以绑定其他平台bot账号'
         await bot_send(bot, event, msg)
         await matcher.finish()
 

@@ -87,16 +87,22 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
     user_id = event.get_user_id()
     user_info = dict_get_or_set_user_info(platform, user_id)
     if not user_info or not user_info.session_token:
-        _msg = ""
+        msg = ""
         if isinstance(bot, Tg_Bot):
-            _msg = "nso not logged in. direct message to me /login first."
-        elif isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot, QQ_Bot)):
-            _msg = 'nso未登录，无法使用相关查询，请先私信我 /login 进行登录'
+            msg = "nso not logged in. direct message to me /login first."
+        elif isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
+            msg = "nso未登录，无法使用相关查询，请先私信我 /login 进行登录"
+        elif isinstance(bot, QQ_Bot):
             if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
                 # 发送md
-                await bot_send_login_md(bot, event, user_id, check_session=True)
+                await bot_send_login_md(bot, event, user_id)
                 await matcher.finish()
-        await matcher.finish(_msg)
+            else:
+                msg = "nso未登录，无法使用相关查询\n" \
+                       "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后获取绑定码\n" \
+                       f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+
+        await matcher.finish(msg)
     else:
         # 已登录用户
         # cmd_cnt+1
