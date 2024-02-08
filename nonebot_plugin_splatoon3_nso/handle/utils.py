@@ -89,9 +89,9 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
     if not user_info or not user_info.session_token:
         _msg = ""
         if isinstance(bot, Tg_Bot):
-            _msg = "Permission denied. /login first."
+            _msg = "nso not logged in. direct message to me /login first."
         elif isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot, QQ_Bot)):
-            _msg = '无权限查看，请先 /login 登录'
+            _msg = 'nso未登录，无法使用相关查询，请先私信我 /login 进行登录'
             if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
                 # 发送md
                 await bot_send_login_md(bot, event, user_id, check_session=True)
