@@ -58,8 +58,16 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
 
     image_width = 680
     if get_equip:
+        # 查询装备
+        get_battle = True
+        get_coop = False
         image_width = 1000
         await bot_send(bot, event, "查询装备数据会花费更长一些时间，请稍等")
+
+    if get_screenshot:
+        # nso截图
+        await bot_send(bot, event, "nso截图需要10秒以上时间，请稍等")
+
     msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
                                                     get_coop=get_coop,
                                                     get_equip=get_equip,
@@ -288,6 +296,8 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                     pic = None
                 return pic
             battle_detail = await splatoon.get_battle_detail(_id)
+            if not battle_detail:
+                battle_detail = await splatoon.get_battle_detail(_id)
 
             # 为top命令提供player_code和name
             if get_player_code_idx:
@@ -334,6 +344,8 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                     pic = None
                 return pic
             coop_detail = await splatoon.get_coop_detail(_id)
+            if not coop_detail:
+                coop_detail = await splatoon.get_coop_detail(_id)
             # 查询全部boss击杀数量
             coop_statistics_res = await splatoon.get_coop_statistics()
             coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
@@ -342,7 +354,7 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
 
     except Exception as e:
         logger.exception(e)
-        msg = f'get last {"battle" if is_battle else "coop"} failed, please try again later.'
+        msg = f'网络错误，获取最近 {"对战" if is_battle else "打工"}数据失败，请稍后再试'
     return msg
 
 
