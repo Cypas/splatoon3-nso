@@ -97,23 +97,25 @@ class Splatoon:
                             await notify_to_private(self.platform, self.user_id, msg)
                         raise ValueError('invalid_grant')
                     return
-                elif 'Membership required' in str(e):
+                elif "Membership required" in str(e):
                     # 会员过期
                     self.logger.warning(
-                        f'membership_required: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
+                        f"membership_required: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}")
                     _ex, nickname = str(e).split('|')
                     nickname = nickname or ''
-                    self.logger.warning('membership_required notify')
                     # 待发送文本
-                    msg = f'喷3账号 {nickname} 会员过期'
+                    msg = f"喷3账号 {nickname} 会员过期"
                     if self.bot and self.event:
+                        self.logger.warning('membership_required notify')
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
                     else:
-                        msg += ',无法更新日报\n/report_notify close 关闭每日日报推送'
+                        msg += ",无法更新日报"
+                        # msg += "\n/report_notify close 关闭每日日报推送"
                         # 来自定时任务
-                        if user.report_notify:
-                            await notify_to_private(self.platform, self.user_id, msg)
+                        # if user.report_notify:
+                        #     await notify_to_private(self.platform, self.user_id, msg)
+
                         raise ValueError('Membership required')
                     return
                 self.logger.warning(
