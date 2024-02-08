@@ -29,11 +29,12 @@ __plugin_meta__ = PluginMetadata(
 @on_startswith(("/", "、"), priority=99).handle()
 async def unknown_command(bot: Bot, event: Event):
     logger.info(f'unknown_command from {event.get_event_name()}')
-    if isinstance(event, Private_Message):
-        _msg = "Sorry, I didn't understand that command. /help"
-        if isinstance(bot, (V11_Bot, QQ_Bot, V12_Bot, Kook_Bot)):
-            _msg = "无效命令，输入 /help 查看帮助"
-        await bot.send(event, message=_msg)
+    msg = ""
+    if isinstance(bot, Tg_Bot):
+        msg = "Sorry, I didn't understand that command. /help"
+    elif isinstance(bot, (V11_Bot, V12_Bot, QQ_Bot, Kook_Bot)):
+        msg = "无效指令，发送 /help 查看帮助"
+    await bot.send(event, message=msg)
 
 
 @on_command("help", aliases={"h", "帮助", "说明", "文档"}, priority=10).handle()
