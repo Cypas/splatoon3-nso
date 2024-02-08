@@ -54,7 +54,7 @@ async def get_event_top_player_task(splatoon):
                 cron_logger.info(f'top_all.type search {search_type}, {count or 0}')
                 if count:
                     continue
-                res = await splatoon.get_event_items(top_id)
+                res = await splatoon.get_event_items(top_id, multiple=True)
                 parse_league(res)
 
 

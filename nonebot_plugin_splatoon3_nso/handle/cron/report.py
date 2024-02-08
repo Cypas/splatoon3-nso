@@ -90,7 +90,7 @@ async def set_user_report_task(p_and_id):
             cron_logger.warning(f'set_user_report_task error: {msg_id},refresh_gtoken_and_bullettoken error:{ex}')
     try:
         # 个人摘要数据
-        res_summary = await splatoon.get_history_summary(multiple=True)
+        res_summary = await splatoon.get_history_summary()
         if not res_summary:
             res_summary = await splatoon.get_history_summary(multiple=True)
         history = res_summary['data']['playHistory']
