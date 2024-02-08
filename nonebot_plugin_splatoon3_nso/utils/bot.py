@@ -59,5 +59,6 @@ from nonebot.adapters.qq import AuditException as QQ_AuditException, ActionFaile
 
 # 公开发言消息类型
 Group_Message = (Kook_CME, Tg_GME, Tg_CME, QQ_CME, QQ_GME)
-
 Group_Message_Without_QQ_G = (Kook_CME, Tg_GME, Tg_CME, QQ_CME)
+# 私聊消息
+Private_Message = (Kook_PME, Tg_PME, QQ_PME, QQ_C2CME)

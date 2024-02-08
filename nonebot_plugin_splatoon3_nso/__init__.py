@@ -28,8 +28,8 @@ __plugin_meta__ = PluginMetadata(
 
 @on_startswith(("/", "、"), priority=99).handle()
 async def unknown_command(bot: Bot, event: Event):
-    logger.info(f'unknown_command {event.get_event_name()}')
-    if 'private' in event.get_event_name():
+    logger.info(f'unknown_command from {event.get_event_name()}')
+    if isinstance(event, Private_Message):
         _msg = "Sorry, I didn't understand that command. /help"
         if isinstance(bot, (V11_Bot, QQ_Bot, V12_Bot, Kook_Bot)):
             _msg = "无效命令，输入 /help 查看帮助"
