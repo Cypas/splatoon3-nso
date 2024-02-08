@@ -11,11 +11,11 @@ async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splato
     """获取真格模式挑战点数和挑战进度"""
     try:
         point = 0
-        b_process = ''
+        b_process = ""
         if not bankara_match:
-            return point, ''
+            return point, ""
 
-        if bankara_match == 'OPEN':
+        if bankara_match == "OPEN":
             # open
             point = battle_detail['bankaraMatch']['earnedUdemaePoint']
             if point > 0:
@@ -51,7 +51,7 @@ async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splato
     except Exception as e:
         logger.exception(e)
         point = 0
-        b_process = ''
+        b_process = ""
 
     return point, b_process
 
@@ -60,7 +60,7 @@ async def get_x_power_and_process(battle_detail, splatoon: Splatoon, idx=0):
     """获取x赛分数和挑战进度"""
     try:
         power = 0
-        x_process = ''
+        x_process = ""
 
         x_res = await splatoon.get_x_battles(multiple=True)
         # 得确定对战位于哪一个group
@@ -85,7 +85,7 @@ async def get_x_power_and_process(battle_detail, splatoon: Splatoon, idx=0):
     except Exception as e:
         logger.warning(f"get x power error:{e}")
         power = 0
-        x_process = ''
+        x_process = ""
 
     return power, x_process
 
@@ -120,7 +120,7 @@ async def get_top_all_name(name, player_code):
     top_str = f'F({max_power})' if row.top_type.startswith('Fest') else f'E({max_power})'
     name = name.replace('`', '&#96;').replace('|', '&#124;')
     name = name.strip() + f'</br><span style="color:#EE9D59">`{top_str}`</span>'
-    if '<img' not in name:
+    if "<img" not in name:
         weapon_name = str(row.weapon)
         img_type = "battle_weapon_main"
         weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
@@ -132,7 +132,7 @@ async def get_top_all_name(name, player_code):
 async def get_top_user(name, player_code):
     """获取top玩家md信息"""
     _power = 0
-    top_str = ''
+    top_str = ""
     top_user = model_get_top_player(player_code)
     if top_user:
         # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
@@ -191,7 +191,7 @@ async def get_myself_name_color(player_name, player_code):
 
 def remove_user_name_icon(name):
     """存在top_all榜单，或x榜时，移除用户名后面的好友头像，方便显示武器"""
-    if '<img' in name:
+    if "<img" in name:
         origin_name = name.split('style="color:skyblue">')[-1].split(" <img height='36px'")[0]
         name = f'<span style="color:skyblue">{origin_name}</span>'
     return name

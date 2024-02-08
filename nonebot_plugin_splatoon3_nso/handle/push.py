@@ -19,7 +19,7 @@ matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, p
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
+        await bot_send(bot, event, "QQ平台不支持该功能，该功能可在其他平台使用")
         return
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -27,7 +27,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
 
     user = dict_get_or_set_user_info(platform, user_id)
     if user and user.push:
-        await bot_send(bot, event, '已开启推送，无需重复触发')
+        await bot_send(bot, event, "已开启推送，无需重复触发")
         return
     # push计数+1
     user = dict_get_or_set_user_info(platform, user_id, push=1, push_cnt=user.push_cnt + 1)
@@ -41,16 +41,16 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     # 筛选参数
     if cmd_message:
         cmd_lst = cmd_message.split(" ")
-        if 'b' in cmd_lst or 'battle' in cmd_lst:
+        if "b" in cmd_lst or "battle" in cmd_lst:
             get_battle = True
-        if 'c' in cmd_lst or 'coop' in cmd_lst:
+        if "c" in cmd_lst or "coop" in cmd_lst:
             get_coop = True
         if get_battle and get_coop:
             get_battle = False
             get_coop = False
-        if 'ss' in cmd_lst or 'screenshot' in cmd_lst:
+        if "ss" in cmd_lst or "screenshot" in cmd_lst:
             get_screenshot = True
-        if 'm' in cmd_lst or 'mask' in cmd_lst:
+        if "m" in cmd_lst or "mask" in cmd_lst:
             mask = True
     filters = {"get_battle": get_battle,
                "get_coop": get_coop,
@@ -65,8 +65,8 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         channel_id = event.group_id
 
     # 添加定时任务
-    job_id = f'{msg_id}_push'
-    logger.info(f'add push_job {job_id}')
+    job_id = f"{msg_id}_push"
+    logger.info(f"add push_job {job_id}")
     job_data = {
         'platform': platform,
         'user_id': user_id,
@@ -124,7 +124,7 @@ async def stop_push(bot: Bot, event: Event):
     if isinstance(bot, QQ_Bot):
         await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
         return
-    msg = f'Stop push!'
+    msg = f"Stop push!"
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -133,7 +133,7 @@ async def stop_push(bot: Bot, event: Event):
 
     st_msg, push_time_minute = close_push(platform, user_id)
     if isinstance(bot, (V12_Bot, Kook_Bot)):
-        msg = f'停止推送！推送持续 {push_time_minute}分钟\n'
+        msg = f"停止推送！推送持续 {push_time_minute}分钟\n"
     if not user.stat_key and user.push_cnt <= 10:
         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
 
@@ -191,12 +191,12 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             # 获取统计数据
             st_msg, push_time_minute = close_push(platform, user_id)
             if isinstance(bot, (V12_Bot, Kook_Bot)):
-                msg = f'20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟\n'
+                msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟\n"
                 if not user.stat_key and user.push_cnt <= 10:
                     msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
             msg += st_msg
 
-            logger.info(f'push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push cycle count:{push_cnt:>3}')
+            logger.info(f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
             await bot_send(bot, event, message=msg, skip_log_cmd=True)
             msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"

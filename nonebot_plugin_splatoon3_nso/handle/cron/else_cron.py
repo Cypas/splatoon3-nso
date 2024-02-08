@@ -52,12 +52,12 @@ async def refresh_token_task(p_and_id):
         # 关闭连接池
         await splatoon.req_client.close()
     except Exception as e:
-        cron_logger.warning(f'refresh_token_task error: {msg_id}, {e}')
+        cron_logger.warning(f"refresh_token_task error: {msg_id}, {e}")
 
 
 async def clean_s3s_cache():
     """清理s3sti脚本的缓存文件夹"""
-    dir_s3s_cache = f'{DIR_RESOURCE}/s3sits_git/cache'
+    dir_s3s_cache = f"{DIR_RESOURCE}/s3sits_git/cache"
     if os.path.exists(dir_s3s_cache):
         shutil.rmtree(dir_s3s_cache)
 

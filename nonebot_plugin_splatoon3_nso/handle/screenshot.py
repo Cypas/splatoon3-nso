@@ -47,7 +47,7 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         message = "当前没有祭典投票问卷"
     except Exception as e:
         logger.exception(e)
-        message = '网络错误，请稍后再试'
+        message = "网络错误，请稍后再试"
     await bot_send(bot, event, message=message)
 
 

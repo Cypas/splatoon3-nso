@@ -38,7 +38,7 @@ async def get_me(bot, event, from_group):
         msg = await get_me_md(user, history_summary, total_query, coop, from_group)
     except Exception as e:
         logger.exception(e)
-        msg = f'获取数据失败，请稍后再试'
+        msg = f"获取数据失败，请稍后再试"
     finally:
         # 关闭连接池
         await splatoon.req_client.close()
@@ -405,37 +405,37 @@ def wide_chars(s):
 
 def get_cn_sp3_stat(_st):
     """获取用户状态的中文翻译"""
-    if 'PRIVATE' in _st:
-        _st = '私房'
-    elif 'X_MATCH)' in _st:
-        _st = 'X比赛'
-    elif 'RA)O' in _st:
-        _st = '开放'
-    elif 'RA)C' in _st:
-        _st = '挑战'
-    elif 'MATCHING' in _st:
-        _st = '匹配中'
-    elif 'COOP' in _st:
-        _st = '打工'
-    elif 'REGULAR)' in _st:
-        _st = '涂地'
-    elif _st == 'ONLINE':
-        _st = '在线'
-    elif 'LEAGUE' in _st:
-        _st = '活动'
-    elif 'FEST)O' in _st:
-        _st = '祭典开放'
-    elif 'FEST)C' in _st:
-        _st = '祭典挑战'
-    elif 'FEST)3' in _st:
-        _st = '祭典三色'
+    if "PRIVATE" in _st:
+        _st = "私房"
+    elif "X_MATCH)" in _st:
+        _st = "X比赛"
+    elif "RA)O" in _st:
+        _st = "开放"
+    elif "RA)C" in _st:
+        _st = "挑战"
+    elif "MATCHING" in _st:
+        _st = "匹配中"
+    elif "COOP" in _st:
+        _st = "打工"
+    elif "REGULAR)" in _st:
+        _st = "涂地"
+    elif _st == "ONLINE":
+        _st = "在线"
+    elif "LEAGUE" in _st:
+        _st = "活动"
+    elif "FEST)O" in _st:
+        _st = "祭典开放"
+    elif "FEST)C" in _st:
+        _st = "祭典挑战"
+    elif "FEST)3" in _st:
+        _st = "祭典三色"
     return _st
 
 
 @on_command("report_notify", block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'QQ平台暂不支持本功能')
+        await bot_send(bot, event, "QQ平台暂不支持本功能")
         return
     cmd = args.extract_plain_text().strip()
     platform = bot.adapter.get_name()
@@ -455,7 +455,7 @@ async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
 @on_command("stat_notify", aliases={'api_notify'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'QQ平台暂不支持本功能')
+        await bot_send(bot, event, "QQ平台暂不支持本功能")
         return
     cmd = args.extract_plain_text().strip()
     platform = bot.adapter.get_name()

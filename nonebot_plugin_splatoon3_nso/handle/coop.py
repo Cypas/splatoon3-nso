@@ -19,7 +19,7 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
 | :--- |:---:|:---:|:---:|
 | 波数 | 提交/需求(出现) |潮位|大招|
 '''
-    d_w = {0: '退潮', 1: '平潮', 2: '涨潮'}
+    d_w = {0: "退潮", 1: "平潮", 2: "涨潮"}
     win = False
     total_deliver_cnt = 0
     wave_cnt = 3
@@ -31,7 +31,7 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
     wave_results = detail['waveResults'][:wave_cnt]
     for w in wave_results:
         event = (w.get('eventWave') or {}).get('name') or ''
-        specs = ''
+        specs = ""
         for s in w.get('specialWeapons') or []:
             img_type = "coop_special"
             img = await model_get_temp_image_path(img_type, s['name'], s['image']['url'])
@@ -43,8 +43,8 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
     if detail.get('bossResult'):
         # EX wave
         w = detail['waveResults'][-1]
-        r = 'GJ!' if detail['bossResult']['hasDefeatBoss'] else 'NG'
-        s = ''
+        r = "GJ!" if detail['bossResult']['hasDefeatBoss'] else "NG"
+        s = ""
         scale = detail.get('scale')
         if scale and scale.get('gold'):
             s += f' 🏅️{scale["gold"]}'

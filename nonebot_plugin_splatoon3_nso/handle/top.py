@@ -60,7 +60,7 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
     photo = await get_top(bot, event, battle=battle, player_idx=player_idx)
     if photo:
         if not photo.startswith('###'):
-            _msg += f'该条件下未查询到成员{photo}上榜数据'
+            _msg += f"该条件下未查询到成员{photo}上榜数据"
         else:
             _msg = photo
     await bot_send(bot, event, _msg)
@@ -214,9 +214,9 @@ async def get_x_top_md(splatoon):
         jp_res = await splatoon.get_x_ranking('PACIFIC')  # 日服 暇古
         us_res = await splatoon.get_x_ranking('ATLANTIC', multiple=True)  # 美服 艾洛眼
     except ValueError:
-        return '网络错误，请稍后再试...'
+        return "网络错误，请稍后再试..."
     except Exception as e:
-        return 'No X found!'
+        return "No X found!"
 
     jp_x = jp_res['data']['xRanking']['currentSeason']
     jp_time = jp_x['lastUpdateTime']

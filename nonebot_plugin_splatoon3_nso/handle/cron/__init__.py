@@ -37,7 +37,7 @@ def scheduler_controller():
     def add_scheduler(_type, **kwargs):
         """添加新的的定时器"""
         global list_scheduler_type
-        job_id = f'sp3_cron_job_{_type}'
+        job_id = f"sp3_cron_job_{_type}"
         if scheduler.get_job(job_id):
             scheduler.remove_job(job_id)
             list_scheduler_type.remove(_type)
@@ -45,7 +45,7 @@ def scheduler_controller():
             id=job_id, func=cron, args=[_type],
             misfire_grace_time=60, coalesce=True, max_instances=1, **kwargs
         )
-        logger.info(f'add job {job_id}')
+        logger.info(f"add job {job_id}")
         list_scheduler_type.append(_type)
 
     # parse x rank player at 2:40
@@ -99,5 +99,5 @@ async def cron(_type):
 def remove_all_scheduler():
     """删除全部定时任务"""
     for _type in list_scheduler_type:
-        job_id = f'sp3_cron_job_{_type}'
+        job_id = f"sp3_cron_job_{_type}"
         scheduler.remove_job(job_id)

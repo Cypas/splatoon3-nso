@@ -20,25 +20,25 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
     match plain_text:
 
-        case 'get_push':
+        case "get_push":
             users = dict_get_all_global_users(False)
-            msg = ''
+            msg = ""
             for u in users:
                 if not u.push:
                     continue
                 msg_id = get_msg_id(u.platform, u.user_id)
-                msg += f'db_id:{u.db_id:>3},{msg_id}, n:{u.user_name:>7}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n'
-            msg = f'```\n{msg}```' if msg else 'no data'
+                msg += f"db_id:{u.db_id:>3},{msg_id}, n:{u.user_name:>7}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n"
+            msg = f"```\n{msg}```" if msg else "no data"
             await bot_send(bot, event, message=msg)
 
-        case 'close_push':
+        case "close_push":
             users = dict_get_all_global_users(False)
-            msg = ''
+            msg = ""
             push_cnt = 0
             for u in users:
                 if not u.push:
                     continue
-                msg = 'push推送被管理员强制关闭，大概率是需要重启bot，请稍等几分钟完成重启后，重新对bot发送/push 命令\n'
+                msg = "push推送被管理员强制关闭，大概率是需要重启bot，请稍等几分钟完成重启后，重新对bot发送/push 命令\n"
                 # 获取统计数据
                 st_msg, _ = close_push(u.platform, u.user_id)
                 msg += st_msg
@@ -48,45 +48,45 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
             await bot_send(bot, event, message=f"已关闭全部{push_cnt}个push")
 
-        case 'parse_x_rank':
+        case "parse_x_rank":
             await bot_send(bot, event, message="即将开始parse_x_rank")
             await get_x_player()
 
-        case 'get_event_top':
+        case "get_event_top":
             await bot_send(bot, event, message="即将开始get_event_top")
             await get_event_top()
 
-        case 'clean_cache':
+        case "clean_cache":
             model_clean_db_cache()
             await bot_send(bot, event, message="数据库缓存已清空")
 
-        case 'set_report':
+        case "set_report":
             await bot_send(bot, event, message="即将开始整理日报")
             await create_set_report_tasks()
 
-        case 'send_report':
+        case "send_report":
             await bot_send(bot, event, message="即将开始send_report")
             await send_report_task()
 
-        case 'get_user_friends':
+        case "get_user_friends":
             await create_get_user_friends_tasks()
 
-        case 'refresh_token':
+        case "refresh_token":
             await bot_send(bot, event, message="即将开始refresh_token")
             await create_refresh_token_tasks()
 
-        case 'update_s3si_ts':
+        case "update_s3si_ts":
             await bot_send(bot, event, message="即将开始update_s3si_ts")
             await update_s3si_ts()
 
-        case 'sync_stat_ink':
+        case "sync_stat_ink":
             await bot_send(bot, event, message="即将开始sync_stat_ink")
             threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
 
-        case 'clean_s3s_cache':
+        case "clean_s3s_cache":
             await bot_send(bot, event, message="即将开始clean_s3s_cache")
             await clean_s3s_cache()
 
-        case 'clean_global_user_info_dict':
+        case "clean_global_user_info_dict":
             await bot_send(bot, event, message="即将开始clean_global_user_info_dict")
             await clean_global_user_info_dict()

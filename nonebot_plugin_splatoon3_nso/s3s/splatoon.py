@@ -33,11 +33,11 @@ class Splatoon:
         self.user_id = user_info.user_id or "no_user_id"
         self.user_name = user_info.user_name
         self.session_token = user_info.session_token
-        self.user_lang = 'zh-CN'
-        self.user_country = 'JP'
-        self.bullet_token = ''
-        self.g_token = ''
-        self.access_token = ''
+        self.user_lang = "zh-CN"
+        self.user_country = "JP"
+        self.bullet_token = ""
+        self.g_token = ""
+        self.access_token = ""
         s3s = S3S(self.platform, self.user_id, _type=_type)
         self.s3s = s3s
         self.nso_app_version = s3s.get_nsoapp_version()
@@ -87,7 +87,7 @@ class Splatoon:
                         f'invalid_grant_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
                     self.set_user_info(session_token=None)
                     # 待发送文本
-                    msg = f'喷3账号 {user.game_name or ""} 登录过期，请重新登录 /login'
+                    msg = f"喷3账号 {user.game_name or ''} 登录过期，请重新登录 /login"
                     if self.bot and self.event:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
