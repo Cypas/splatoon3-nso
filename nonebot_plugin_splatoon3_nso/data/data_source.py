@@ -191,9 +191,11 @@ def model_get_another_account_user(platform, user_id, game_sp_id) -> list[Type[U
     """查找同game_sp_id的其他账号"""
     session = DBSession()
     # 查找账号id
-    subq = session.query(UserTable.id.label('sub_id')).filter(and_(UserTable.platform == platform, UserTable.user_id == user_id)).subquery()
+    subq = session.query(UserTable.id.label('sub_id')).filter(
+        and_(UserTable.platform == platform, UserTable.user_id == user_id)).subquery()
     # 查找sp_id但非本账号id
-    users = session.query(UserTable).filter(and_(UserTable.game_sp_id == game_sp_id, UserTable.id != subq.c.sub_id)).all()
+    users = session.query(UserTable).filter(
+        and_(UserTable.game_sp_id == game_sp_id, UserTable.game_sp_id.isnot(None), UserTable.id != subq.c.sub_id)).all()
     session.close()
     return users
 
@@ -209,7 +211,8 @@ def model_get_newest_user() -> UserTable:
 def model_get_login_user_by_sp_code(player_code):
     """获取登录用户信息"""
     session = DBSession()
-    user = session.query(UserTable).filter(UserTable.game_sp_id == player_code).first()
+    user = session.query(UserTable).filter(
+        and_(UserTable.game_sp_id == player_code, UserTable.game_sp_id.isnot(None))).first()
     session.close()
     return user
 
