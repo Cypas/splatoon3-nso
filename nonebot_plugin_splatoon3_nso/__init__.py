@@ -43,7 +43,7 @@ async def _help(bot: Bot, event: Event):
         return
     else:
         if isinstance(bot, Tg_Bot):
-            await bot_send(bot, event, message=MSG_HELP, disable_web_page_preview=True)
+            await bot_send(bot, event, message=MSG_HELP)
         elif isinstance(bot, QQ_Bot):
             msg = MSG_HELP_QQ
             await bot_send(bot, event, message=msg)

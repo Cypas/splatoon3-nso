@@ -211,15 +211,11 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
 
     msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
                              get_screenshot=get_screenshot, mask=mask)
-    photo = None
-    if get_screenshot:
-        photo = msg
-        msg = ''
 
     image_width = 680
     # 关闭连接池
     await splatoon.req_client.close()
-    r = await bot_send(bot, event, message=msg, photo=photo, image_width=image_width, skip_log_cmd=True)
+    r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)
 
     # tg撤回上一条push的消息
     if job_data.get('channel_id') and r:

@@ -116,23 +116,43 @@ async def notify_to_private(platform: str, user_id: str, msg: str):
         await send_private_msg(bot, user_id, msg)
 
 
-async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
-    """综合发信函数，发送图片需要添加参数 photo={img_data}"""
+async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_width=None, skip_log_cmd=True, QQ_md=None):
+    """综合发信函数
+    QQ_md的值应该为一个字典{"md_type":"last","user_id":"111"}
+    """
     img_data = ''
-    if message and message.strip().startswith('####'):
-        width = 1000
-        if 'image_width' in kwargs:
-            width = kwargs.get('image_width')
-        # 打工
-        if 'W1 ' in message and 'duration: ' not in message:
-            width = 680
-        img_data = await md_to_pic(message, width=width, css_path=f'{DIR_RESOURCE}/md.css')
-
-    if kwargs.get('photo'):
-        img_data = kwargs.get('photo')
+    if isinstance(message, str):
+        if message and message.strip().startswith('####'):
+            width = 1000
+            if image_width:
+                width = image_width
+            # 打工
+            if 'W1 ' in message and 'duration: ' not in message:
+                width = 680
+            img_data = await md_to_pic(message, width=width, css_path=f'{DIR_RESOURCE}/md.css')
+    if isinstance(message, bytes):
+        # 图片数据
+        img_data = message
 
     if img_data:
-        await send_msg(bot, event, img_data)
+        if not QQ_md:
+            await send_msg(bot, event, img_data)
+        elif isinstance(event, QQ_GME) and QQ_md:
+            # 需要图片的md消息
+            md_type = QQ_md.get("md_type")
+            user_id = QQ_md.get("user_id")
+            if md_type:
+                # 通过pillow库获取图片宽高数据
+                image = Image.open(io.BytesIO(img_data))
+                width, height = image.size
+                image.close()
+                # 获取图片url
+                url = await get_image_url(img_data)
+                # 根据不同type渲染不同md
+                match md_type:
+                    case "last":
+                        qq_md_msg = last_md(user_id, image_size=(width, height), url=url)
+                        await bot.send(event, qq_md_msg)
 
         # if not kwargs.get('skip_log_cmd'):
         #     await log_cmd_to_db(bot, event)
@@ -149,32 +169,11 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
         #     await log_cmd_to_db(bot, event)
 
 
-async def bot_send_last_md(bot: Bot, event: Event, message: str, user_id: str, image_width=None):
+async def bot_send_last_md(bot: Bot, event: Event, message: str | bytes, user_id: str, image_width=None):
     """发送qq md消息"""
-    img_data = ''
-    width = 1000
-    if message and message.strip().startswith('####'):
-        if image_width:
-            width = image_width
-        # 打工
-        if 'W1 ' in message and 'duration: ' not in message:
-            width = 680
-        img_data = await md_to_pic(message, width=width, css_path=f'{DIR_RESOURCE}/md.css')
-
-    if img_data:
-        # 通过pillow库获取图片宽高数据
-        image = Image.open(io.BytesIO(img_data))
-        width, height = image.size
-        image.close()
-        # 获取图片url
-        url = await get_image_url(img_data)
-        qq_msg = last_md(user_id, image_size=(width, height), url=url)
-        await bot.send(event, qq_msg)
-    else:
-        # 文字消息，例如网络错误文字
-        if isinstance(bot, QQ_Bot):
-            message = message.replace('```', '').replace('\_', '_').strip().strip('`')
-        await send_msg(bot, event, message)
+    QQ_md = {"md_type": "last",
+             "user_id": user_id}
+    await bot_send(bot, event, message, image_width, QQ_md=QQ_md)
 
 
 async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=False):
