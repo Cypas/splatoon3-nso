@@ -22,7 +22,7 @@ async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splato
                 point = f'+{point}'
         else:
             # challenge
-            bankara_info = await splatoon.get_bankara_battles()
+            bankara_info = await splatoon.get_bankara_battles(multiple=True)
             # 得确定对战位于哪一个group
             if idx == 0:
                 group_idx = 0
@@ -62,7 +62,7 @@ async def get_x_power_and_process(battle_detail, splatoon: Splatoon, idx=0):
         power = 0
         x_process = ''
 
-        x_res = await splatoon.get_x_battles()
+        x_res = await splatoon.get_x_battles(multiple=True)
         # 得确定对战位于哪一个group
         if idx == 0:
             group_idx = 0

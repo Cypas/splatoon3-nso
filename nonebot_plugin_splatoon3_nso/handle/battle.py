@@ -110,7 +110,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
                 prev_id = (battle_detail.get('previousHistoryDetail') or {}).get('id')
                 if splatoon:
                     # 查询上一局数据
-                    prev_info = await splatoon.get_battle_detail(prev_id)
+                    prev_info = await splatoon.get_battle_detail(prev_id, multiple=True)
                     if prev_info:
                         prev_detail = prev_info.get('data', {}).get('vsHistoryDetail') or {}
                         prev_open_power = ((prev_detail.get('bankaraMatch') or {}).get('bankaraPower') or {}).get(

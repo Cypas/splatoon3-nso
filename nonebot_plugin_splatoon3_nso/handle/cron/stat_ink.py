@@ -10,6 +10,7 @@ from datetime import datetime as dt
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
 from ...data.utils import GlobalUserInfo
+from ...utils import proxy_address
 from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
 from ...data.data_source import model_get_all_stat_user, global_user_info_dict, model_get_another_account_user
 from ..send_msg import notify_to_private, notify_to_channel, report_notify_to_channel, cron_notify_to_channel
@@ -97,6 +98,12 @@ async def update_s3si_ts():
     init_path(path_folder)
     os.chdir(path_folder)
 
+    # 取消原有git代理
+    os.system("git config --global --unset http.proxy")
+    if proxy_address:
+        # 设置git代理
+        os.system(f"git config --global http.proxy {proxy_address}")
+
     # get s3s code
     s3s_folder = f'{path_folder}/s3sits_git'
     if not os.path.exists(s3s_folder):
@@ -163,9 +170,21 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
             cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
 
         for cmd in cmds:
-            cron_logger.info(f'cli: {cmd}')
+            cron_logger.debug(f'cli: {cmd}')
             os.system(cmd)
 
+    env = {}
+    # deno代理配置
+    # http
+    if proxy_address:
+        env.update({"HTTP_PROXY": f"http://{proxy_address}",
+                    "HTTPS_PROXY": f"http://{proxy_address}"
+                    })
+    # no proxy
+    if plugin_config.splatoon3_proxy_list_mode and proxy_address:
+        env.update({"NO_PROXY": f"stat.ink"})
+
+    # run deno
     deno_path = plugin_config.splatoon3_deno_path
     if not deno_path or not os.path.exists(deno_path):
         cron_logger.info(f'deno_path not set: {deno_path or ""} '.center(120, '-'))
@@ -173,7 +192,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
 
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
     cron_logger.info(cmd)
-    rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
+    rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, env=env).stdout.decode('utf-8')
     cron_logger.info(f'{user_id} cli: {rtn}')
 
     battle_cnt = 0

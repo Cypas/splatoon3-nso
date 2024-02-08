@@ -9,7 +9,6 @@ from nonebot.internal.adapter import Message
 from nonebot.params import CommandArg
 from nonebot import get_bots, logger, on_regex, on_command, on_startswith, require
 
-
 # onebot11 协议
 from nonebot.adapters.onebot.v11 import Bot as V11_Bot
 from nonebot.adapters.onebot.v11 import MessageEvent as V11_ME
@@ -55,6 +54,10 @@ from nonebot.adapters.qq.event import DirectMessageCreateEvent as QQ_PME  # 频�
 from nonebot.adapters.qq.event import AtMessageCreateEvent as QQ_CME  # 频道艾特信息
 from nonebot.adapters.qq import AuditException as QQ_AuditException, ActionFailed as QQ_ActionFailed
 
-
 # BOT = Union[V11_Bot, V12_Bot, Tg_Bot, Kook_Bot, QQ_Bot]
 # MESSAGE_EVENT = Union[V11_ME, V12_ME, Tg_ME, Kook_ME, QQ_ME]
+
+# 公开发言消息类型
+Group_Message = (Kook_CME, Tg_GME, Tg_CME, QQ_CME, QQ_GME)
+
+Group_Message_Without_QQ_G = (Kook_CME, Tg_GME, Tg_CME, QQ_CME)

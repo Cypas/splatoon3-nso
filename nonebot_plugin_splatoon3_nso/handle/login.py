@@ -29,7 +29,8 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
 
-    if isinstance(bot, QQ_Bot):
+    # 只有q平台 且 q群才发md
+    if isinstance(event, QQ_GME):
         if plugin_config.splatoon3_qq_md_mode:
             # 发送md
             await bot_send_login_md(bot, event, user_id)
@@ -39,15 +40,9 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             await bot_send(bot, event, msg)
 
         await matcher.finish()
-        return
 
-    if 'group' in event.get_event_name():
-        if isinstance(bot, (V12_Bot, Kook_Bot, QQ_Bot)):
-            await matcher_login_in.finish(MSG_PRIVATE)
-            return
-        await matcher_login_in.finish(MSG_PRIVATE, reply_message=True)
-        await matcher.finish()
-        return
+    if isinstance(event, Group_Message):
+        await matcher.finish(MSG_PRIVATE, reply_message=True)
 
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id)
@@ -179,7 +174,7 @@ Login success! Bot now can get your splatoon3 data from SplatNet.
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     platform = bot.adapter.get_name()
-    if 'group' in event.get_event_name() and platform != "QQ":
+    if isinstance(event, Group_Message_Without_QQ_G):
         await bot_send(bot, event, '请私聊机器人')
         return
 
@@ -196,10 +191,10 @@ async def clear_db_info(bot: Bot, event: Event):
 @on_command("get_login_code", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def get_login_code(bot: Bot, event: Event):
     """获取绑定码"""
-    if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, '暂不支持')
+    if isinstance(event, QQ_GME):
+        await bot_send(bot, event, 'q群不支持此功能')
         return
-    if 'group' in event.get_event_name():
+    if isinstance(event, Group_Message):
         await bot_send(bot, event, '请私信机器人')
         return
 
@@ -274,7 +269,7 @@ async def set_login_code(bot: QQ_Bot, event: Event):
 
     logger.info(f'set_login success: {msg_id},old user is {old_msg_id}')
 
-    await notify_to_channel(f'绑定QQ成功: {msg_id}, 旧用户为{old_msg_id},{old_user.user_name}')
+    await notify_to_channel(f'绑定账号成功: {msg_id}, 旧用户为{old_msg_id},{old_user.user_name}')
 
 
 matcher_set_api_key = on_command("set_api_key", aliases={'set_stat_key'}, priority=10, block=True)
@@ -284,9 +279,9 @@ matcher_set_api_key = on_command("set_api_key", aliases={'set_stat_key'}, priori
 async def set_api_key(bot: Bot, event: Event):
     """设置stat.ink的api_key"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'Q群不支持该命令，请从其他平台进行设置')
+        await bot_send(bot, event, 'QQ平台不支持该命令，请从其他平台进行设置')
         return
-    if 'group' in event.get_event_name():
+    if isinstance(event, Group_Message):
         await matcher_set_api_key.finish(MSG_PRIVATE)
         return
 
@@ -302,7 +297,7 @@ async def set_api_key(bot: Bot, event: Event):
 @on_regex("^[A-Za-z0-9_-]{30,}", priority=10, block=True).handle()
 async def get_set_api_key(bot: Bot, event: Event):
     """stat api key匹配"""
-    if 'group' in event.get_event_name():
+    if isinstance(event, Group_Message):
         return
     stat_key = event.get_plaintext().strip()
     if len(stat_key) != 43:
@@ -332,10 +327,7 @@ first sync will be in minutes.
 
 @on_command("sync_now", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def sync_now(bot: Bot, event: Event):
-    if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, '暂不支持')
-        return
-    if 'group' in event.get_event_name():
+    if isinstance(event, Group_Message):
         await bot_send(bot, event, MSG_PRIVATE)
         return
 

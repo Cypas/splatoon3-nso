@@ -135,9 +135,9 @@ async def get_group_node_msg(g_node, splatoon, _type):
     for b in battle_lst[::-1]:
         _id = b['id']
         dict_p[_id] = {}
-        battle_detail = await splatoon.get_battle_detail(_id, try_again=True)
+        battle_detail = await splatoon.get_battle_detail(_id, multiple=True)
         if not battle_detail:
-            battle_detail = await splatoon.get_battle_detail(_id, try_again=True)
+            battle_detail = await splatoon.get_battle_detail(_id, multiple=True)
             if not battle_detail:
                 continue
         cur_power = 0

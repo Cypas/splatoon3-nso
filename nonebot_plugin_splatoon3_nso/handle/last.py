@@ -58,22 +58,27 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
 
     image_width = 680
     if get_equip:
+        # 查询装备
+        get_battle = True
+        get_coop = False
         image_width = 1000
         await bot_send(bot, event, "查询装备数据会花费更长一些时间，请稍等")
+
+    if get_screenshot:
+        # nso截图
+        await bot_send(bot, event, "nso截图需要10秒以上时间，请稍等")
+
     msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
                                                     get_coop=get_coop,
                                                     get_equip=get_equip,
                                                     idx=idx,
                                                     get_screenshot=get_screenshot, mask=mask)
-    photo = None
-    if get_screenshot:
-        photo = msg
-        msg = ''
 
-    if platform == "QQ" and plugin_config.splatoon3_qq_md_mode and not get_image:
+    if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode and not get_image:
+        # 这里存在 /last ss 的情况，msg值实际为bytes
         await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
     else:
-        await bot_send(bot, event, msg, photo=photo, image_width=image_width)
+        await bot_send(bot, event, msg, image_width=image_width)
 
     if not isinstance(bot, QQ_Bot):
         user = dict_get_or_set_user_info(platform, user_id)
@@ -81,13 +86,8 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
             logger.info(f'is_playing: {is_playing}')
             if is_playing:
                 msg = ''
-                if 'group' in event.get_event_name():
-                    if not user.push_cnt:
-                        msg = '正在游玩时可以 /push 开启推送模式~'
-                else:
-                    if user.push_cnt < 3:
-                        msg = '正在游玩时可以 /push 开启推送模式~'
-                if msg:
+                if user.push_cnt < 5:
+                    msg = '正在游玩时可以 /push 开启推送模式~'
                     await bot_send(bot, event, msg)
 
 
@@ -160,7 +160,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
             res = await splatoon.get_recent_battles()
             if not res:
                 # 再次尝试一次
-                res = await splatoon.get_recent_battles(try_again=True)
+                res = await splatoon.get_recent_battles(multiple=True)
                 if not res:
                     if for_push:
                         # 跳过本次循环
@@ -187,7 +187,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
             res = await splatoon.get_coops()
             if not res:
                 # 再次尝试一次
-                res = await splatoon.get_coops(try_again=True)
+                res = await splatoon.get_coops(multiple=True)
                 if not res:
                     if for_push:
                         # 跳过本次循环
@@ -296,6 +296,8 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                     pic = None
                 return pic
             battle_detail = await splatoon.get_battle_detail(_id)
+            if not battle_detail:
+                battle_detail = await splatoon.get_battle_detail(_id)
 
             # 为top命令提供player_code和name
             if get_player_code_idx:
@@ -342,6 +344,8 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                     pic = None
                 return pic
             coop_detail = await splatoon.get_coop_detail(_id)
+            if not coop_detail:
+                coop_detail = await splatoon.get_coop_detail(_id)
             # 查询全部boss击杀数量
             coop_statistics_res = await splatoon.get_coop_statistics()
             coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
@@ -350,7 +354,7 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
 
     except Exception as e:
         logger.exception(e)
-        msg = f'get last {"battle" if is_battle else "coop"} failed, please try again later.'
+        msg = f'网络错误，获取最近 {"对战" if is_battle else "打工"}数据失败，请稍后再试'
     return msg
 
 

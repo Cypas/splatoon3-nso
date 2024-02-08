@@ -9,6 +9,7 @@ from .data.transfer import transfer_user_db
 from .handle import *
 from .handle.cron import remove_all_scheduler, scheduler_controller
 from .handle.send_msg import bot_send, notify_to_channel
+from .s3s.splatnet_image import global_browser
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
 from .utils.bot import *
 
@@ -42,7 +43,7 @@ async def _help(bot: Bot, event: Event):
         return
     else:
         if isinstance(bot, Tg_Bot):
-            await bot_send(bot, event, message=MSG_HELP, disable_web_page_preview=True)
+            await bot_send(bot, event, message=MSG_HELP)
         elif isinstance(bot, QQ_Bot):
             msg = MSG_HELP_QQ
             await bot_send(bot, event, message=msg)

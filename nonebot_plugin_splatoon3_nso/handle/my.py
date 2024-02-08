@@ -7,6 +7,7 @@ from .send_msg import bot_send
 from .utils import _check_session_handler, get_game_sp_id_and_name
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path
 from ..s3s.splatoon import Splatoon
+from ..utils import get_msg_id
 from ..utils.bot import *
 
 
@@ -16,7 +17,7 @@ async def me(bot: Bot, event: Event):
     await bot_send(bot, event, message="请求个人数据中，请稍等...")
 
     from_group = False
-    if 'group' in event.get_event_name() or isinstance(bot, QQ_Bot):
+    if isinstance(event, Group_Message):
         from_group = True
 
     msg = await get_me(bot, event, from_group)
@@ -30,8 +31,8 @@ async def get_me(bot, event, from_group):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     history_summary = await splatoon.get_history_summary()
-    total_query = await splatoon.get_total_query(try_again=True)
-    coop = await splatoon.get_coops(try_again=True)
+    total_query = await splatoon.get_total_query(multiple=True)
+    coop = await splatoon.get_coops(multiple=True)
 
     try:
         msg = await get_me_md(user, history_summary, total_query, coop, from_group)
@@ -161,7 +162,8 @@ async def get_me_md(user, summary, total, coops, from_group=False):
     return msg
 
 
-@on_command("friends", aliases={'friend', 'fr'}, priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("friends", aliases={'friend', 'fr'}, priority=10, block=True).handle(
+    parameterless=[Depends(_check_session_handler)])
 async def friends(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -228,7 +230,14 @@ async def ns_friends(bot: Bot, event: Event):
 
 async def get_ns_friends_md(splatoon: Splatoon):
     """获取ns好友md"""
-    res = await splatoon.app_ns_friend_list() or {}
+    msg_id = get_msg_id(splatoon.platform, splatoon.user_id)
+    try:
+        res = await splatoon.app_ns_friend_list() or {}
+    except Exception as e:
+        logger.error(f"{msg_id} get ns_friends error:{e}")
+        msg = "网络错误，请稍后再试"
+        return msg
+
     res = res.get('result')
     if not res:
         logger.info(f"get_ns_friends result error,res: {res}")
@@ -318,14 +327,17 @@ async def get_ns_friends_md(splatoon: Splatoon):
     return msg
 
 
-@on_command("friend_code", aliases={'friends_code', 'fc'}, priority=10, block=True).handle(
-    parameterless=[Depends(_check_session_handler)])
+matcher_fc = on_command("friend_code", aliases={'friends_code', 'fc'}, priority=10, block=True)
+
+
+@matcher_fc.handle(parameterless=[Depends(_check_session_handler)])
 async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
     """获取ns 好友码"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)
     force = False  # 强制从接口获取
+    msg_id = get_msg_id(platform, user_id)
 
     if "force" in args.extract_plain_text():
         force = True
@@ -335,7 +347,15 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
         msg += f"\n\n如果ns主机主动更换了ns码导致无法搜索到好友，请发送\n/friend_code force 指令重新缓存新的好友码"
     else:
         splatoon = Splatoon(bot, event, user)
-        res = await splatoon.app_ns_myself() or {}
+        res = {}
+        try:
+            res = await splatoon.app_ns_myself() or {}
+        except Exception as e:
+            logger.error(f"{msg_id} get friend_code error:{e}")
+            msg = "网络错误，请稍后再试"
+        finally:
+            # 关闭连接池
+            await splatoon.req_client.close()
 
         name = res.get('name')
         code = res.get('code')
@@ -344,8 +364,6 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
             msg += f"已更新新好友码并缓存\n"
             msg += f"ns用户名: {res.get('name')}\n好友码(sw码): SW-{user.ns_friend_code}"
 
-        # 关闭连接池
-        await splatoon.req_client.close()
     await bot_send(bot, event, msg)
 
 

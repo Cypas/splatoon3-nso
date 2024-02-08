@@ -23,16 +23,10 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg = get_report(platform, user_id, report_day=report_day)
-    if isinstance(bot, QQ_Bot):
-        # QQ要单独考虑提示文案
-        if not msg and not report_day:
+    if not msg:
+        if not report_day:
             msg = f'```\n数据准备中，请明天再查询\n```'
-        elif not msg and report_day:
-            msg = f'```\n没有查询到所指定日期的日报数据```'
-    else:
-        if not msg and not report_day:
-            msg = f'```\n数据准备中，请明天再查询\n```'
-        elif not msg and report_day:
+        elif report_day:
             msg = f'```\n没有查询到所指定日期的日报数据```'
 
     await bot_send(bot, event, message=msg)

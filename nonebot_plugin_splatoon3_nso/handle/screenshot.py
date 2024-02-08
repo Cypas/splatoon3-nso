@@ -23,7 +23,7 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         # 没有任何参数
         await matcher.finish(message="未提供任何页面关键词,全部页面关键词如下: 个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量")
     else:
-        await bot_send(bot, event, message="截图需要10秒以上时间，请稍等...")
+        await bot_send(bot, event, message="nso截图需要10秒以上时间，请稍等...")
     if " " in cmd:
         # 取末尾的关键词
         key = cmd.split(' ')[-1].strip()
@@ -41,15 +41,14 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
             message="页面关键词无效,全部页面关键词如下: 个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量")
 
     try:
-        img = await get_screenshot_image(bot, event, platform, user_id, key=key)
+        # 此处message为bytes
+        message = await get_screenshot_image(bot, event, platform, user_id, key=key)
     except ValueError as e:
         message = "当前没有祭典投票问卷"
-        img = None
     except Exception as e:
         logger.exception(e)
         message = '网络错误，请稍后再试'
-        img = None
-    await bot_send(bot, event, message=message, photo=img)
+    await bot_send(bot, event, message=message)
 
 
 async def get_screenshot_image(bot, event, platform, user_id, key=None):

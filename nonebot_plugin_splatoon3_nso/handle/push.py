@@ -19,7 +19,7 @@ matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, p
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'q群不支持该功能，该功能可在其他平台使用')
+        await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
         return
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -122,7 +122,7 @@ matcher_stop_push = on_command("stop_push", aliases={'stp', 'st', 'stop'}, prior
 async def stop_push(bot: Bot, event: Event):
     """停止推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'q群不支持该功能，该功能可在其他平台使用')
+        await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
         return
     msg = f'Stop push!'
 
@@ -211,15 +211,11 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
 
     msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
                              get_screenshot=get_screenshot, mask=mask)
-    photo = None
-    if get_screenshot:
-        photo = msg
-        msg = ''
 
     image_width = 680
     # 关闭连接池
     await splatoon.req_client.close()
-    r = await bot_send(bot, event, message=msg, photo=photo, image_width=image_width, skip_log_cmd=True)
+    r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)
 
     # tg撤回上一条push的消息
     if job_data.get('channel_id') and r:
