@@ -31,8 +31,8 @@ async def get_me(bot, event, from_group):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     history_summary = await splatoon.get_history_summary()
-    total_query = await splatoon.get_total_query(try_again=True)
-    coop = await splatoon.get_coops(try_again=True)
+    total_query = await splatoon.get_total_query(multiple=True)
+    coop = await splatoon.get_coops(multiple=True)
 
     try:
         msg = await get_me_md(user, history_summary, total_query, coop, from_group)

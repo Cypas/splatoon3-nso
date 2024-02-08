@@ -160,7 +160,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
             res = await splatoon.get_recent_battles()
             if not res:
                 # 再次尝试一次
-                res = await splatoon.get_recent_battles(try_again=True)
+                res = await splatoon.get_recent_battles(multiple=True)
                 if not res:
                     if for_push:
                         # 跳过本次循环
@@ -187,7 +187,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
             res = await splatoon.get_coops()
             if not res:
                 # 再次尝试一次
-                res = await splatoon.get_coops(try_again=True)
+                res = await splatoon.get_coops(multiple=True)
                 if not res:
                     if for_push:
                         # 跳过本次循环

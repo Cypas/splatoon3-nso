@@ -212,7 +212,7 @@ async def get_x_top_md(splatoon):
     """获取x排行榜md"""
     try:
         jp_res = await splatoon.get_x_ranking('PACIFIC')  # 日服 暇古
-        us_res = await splatoon.get_x_ranking('ATLANTIC', try_again=True)  # 美服 艾洛眼
+        us_res = await splatoon.get_x_ranking('ATLANTIC', multiple=True)  # 美服 艾洛眼
     except ValueError:
         return '网络错误，请稍后再试...'
     except Exception as e:

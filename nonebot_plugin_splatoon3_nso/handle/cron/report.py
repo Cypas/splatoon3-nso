@@ -90,9 +90,9 @@ async def set_user_report_task(p_and_id):
             cron_logger.warning(f'set_user_report_task error: {msg_id},refresh_gtoken_and_bullettoken error:{ex}')
     try:
         # 个人摘要数据
-        res_summary = await splatoon.get_history_summary(try_again=True)
+        res_summary = await splatoon.get_history_summary(multiple=True)
         if not res_summary:
-            res_summary = await splatoon.get_history_summary(try_again=True)
+            res_summary = await splatoon.get_history_summary(multiple=True)
         history = res_summary['data']['playHistory']
         player = res_summary['data']['currentPlayer']
         first_play_time = history['gameStartTime']
@@ -103,17 +103,17 @@ async def set_user_report_task(p_and_id):
         icon_img = await model_get_temp_image_path('my_icon', u.game_sp_id, player['userIcon']['url'])
 
         # 最近对战数据
-        res_battle = await splatoon.get_recent_battles(try_again=True)
+        res_battle = await splatoon.get_recent_battles(multiple=True)
         if not res_battle:
-            res_battle = await  splatoon.get_recent_battles(try_again=True)
+            res_battle = await  splatoon.get_recent_battles(multiple=True)
         b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
         battle_t = get_battle_time_or_coop_time(b_info['id'])
         game_sp_id = get_game_sp_id(b_info['player']['id'])
 
         # 最近打工数据
-        res_coop = await splatoon.get_coops(try_again=True)
+        res_coop = await splatoon.get_coops(multiple=True)
         if not res_coop:
-            res_coop = await splatoon.get_coops(try_again=True)
+            res_coop = await splatoon.get_coops(multiple=True)
         coop_id = res_coop['data']['coopResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]['id']
         coop_t = get_battle_time_or_coop_time(coop_id)
 
@@ -139,9 +139,9 @@ async def set_user_report_task(p_and_id):
 async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, player_code):
     """写用户日报数据"""
     # 总对战数目
-    all_data = await splatoon.get_total_query(try_again=True)
+    all_data = await splatoon.get_total_query(multiple=True)
     if not all_data:
-        all_data = await splatoon.get_total_query(try_again=True)
+        all_data = await splatoon.get_total_query(multiple=True)
 
     history = res_summary['data']['playHistory']
     player = res_summary['data']['currentPlayer']
