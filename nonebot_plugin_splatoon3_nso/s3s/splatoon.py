@@ -252,11 +252,10 @@ class Splatoon:
         except Exception as e:
             self.logger.warning(f'{msg_id} _request error: {e}')
             self.logger.warning(f'data:{data}')
-            self.logger.warning(f'res:{res}')
-            # if res:
-            #     self.logger.warning(f'res:{res}')
-            #     self.logger.warning(f'res:{res.status_code}')
-            #     self.logger.warning(f'res:{res.text}')
+            if res:
+                self.logger.warning(f'res:{res}')
+                self.logger.warning(f'status_code:{res.status_code}')
+                self.logger.warning(f'res.text:{res.text}')
             return None
 
     async def _ns_api_request(self, url, multiple=False):

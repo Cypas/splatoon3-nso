@@ -167,63 +167,67 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     #     # show log every 10 minutes
     #     logger.info(f'push_latest_battle: {user.game_name}, {job_id}')
 
+    splatoon = Splatoon(bot, event, user)
     try:
         res = await get_last_battle_or_coop(bot, event, for_push=True, get_battle=get_battle,
                                             get_coop=get_coop,
                                             get_screenshot=get_screenshot, mask=mask)
         battle_id, _info, is_battle, is_playing = res
+
+        # # 第一次push时不处理最后一次超过20分钟的记录
+        # if not last_battle_id and not is_playing:
+        #     job_data.update({"last_battle_id": battle_id})
+        #     return
+
+        # 如果battle_id未改变  或  last_battle_id长时间未赋值
+        if last_battle_id == battle_id or (push_cnt > 2 and not last_battle_id):
+            if not is_playing and push_cnt * PUSH_INTERVAL / 60 > 20:
+                # 关闭定时，更新push状态，发送统计
+                dict_get_or_set_user_info(platform, user_id, push=0)
+                msg = 'No game record for 20 minutes, stop push.'
+
+                # 获取统计数据
+                st_msg, push_time_minute = close_push(platform, user_id)
+                if isinstance(bot, (V12_Bot, Kook_Bot)):
+                    msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟\n"
+                    if not user.stat_key and user.push_cnt <= 10:
+                        msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
+                msg += st_msg
+
+                logger.info(f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
+
+                await bot_send(bot, event, message=msg, skip_log_cmd=True)
+                msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
+                await notify_to_channel(msg)
+                return
+            return
+
+        # 获取新对战信息
+        logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
+        job_data.update({"last_battle_id": battle_id})
+
+        msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
+                                 get_screenshot=get_screenshot, mask=mask)
+
+        image_width = 680
+        r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)
+
+        # tg撤回上一条push的消息
+        if job_data.get('channel_id') and r:
+            if isinstance(bot, Tg_Bot):
+                if job_data.get('last_channel_msg_id'):
+                    await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_channel_msg_id'])
+            message_id = r.message_id
+            job_data.update({"last_channel_msg_id": message_id})
+
     except Exception as e:
         logger.warning(f'push_latest_battle error: {e}')
         return
+    finally:
+        # 关闭连接池
+        await splatoon.req_client.close()
 
-    # # 第一次push时不处理最后一次超过20分钟的记录
-    # if not last_battle_id and not is_playing:
-    #     job_data.update({"last_battle_id": battle_id})
-    #     return
 
-    # 如果battle_id未改变  或  last_battle_id长时间未赋值
-    if last_battle_id == battle_id or (push_cnt > 2 and not last_battle_id):
-        if not is_playing and push_cnt * PUSH_INTERVAL / 60 > 20:
-            # 关闭定时，更新push状态，发送统计
-            dict_get_or_set_user_info(platform, user_id, push=0)
-            msg = 'No game record for 20 minutes, stop push.'
-
-            # 获取统计数据
-            st_msg, push_time_minute = close_push(platform, user_id)
-            if isinstance(bot, (V12_Bot, Kook_Bot)):
-                msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟\n"
-                if not user.stat_key and user.push_cnt <= 10:
-                    msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
-            msg += st_msg
-
-            logger.info(f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
-
-            await bot_send(bot, event, message=msg, skip_log_cmd=True)
-            msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
-            await notify_to_channel(msg)
-            return
-        return
-
-    # 获取新对战信息
-    splatoon = Splatoon(bot, event, user)
-    logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
-    job_data.update({"last_battle_id": battle_id})
-
-    msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
-                             get_screenshot=get_screenshot, mask=mask)
-
-    image_width = 680
-    # 关闭连接池
-    await splatoon.req_client.close()
-    r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)
-
-    # tg撤回上一条push的消息
-    if job_data.get('channel_id') and r:
-        if isinstance(bot, Tg_Bot):
-            if job_data.get('last_channel_msg_id'):
-                await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_channel_msg_id'])
-        message_id = r.message_id
-        job_data.update({"last_channel_msg_id": message_id})
 
 
 def close_push(platform, user_id):
