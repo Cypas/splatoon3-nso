@@ -54,10 +54,10 @@ def scheduler_controller():
     add_scheduler("get_event_top", trigger='cron', hour="6", minute=20)
     # 清空s3sti.ts脚本生成的缓存文件
     add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
-    # set_report at 7:00
-    add_scheduler("set_report", trigger='cron', hour=7, minute=0)
-    # report at 8:00
-    add_scheduler("send_report", trigger='cron', hour=8, minute=0)
+    # set_report at 8:00
+    add_scheduler("set_report", trigger='cron', hour=8, minute=0)
+    # send_report at 9:00
+    add_scheduler("send_report", trigger='cron', hour=9, minute=0)
     # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########
     # get_user_friends every 3 hours   仅为缓存内的用户提供定期获取好友信息
     add_scheduler("get_user_friends", trigger='interval', hours=3)

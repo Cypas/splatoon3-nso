@@ -8,6 +8,7 @@ from datetime import datetime as dt, timedelta
 
 from ..report import get_report
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
+from ...data.db_sqlite import Report
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
     model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, model_get_newest_user, \
@@ -18,7 +19,7 @@ from ...utils.bot import *
 
 
 async def create_set_report_tasks():
-    """7点时请求并提前写好日报数据"""
+    """8点时请求并提前写好日报数据"""
     cron_msg = f'create_set_report_tasks start'
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
@@ -35,8 +36,8 @@ async def create_set_report_tasks():
     _pool = 10
     set_report_count = 0
     for i in range(0, len(list_user), _pool):
-        _p_and_id_list = list_user[i:i + _pool]
-        tasks = [set_user_report_task(p_and_id) for p_and_id in _p_and_id_list]
+        p_and_id_list = list_user[i:i + _pool]
+        tasks = [set_user_report_task(p_and_id) for p_and_id in p_and_id_list]
         res = await asyncio.gather(*tasks)
         # 统计有多少人更新了日报
         for r in res:
@@ -64,17 +65,12 @@ async def set_user_report_task(p_and_id):
         u = global_user_info
         if not u or not u.session_token:
             return
-        cron_logger.debug(
-            f'set_user_info: {msg_id}, {u.user_name}')
         splatoon = Splatoon(None, None, u)
     else:
         # 新建cron任务对象
         u = dict_get_or_set_user_info(platform, user_id, _type="cron")
         if not u or not u.session_token:
             return
-
-        cron_logger.debug(
-            f'set_user_info: {msg_id}, {u.user_name}')
         splatoon = Splatoon(None, None, u, _type="cron")
         try:
             # 刷新token
@@ -85,10 +81,11 @@ async def set_user_report_task(p_and_id):
                 # 关闭连接池
                 await splatoon.req_client.close()
                 return False
-        except Exception as ex:
+        except Exception as e:
             # 这里刷新token失败没太大影响，后续在请求时仍会刷新token
-            cron_logger.warning(f'set_user_report_task error: {msg_id},refresh_gtoken_and_bullettoken error:{ex}')
+            cron_logger.warning(f'set_user_report_task error: {msg_id},refresh_gtoken_and_bullettoken error:{e}')
     try:
+        cron_logger.debug(f'set_user_report: {msg_id}, {u.user_name}')
         # 个人摘要数据
         res_summary = await splatoon.get_history_summary()
         if not res_summary:
@@ -123,6 +120,7 @@ async def set_user_report_task(p_and_id):
         model_get_or_set_user(platform, user_id, game_name=game_name, game_sp_id=game_sp_id,
                               first_play_time=first_play_time, last_play_time=last_play_time)
 
+        # 上次游玩时间位于一天内
         if last_play_time.date() >= (dt.utcnow() - timedelta(days=1)).date():
             # 写新的日报
             await set_user_report(u, res_summary, res_coop, last_play_time, splatoon, game_sp_id)
@@ -207,11 +205,12 @@ async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, pl
         'last_play_time': last_play_time,
     }
     if player_code:
-        model_add_report(**_report)
+        new_report = Report(**_report)
+        model_add_report(new_report)
 
 
 async def send_report_task():
-    """8点时进行发信"""
+    """9点时进行发信"""
     report_logger = logger.bind(report=True)
     cron_msg = f'create_send_report_tasks start'
     cron_logger.info(cron_msg)
@@ -249,6 +248,7 @@ async def send_report_task():
                     model_get_or_set_user(user.platform, user.user_id, stat_notify=0, report_notify=0)
                     cron_logger.warning(
                         f'create_send_report_tasks error:{msg_id},error:用户已屏蔽发信bot，已关闭其通知权限')
+            continue
         except Exception as e:
             cron_logger.warning(f'create_send_report_tasks error:{msg_id},error:{e}')
             continue
