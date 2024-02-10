@@ -314,14 +314,11 @@ async def get_set_api_key(bot: Bot, event: Event):
 first sync will be in minutes.
     '''
     if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
-        msg = f'''设置成功，机器人会检查一次并同步你的数据到 stat.ink
-/stat_notify 关 - 设置关闭推送通知
-        '''
+        msg = f"设置成功，bot将开始同步你当前的对战及打工数据到 stat.ink，并后续每2h进行一次同步"
     await bot_send(bot, event, message=msg)
 
     await update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
-    # await sync_stat_ink_func(db_user,)
     threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
 
 
