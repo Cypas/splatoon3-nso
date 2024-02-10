@@ -86,9 +86,9 @@ async def show_dict_status():
 
 def get_dict_status():
     """获取字典当前状态文本"""
-    cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}"
-                f"cron_user_cnt:{len(global_cron_user_info_dict)}"
-                f"global_client_cnt:{len(global_client_dict)}"
+    cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
+                f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
+                f"global_client_cnt:{len(global_client_dict)}\n"
                 f"cron_client_cnt:{len(global_cron_client_dict)}"
                 )
     return cron_msg
