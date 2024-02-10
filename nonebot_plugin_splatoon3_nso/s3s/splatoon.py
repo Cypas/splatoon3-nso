@@ -146,8 +146,7 @@ class Splatoon:
         # 刷新同一game_sp_id的其他账号
         platform = self.platform
         user_id = self.user_id
-        game_sp_id = self.user_db_info.game_sp_id
-        users = model_get_another_account_user(platform, user_id, game_sp_id)
+        users = model_get_another_account_user(platform, user_id)
         if len(users) > 0:
             for u in users:
                 msg_id = get_msg_id(u.platform, u.user_id)
