@@ -66,7 +66,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
 
     if get_screenshot:
         # nso截图
-        await bot_send(bot, event, "nso截图需要10秒以上时间，请稍等")
+        await bot_send(bot, event, "正在截图nso页面，请稍等")
 
     msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
                                                     get_coop=get_coop,

@@ -24,7 +24,7 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         # 没有任何参数
         await matcher.finish(message="未提供任何页面关键词,全部页面关键词如下: 个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量")
     else:
-        await bot_send(bot, event, message="nso截图需要10秒以上时间，请稍等...")
+        await bot_send(bot, event, message="正在截图nso页面，请稍等...")
     if " " in cmd:
         # 取末尾的关键词
         key = cmd.split(' ')[-1].strip()
