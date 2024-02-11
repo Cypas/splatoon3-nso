@@ -102,7 +102,7 @@ async def set_user_report_task(p_and_id):
         # 最近对战数据
         res_battle = await splatoon.get_recent_battles(multiple=True)
         if not res_battle:
-            res_battle = await  splatoon.get_recent_battles(multiple=True)
+            res_battle = await splatoon.get_recent_battles(multiple=True)
         b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
         battle_t = get_battle_time_or_coop_time(b_info['id'])
         game_sp_id = get_game_sp_id(b_info['player']['id'])

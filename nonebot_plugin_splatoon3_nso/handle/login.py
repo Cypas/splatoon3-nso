@@ -78,7 +78,7 @@ Log in, right click the "Select this account" button, copy the link address, and
         elif isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
             msg = f'''在浏览器中打开下面链接（移动端复制链接至其他浏览器）,
 登陆后，在显示红色的选择此人按钮时，右键红色按钮(手机端长按复制)
-复制链接后发送给机器人 (两分钟内有效！)
+复制其链接后发送给机器人，链接是一串npf开头的文本(两分钟内有效！)
 '''
         if msg:
             await bot.send(event, message=msg)
@@ -103,7 +103,7 @@ async def login_in_2(bot: Bot, event: Event):
     auth_code_verifier = user_login_status.get("auth_code_verifier")
     s3s: S3S = user_login_status.get("s3s")
 
-    err_msg = "登录失败，请 /login 重试, 并在浏览器打开新的登录链接，完成登录后，复制按钮的新链接给我"
+    err_msg = "登录失败，请 /login 重试, 并在浏览器打开新的登录链接，完成登录后，复制按钮的新链接给我，链接是一串npf开头的文本"
     if (not text) or (len(text) < 500) or (not text.startswith('npf')) or (auth_code_verifier is None):
         logger.info(err_msg)
         await bot.send(event, message=err_msg)
