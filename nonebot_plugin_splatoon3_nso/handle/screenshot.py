@@ -4,14 +4,15 @@ from .send_msg import bot_send
 from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time
 from ..data.data_source import dict_get_or_set_user_info
 from ..s3s.splatoon import Splatoon
-from ..s3s.splatnet_image import get_app_screenshot, ss_url_trans
+from ..s3s.splatnet_image import get_app_screenshot, ss_url_trans, global_dict_context
 from ..s3s.utils import SPLATNET3_URL
+from ..utils import get_msg_id
 from ..utils.bot import *
 
-screen_shot = on_command("screen_shot", aliases={'ss'}, priority=10, block=True)
+matcher_screen_shot = on_command("screen_shot", aliases={'ss'}, priority=10, block=True)
 
 
-@screen_shot.handle(parameterless=[Depends(_check_session_handler)])
+@matcher_screen_shot.handle(parameterless=[Depends(_check_session_handler)])
 async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
     """/ss 截图指令"""
     platform = bot.adapter.get_name()
@@ -55,8 +56,13 @@ async def get_screenshot_image(bot, event, platform, user_id, key=None):
     """获取nso页面截图"""
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
-    # 测试token是否有效
-    await splatoon.test_page()
+    msg_id = get_msg_id(platform, user_id)
+
+    # 只有第一次使用ss时需要测试token是否有效，后续加入了token定时维护便不再需要测试
+    context = global_dict_context.get(msg_id)
+    if not context:
+        # 测试token是否有效
+        await splatoon.test_page()
     img = await get_app_screenshot(platform, user_id, key)
     # 关闭连接池
     await splatoon.req_client.close()

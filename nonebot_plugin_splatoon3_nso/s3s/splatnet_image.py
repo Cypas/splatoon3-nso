@@ -58,7 +58,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
         # await page.wait_for_timeout(1000)
 
         # 未匹配，默认地址
-        url = f"{SPLATNET3_URL}/history/latest"
+        # url = f"{SPLATNET3_URL}/history/latest"
 
         for k, v in ss_url_trans.items():
             if k in key:
@@ -69,6 +69,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             url = f"{SPLATNET3_URL}/fest_record"
 
         await page.goto(f"{url}?lang=zh-CN")
+    await page.wait_for_timeout(3000)
 
     if "问卷" in key or "投票" in key:
         k = "问卷实施中"
@@ -77,8 +78,8 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             raise ValueError("text not found")
         else:
             await locator.nth(0).click()
+            await page.wait_for_timeout(2000)
 
-    await page.wait_for_timeout(6000)
     img_raw = await page.screenshot(full_page=True)
     await page.close()
 

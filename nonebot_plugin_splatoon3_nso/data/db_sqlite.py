@@ -162,10 +162,10 @@ class UserFriendTable(Base_Friends):
     update_time = Column(DateTime(), onupdate=func.now())
 
 
-# DBSession = sessionmaker()
-# DBSession_Friends = sessionmaker()
-DBSession = sessionmaker(bind=engine)
-DBSession_Friends = sessionmaker(bind=engine_friends)
+DBSession = sessionmaker()
+DBSession_Friends = sessionmaker()
+# DBSession = sessionmaker(bind=engine)
+# DBSession_Friends = sessionmaker(bind=engine_friends)
 
 
 def init_db():
