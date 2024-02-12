@@ -3,7 +3,8 @@ from datetime import datetime as dt, timedelta
 from .last import get_last_battle_or_coop
 from .send_msg import bot_send
 from .utils import _check_session_handler
-from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_newest_user, model_get_all_top_all
+from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_newest_user, \
+    model_get_all_top_all
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id, utc_str_to_china_str
 from ..utils.bot import *
@@ -53,16 +54,21 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
     _msg = ""
     if not cmd_message:
         _msg += "未查询到自己的任何上榜数据"
-        _msg += "\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中查询数据，若以上榜单都未上榜，则查不到数据，/top命令具体参数可查看/nso帮助"
+        _msg += "\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中上榜过的数据\n若以上榜单都未上榜，则查不到数据\n/top命令具体参数可查看/nso帮助"
     else:
         _msg = ''
 
-    photo = await get_top(bot, event, battle=battle, player_idx=player_idx)
-    if photo:
-        if not photo.startswith('###'):
-            _msg += f"该条件下未查询到成员{photo}上榜数据"
+    top_md = await get_top(bot, event, battle=battle, player_idx=player_idx)
+    if top_md:
+        if not top_md.startswith('####'):
+            # 未查询到数据，top_md值为player_name
+            _msg += f"该条件下未查询到玩家 {top_md} 上榜数据"
         else:
-            _msg = photo
+            _msg = top_md
+    else:
+        # 全部玩家，且没有任何人上榜
+        _msg += f"该局对战未查询到任何玩家上榜数据"
+
     await bot_send(bot, event, _msg)
 
 
@@ -81,7 +87,7 @@ async def get_top(bot: Bot, event: Event, battle=None, player_idx=None):
             # 筛选单一玩家
             player_code, player_name = res
         else:
-            # last 全部玩家
+            # all 全部玩家
             p_lst = []
             _i = 96  # 97号为a，为top提供索引
             for p in res:
@@ -90,8 +96,11 @@ async def get_top(bot: Bot, event: Event, battle=None, player_idx=None):
                     p_lst.append(f"{p[0]}_{chr(_i)}")
             player_code = p_lst
 
-    photo = await get_top_md(player_code, player_name)
-    return photo or player_name
+    top_md = await get_top_md(player_code, player_name)
+    if isinstance(res, tuple):
+        return top_md or player_name
+    else:
+        return top_md
 
 
 async def get_top_md(player_code: str | list, player_name=""):
@@ -121,14 +130,14 @@ async def get_top_md(player_code: str | list, player_name=""):
     if not res:
         return
 
-# 6列
+    # 6列
     msg = f'''#### 全部排行榜数据 (玩家:{player_name}) HKT {dt.now():%Y-%m-%d %H:%M:%S}
 |||||||
 |---|---:|:---|---|---|---|
 |排行榜名称|排名|最高分|武器|玩家|时间|
 '''
 
-# 7列
+    # 7列
     if isinstance(player_code, list):
         msg = f'''#### 全部排行榜数据 HKT {dt.now():%Y-%m-%d %H:%M:%S}
 ||||||||
