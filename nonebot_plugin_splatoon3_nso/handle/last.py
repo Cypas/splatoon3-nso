@@ -66,7 +66,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
 
     if get_screenshot:
         # nso截图
-        await bot_send(bot, event, "nso截图需要10秒以上时间，请稍等")
+        await bot_send(bot, event, "正在截图nso页面，请稍等")
 
     msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
                                                     get_coop=get_coop,
@@ -87,7 +87,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
             if is_playing:
                 msg = ''
                 if user.push_cnt < 5:
-                    msg = '正在游玩时可以 /push 开启推送模式~'
+                    msg = "正在游玩时可以 /push 开启推送模式~"
                     await bot_send(bot, event, msg)
 
 
@@ -164,18 +164,18 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 if not res:
                     if for_push:
                         # 跳过本次循环
-                        raise ValueError('NetConnectError')
+                        raise ValueError('no recent_battles')
                     else:
-                        return f'`网络错误，请稍后再试.`', False
+                        return f"`网络错误，请稍后再试.`", False
             b_info = res['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]
             battle_id = b_info['id']
             battle_t = get_battle_time_or_coop_time(battle_id)
-        except ValueError:
+        except ValueError as e:
             if for_push:
                 # 跳过本次循环
-                raise ValueError('NetConnectError')
+                raise e
             else:
-                return f'`网络错误，请稍后再试.`', False
+                return f"`网络错误，请稍后再试.`", False
         except Exception as e:
             b_info = {}
             battle_id = ""
@@ -191,9 +191,9 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 if not res:
                     if for_push:
                         # 跳过本次循环
-                        raise ValueError('NetConnectError')
+                        raise ValueError('no coops')
                     else:
-                        return f'`网络错误，请稍后再试.`', False
+                        return f"`网络错误，请稍后再试.`", False
 
             coop = res['data']['coopResult']
             # /last c 2 指令可能存在跨期查询的问题，idx需要查询每期nodes数量
@@ -222,12 +222,12 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
             }  # coop_eggs为当期获得的最多的蛋数
             coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx]['id']
             coop_t = get_battle_time_or_coop_time(coop_id)
-        except ValueError:
+        except ValueError as e:
             if for_push:
                 # 跳过本次循环
-                raise ValueError('NetConnectError')
+                raise e
             else:
-                return f'`网络错误，请稍后再试.`', False
+                return f"`网络错误，请稍后再试.`", False
         except Exception:
             coop_info = {}
             coop_id = ""
@@ -247,7 +247,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 raise ValueError('NetConnectError')
             else:
                 # last等正常请求
-                return f'`网络错误，请稍后再试.`', False
+                return f"`网络错误，请稍后再试.`", False
 
     # 计算是否正在游玩
     str_time = max(battle_t, coop_t)

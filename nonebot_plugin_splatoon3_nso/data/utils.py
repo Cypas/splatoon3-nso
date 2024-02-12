@@ -58,7 +58,7 @@ async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageT
             init_path(f"{DIR_TEMP_IMAGE}")
             init_path(f"{DIR_TEMP_IMAGE}/{_type}")
 
-            file_name = f'{name}.png'
+            file_name = f"{name}.png"
             with open(f"{DIR_TEMP_IMAGE}/{_type}/{file_name}", "wb") as f:
                 f.write(image_data)
         temp_image = get_insert_or_update_obj(TempImageTable, {"type": _type, "name": name}, type=_type, name=name,

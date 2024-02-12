@@ -18,7 +18,7 @@ async def get_event_top():
 
     db_user = model_get_newest_user()
     if not db_user:
-        cron_logger.info(f'no user login.')
+        cron_logger.info(f"no user login.")
         return
     user = dict_get_or_set_user_info(db_user.platform, db_user.user_id)
     splatoon = Splatoon(None, None, user)

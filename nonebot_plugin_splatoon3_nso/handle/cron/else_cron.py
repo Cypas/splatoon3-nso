@@ -6,8 +6,10 @@ from .utils import cron_logger
 from datetime import datetime as dt, timedelta
 
 from ..send_msg import cron_notify_to_channel
-from ...utils import DIR_RESOURCE
-from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict
+from ...utils.utils import DIR_RESOURCE
+from ...utils.http import global_client_dict, global_cron_client_dict
+from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict, \
+    global_user_info_dict, global_cron_user_info_dict
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 
@@ -52,12 +54,12 @@ async def refresh_token_task(p_and_id):
         # 关闭连接池
         await splatoon.req_client.close()
     except Exception as e:
-        cron_logger.warning(f'refresh_token_task error: {msg_id}, {e}')
+        cron_logger.warning(f"refresh_token_task error: {msg_id}, {e}")
 
 
 async def clean_s3s_cache():
     """清理s3sti脚本的缓存文件夹"""
-    dir_s3s_cache = f'{DIR_RESOURCE}/s3sits_git/cache'
+    dir_s3s_cache = f"{DIR_RESOURCE}/s3sits_git/cache"
     if os.path.exists(dir_s3s_cache):
         shutil.rmtree(dir_s3s_cache)
 
@@ -73,3 +75,20 @@ async def clean_global_user_info_dict():
     cron_msg = f"clean_global_user_info_dict end"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
+
+
+async def show_dict_status():
+    """显示字典当前状态"""
+    cron_msg = get_dict_status()
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel(cron_msg)
+
+
+def get_dict_status():
+    """获取字典当前状态文本"""
+    cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
+                f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
+                f"global_client_cnt:{len(global_client_dict)}\n"
+                f"cron_client_cnt:{len(global_cron_client_dict)}"
+                )
+    return cron_msg

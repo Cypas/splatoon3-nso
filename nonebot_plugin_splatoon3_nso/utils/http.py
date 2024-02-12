@@ -114,7 +114,7 @@ class ReqClient:
             client_dict = global_cron_client_dict
 
         for req_client in client_dict.values():
-            await req_client.client.aclose()
+            await req_client.close()
         client_dict.clear()
 
 

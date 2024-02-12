@@ -143,7 +143,7 @@ def model_clean_db_cache():
 
 def model_get_or_set_user(platform, user_id, **kwargs) -> UserTable:
     """获取或插入或更新user信息"""
-    logger.debug(f'get_or_set_user: {kwargs}')
+    logger.debug(f"get_or_set_user: {kwargs}")
     try:
         session = DBSession()
         filter_dict = {"platform": platform, "user_id": user_id}
@@ -158,7 +158,7 @@ def model_get_or_set_user(platform, user_id, **kwargs) -> UserTable:
         return user
 
     except Exception as e:
-        logger.error(f'model_get_or_set_user error: {e}')
+        logger.error(f"model_get_or_set_user error: {e}")
         return None
 
 
@@ -187,15 +187,15 @@ def model_get_all_stat_user() -> list[UserTable]:
     return users
 
 
-def model_get_another_account_user(platform, user_id, game_sp_id) -> list[Type[UserTable]]:
+def model_get_another_account_user(platform, user_id) -> list[Type[UserTable]]:
     """查找同game_sp_id的其他账号"""
     session = DBSession()
     # 查找账号id
-    subq = session.query(UserTable.id.label('sub_id')).filter(
+    subq = session.query(UserTable.id.label("sub_id"), UserTable.game_sp_id.label("sub_game_sp_id")).filter(
         and_(UserTable.platform == platform, UserTable.user_id == user_id)).subquery()
     # 查找sp_id但非本账号id
     users = session.query(UserTable).filter(
-        and_(UserTable.game_sp_id == game_sp_id, UserTable.game_sp_id.isnot(None), UserTable.id != subq.c.sub_id)).all()
+        and_(UserTable.game_sp_id.isnot(None), UserTable.game_sp_id == subq.c.sub_game_sp_id, UserTable.id != subq.c.sub_id)).all()
     session.close()
     return users
 
@@ -252,23 +252,44 @@ def model_get_all_top_all(player_code):
 #     session.close()
 #     return _dict
 
-def model_add_report(**kwargs):
+# def model_add_report(**kwargs):
+#     """添加日报数据"""
+#     report_logger = logger.bind(report=True)
+#     report_logger.debug(f"model_add_report: {kwargs}")
+#     _dict = kwargs
+#     user_id_sp = _dict.get("user_id_sp")
+#     if not user_id_sp:
+#         report_logger.warning(f"no user_id_sp: {_dict}")
+#         return
+#     session = DBSession()
+#     _res = session.query(Report).filter(Report.user_id_sp == user_id_sp).order_by(Report.create_time.desc()).first()
+#     if _res and _res.create_time.date() >= datetime.datetime.utcnow().date():
+#         report_logger.debug(f'already saved report: {_dict.get("user_id")}, {user_id_sp}, {_dict.get("nickname")}')
+#         session.close()
+#         return
+#
+#     new_report = Report(**_dict)
+#     session.add(new_report)
+#     session.commit()
+#     session.close()
+
+
+def model_add_report(new_report: Report):
     """添加日报数据"""
     report_logger = logger.bind(report=True)
-    report_logger.debug(f'model_add_report: {kwargs}')
-    _dict = kwargs
-    user_id_sp = _dict.get('user_id_sp')
+    report_logger.debug(f"model_add_report: {new_report}")
+    user_id_sp = new_report.user_id_sp
     if not user_id_sp:
-        report_logger.warning(f'no user_id_sp: {_dict}')
+        report_logger.warning(f"no user_id_sp: {new_report}")
         return
     session = DBSession()
     _res = session.query(Report).filter(Report.user_id_sp == user_id_sp).order_by(Report.create_time.desc()).first()
+    # 避免一天内多次写入
     if _res and _res.create_time.date() >= datetime.datetime.utcnow().date():
-        report_logger.debug(f'already saved report: {_dict.get("user_id")}, {user_id_sp}, {_dict.get("nickname")}')
+        report_logger.debug(f'already saved report: db_id: {new_report.user_id}, {user_id_sp}, {new_report.nickname}')
         session.close()
         return
 
-    new_report = Report(**_dict)
     session.add(new_report)
     session.commit()
     session.close()

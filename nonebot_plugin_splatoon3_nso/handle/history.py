@@ -25,7 +25,7 @@ async def history(bot: Bot, event: Event, args: Message = CommandArg()):
 
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
-    await bot_send(bot, event, '开始努力作图，请稍等~', skip_log_cmd=True)
+    await bot_send(bot, event, "开始努力作图，请稍等~", skip_log_cmd=True)
     msg = await get_history_md(splatoon, _type=_type)
     # 关闭连接池
     await splatoon.req_client.close()
@@ -44,9 +44,9 @@ async def get_history_md(splatoon: Splatoon, _type='open'):
         elif _type == 'fest':
             res = await splatoon.get_regular_battles()
     except ValueError as e:
-        return '网络错误，请稍后再试!'
+        return "网络错误，请稍后再试!"
     if not res:
-        return 'No battle found!'
+        return "No battle found!"
 
     msg = ''
     event_h = []

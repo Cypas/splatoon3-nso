@@ -17,7 +17,7 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
         try:
             dt.strptime(report_day, '%Y-%m-%d')
         except:
-            msg = '日期格式错误，正确格式: /report 2023-07-01 或 /report'
+            msg = "日期格式错误，正确格式: /report 2023-07-01 或 /report"
             await bot_send(bot, event, message=msg)
             return
     platform = bot.adapter.get_name()
@@ -25,18 +25,18 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     msg = get_report(platform, user_id, report_day=report_day)
     if not msg:
         if not report_day:
-            msg = f'```\n数据准备中，请明天再查询\n```'
+            msg = f"```\n数据准备中，请明天再查询\n```"
         elif report_day:
-            msg = f'```\n没有查询到所指定日期的日报数据```'
+            msg = f"```\n没有查询到所指定日期的日报数据```"
 
     await bot_send(bot, event, message=msg)
 
 
 def get_report(platform, user_id, report_day=None, _type="normal"):
     """获取昨天或指定日期的早报数据"""
-    msg = '\n喷喷早报\n'
+    msg = "\n喷喷早报\n"
     if report_day:
-        msg = '\n喷喷小报\n'
+        msg = "\n喷喷小报\n"
 
     u = dict_get_or_set_user_info(platform, user_id, _type=_type)
     report_list = model_get_report(user_id_sp=u.game_sp_id)
@@ -59,7 +59,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     if report_day:
         s_date = max(report_day.replace('-', ''), s_date)
     e_date = (new.last_play_time + timedelta(hours=8)).strftime('%Y%m%d %H:%M')
-    msg += f'统计区间HKT: {s_date[2:]} 07:00 ~ {e_date[2:]}\n\n'
+    msg += f'统计区间HKT: {s_date[2:]} 08:00 ~ {e_date[2:]}\n\n'
 
     msg += f'{new.nickname}\n'
     for k in ('nickname', 'name_id', 'byname'):
@@ -145,7 +145,7 @@ async def report_all(bot: Bot, event: Event):
 def get_report_all_md(player_code):
     res = model_get_report_all(player_code)
     if not res:
-        return '数据准备中'
+        return "数据准备中"
     text = ''
     for r in res[:30]:
         _d = r

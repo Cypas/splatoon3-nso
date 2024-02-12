@@ -58,11 +58,11 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             else:
                 text_list.append(await get_row_user_stats(k1 * 4 + k, p, mask, is_last_p, team_power))
 
-        ti = '||'
-        if mode == 'FEST':
+        ti = "||"
+        if mode == "FEST":
             _str_team = f"{(team.get('result') or {}).get('paintRatio') or 0:.2%}  {team.get('festTeamName')}"
             _c = team.get('color') or {}
-            if _c and 'r' in _c:
+            if _c and "r" in _c:
                 _str_color = f"rgba({int(_c['r'] * 255)}, {int(_c['g'] * 255)}, {int(_c['b'] * 255)}, {_c['a']})"
                 _str_team = f"<span style='color:{_str_color}'>{_str_team}</span>"
             ti = f"|||||||||{_str_team}|"
@@ -77,23 +77,23 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             score_list.append(str((t['result']['score'])))
         elif (t.get('result') or {}).get('paintRatio') is not None:
             score_list.append(f"{t['result']['paintRatio']:.2%}"[:-2])
-    score = ' : '.join(score_list)
-    str_open_power = ''
-    str_max_open_power = ''
-    last_power = ''
+    score = " : ".join(score_list)
+    str_open_power = ""
+    str_max_open_power = ""
+    last_power = ""
     if (not mask and
             ((battle_detail.get('bankaraMatch') or {}).get('mode') == 'OPEN' or
              battle_detail.get('leagueMatch') or
-             mode == 'FEST')):
+             mode == "FEST")):
         open_power = ((battle_detail.get('bankaraMatch') or {}).get('bankaraPower') or {}).get('power') or 0
         if battle_detail.get('leagueMatch'):
             open_power = battle_detail['leagueMatch'].get('myLeaguePower') or 0
-        if mode == 'FEST':
+        if mode == "FEST":
             open_power = (battle_detail.get('festMatch') or {}).get('myFestPower') or 0
 
         if open_power:
             # 蛮颓开放
-            str_open_power = f'战力: {open_power:.2f}'
+            str_open_power = f"战力: {open_power:.2f}"
             # push_st = {}
             max_open_power = 0
 
@@ -147,7 +147,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
         date_play = dt.strptime(battle_detail['playedTime'], '%Y-%m-%dT%H:%M:%SZ') + timedelta(hours=8)
         str_time = date_play.strftime('%y-%m-%d %H:%M:%S')
     except Exception as e:
-        str_time = ''
+        str_time = ""
     footer = f"\n#### 时间: {str_time}  耗时: {duration}s"
     title += f"{sub_title}   比分:{score}  {b_process} {str_open_power_inline} \n"
 
@@ -192,14 +192,14 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             a = b.a
             d = b.d
             if k or a or d:
-                str_static += f' {k}+{a}k/{d}d'
+                str_static += f" {k}+{a}k/{d}d"
 
             succ = b.successive
             if abs(succ) >= 3:
                 if succ > 0:
-                    str_static += f', {succ}连胜'
+                    str_static += f", {succ}连胜"
                 else:
-                    str_static += f', {abs(succ)}连败'
+                    str_static += f", {abs(succ)}连败"
 
             # 2-1 9+2k/8d, 3连胜
             title += f'\n##### {str_static}'
@@ -337,7 +337,7 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     if p.get('isMyself'):
         name = await get_myself_name_color(name, player_code)
     elif mask:
-        name = f'~~我是马赛克~~'
+        name = f"~~我是马赛克~~"
     if not p.get('isMyself'):
         name = await get_user_name_color(name, player_code)
 
@@ -387,43 +387,43 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
     str_point = ''
     if point:
         if bankara_match:
-            str_point = f'点数{point}p'
+            str_point = f"点数{point}p"
         elif battle_detail.get('xMatch'):
-            str_point = f'x分变更:{point}'
+            str_point = f"x分变更:{point}"
             point = 0
 
     # 祭典
-    if mode == 'FEST':
+    if mode == "FEST":
 
         mode_id = battle_detail['vsMode']['id']
-        bankara_match = 'CHALLENGE'
-        if mode_id == 'VnNNb2RlLTY=':
-            bankara_match = 'OPEN'
-        elif mode_id == 'VnNNb2RlLTg=':
-            bankara_match = 'TRI_COLOR'
+        bankara_match = "CHALLENGE"
+        if mode_id == "VnNNb2RlLTY=":
+            bankara_match = "OPEN"
+        elif mode_id == "VnNNb2RlLTg=":
+            bankara_match = "TRI_COLOR"
         fest_match = battle_detail.get('festMatch') or {}
         contribution = fest_match.get('contribution')
         if contribution:
             str_point = f'+{contribution}'
         if fest_match.get('dragonMatchType') == 'DECUPLE':
-            rule += ' (x10)'
+            rule += " (x10)"
         elif fest_match.get('dragonMatchType') == 'DRAGON':
-            rule += ' (x100)'
+            rule += " (x100)"
         elif fest_match.get('dragonMatchType') == 'DOUBLE_DRAGON':
-            rule += ' (x333)'
+            rule += " (x333)"
 
-    elif mode == 'LEAGUE':
+    elif mode == "LEAGUE":
         bankara_match = ((battle_detail.get('leagueMatch') or {}).get('leagueMatchEvent') or {}).get('name')
 
     # 取翻译名
     mode = dict_b_mode_trans.get(mode, mode)
     if bankara_match:
         bankara_match = dict_b_mode_trans.get(bankara_match, bankara_match)
-        bankara_match = f'({bankara_match})'
+        bankara_match = f"({bankara_match})"
 
     if mask:
         # 打码
-        str_point = ''
+        str_point = ""
 
     # b_info唯一有用的地方的就只是这里了，对战详查里面确实没有提供段位
     level = b_info.get('udemae', "")

@@ -30,13 +30,13 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
     user_id = event.get_user_id()
 
     # 只有q平台 且 q群才发md
-    if isinstance(event, QQ_GME):
-        if plugin_config.splatoon3_qq_md_mode:
+    if isinstance(bot, QQ_Bot):
+        if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
             # 发送md
             await bot_send_login_md(bot, event, user_id)
         else:
-            kk_guild_id = plugin_config.splatoon3_kk_guild_id
-            msg = f"Q群当前无法登录nso，请至其他平台完成登录后获取绑定码\nKook服务器id：{kk_guild_id}"
+            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后获取绑定码\n" \
+                  f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
             await bot_send(bot, event, msg)
 
         await matcher.finish()
@@ -47,7 +47,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id)
     if user and user.session_token:
-        msg = '用户已经登录\n如需重新登录或切换账号请继续下面操作\n登出或清空账号数据 /clear_db_info\n/get_login_code 获取绑定码以绑定其他平台bot账号'
+        msg = "用户已经登录nso\n如需重新登录或绑定账号请继续下面操作\n/clear_db_info 登出并清空账号数据\n/get_login_code 获取绑定码以绑定其他平台bot账号"
         await bot_send(bot, event, msg)
         await matcher.finish()
 
@@ -78,7 +78,7 @@ Log in, right click the "Select this account" button, copy the link address, and
         elif isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
             msg = f'''在浏览器中打开下面链接（移动端复制链接至其他浏览器）,
 登陆后，在显示红色的选择此人按钮时，右键红色按钮(手机端长按复制)
-复制链接后发送给机器人 (两分钟内有效！)
+复制其链接后发送给机器人，链接是一串npf开头的文本(两分钟内有效！)
 '''
         if msg:
             await bot.send(event, message=msg)
@@ -103,7 +103,7 @@ async def login_in_2(bot: Bot, event: Event):
     auth_code_verifier = user_login_status.get("auth_code_verifier")
     s3s: S3S = user_login_status.get("s3s")
 
-    err_msg = '登录失败，请 /login 重试, 复制新链接'
+    err_msg = "登录失败，请 /login 重试, 并在浏览器打开新的登录链接，完成登录后，复制按钮的新链接给我，链接是一串npf开头的文本"
     if (not text) or (len(text) < 500) or (not text.startswith('npf')) or (auth_code_verifier is None):
         logger.info(err_msg)
         await bot.send(event, message=err_msg)
@@ -175,7 +175,7 @@ async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     platform = bot.adapter.get_name()
     if isinstance(event, Group_Message_Without_QQ_G):
-        await bot_send(bot, event, '请私聊机器人')
+        await bot_send(bot, event, "请私聊机器人")
         return
 
     user_id = event.get_user_id()
@@ -192,10 +192,10 @@ async def clear_db_info(bot: Bot, event: Event):
 async def get_login_code(bot: Bot, event: Event):
     """获取绑定码"""
     if isinstance(event, QQ_GME):
-        await bot_send(bot, event, 'q群不支持此功能')
+        await bot_send(bot, event, "q群不支持此功能")
         return
     if isinstance(event, Group_Message):
-        await bot_send(bot, event, '请私信机器人')
+        await bot_send(bot, event, "请私信机器人")
         return
 
     platform = bot.adapter.get_name()
@@ -205,17 +205,17 @@ async def get_login_code(bot: Bot, event: Event):
     login_code = secrets.token_urlsafe(20)
     login_code_info = {"platform": platform, "user_id": user_id, "create_time": int(time.time())}
     global_login_code_dict.update({login_code: login_code_info})
-    msg = f'请在Q群内艾特机器人并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用'
+    msg = f"请在Q群内艾特机器人并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用"
     await bot_send(bot, event, message=msg)
-    await bot.send(event, message='我是分割线'.center(20, '-'))
-    await bot_send(bot, event, message=f'/set_login {login_code}')
+    await bot.send(event, message="我是分割线".center(20, "-"))
+    await bot_send(bot, event, message=f"/set_login {login_code}")
 
 
 @on_command("set_login", priority=10, block=True).handle()
 async def set_login_code(bot: QQ_Bot, event: Event):
     """绑定账号"""
     if isinstance(bot, Kook_Bot):
-        await bot_send(bot, event, '暂不支持')
+        await bot_send(bot, event, "暂不支持")
         return
 
     login_code = event.get_plaintext().strip()[10:].strip()
@@ -226,11 +226,11 @@ async def set_login_code(bot: QQ_Bot, event: Event):
     login_code_info = global_login_code_dict.get(login_code)
 
     if not login_code_info:
-        await bot_send(bot, event, 'code错误，账号绑定失败')
+        await bot_send(bot, event, "code错误，账号绑定失败")
         return
     create_time = login_code_info.get("create_time")
     if int(time.time()) - create_time > 600:
-        await bot_send(bot, event, 'code已过期，请重新生成')
+        await bot_send(bot, event, "code已过期，请重新生成")
         global_login_code_dict.pop(login_code)
         return
 
@@ -243,7 +243,7 @@ async def set_login_code(bot: QQ_Bot, event: Event):
     else:
         old_user = None
     if not old_user:
-        await bot_send(bot, event, '旧用户数据不存在，账号绑定失败')
+        await bot_send(bot, event, "旧用户数据不存在，账号绑定失败")
         return
 
     # 复制信息至新账号
@@ -269,17 +269,17 @@ async def set_login_code(bot: QQ_Bot, event: Event):
 
     logger.info(f'set_login success: {msg_id},old user is {old_msg_id}')
 
-    await notify_to_channel(f'绑定账号成功: {msg_id}, 旧用户为{old_msg_id},{old_user.user_name}')
+    await notify_to_channel(f"绑定账号成功: {msg_id}, 旧用户为{old_msg_id},{old_user.user_name}")
 
 
-matcher_set_api_key = on_command("set_api_key", aliases={'set_stat_key'}, priority=10, block=True)
+matcher_set_api_key = on_command("set_api_key", aliases={"set_stat_key"}, priority=10, block=True)
 
 
 @matcher_set_api_key.handle(parameterless=[Depends(_check_session_handler)])
 async def set_api_key(bot: Bot, event: Event):
     """设置stat.ink的api_key"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'QQ平台不支持该命令，请从其他平台进行设置')
+        await bot_send(bot, event, "QQ平台不支持该命令，请从其他平台进行设置")
         return
     if isinstance(event, Group_Message):
         await matcher_set_api_key.finish(MSG_PRIVATE)
@@ -314,14 +314,11 @@ async def get_set_api_key(bot: Bot, event: Event):
 first sync will be in minutes.
     '''
     if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
-        msg = f'''设置成功，机器人会检查一次并同步你的数据到 stat.ink
-/stat_notify 关 - 设置关闭推送通知
-        '''
+        msg = f"设置成功，bot将开始同步你当前的对战及打工数据到 stat.ink，并后续每2h进行一次同步"
     await bot_send(bot, event, message=msg)
 
     await update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
-    # await sync_stat_ink_func(db_user,)
     threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
 
 
@@ -335,9 +332,9 @@ async def sync_now(bot: Bot, event: Event):
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)
     if not (user and user.session_token and user.stat_key):
-        msg = 'Please set api_key first, /set_stat_key'
+        msg = "Please set api_key first, /set_stat_key"
         if isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
-            msg = '请先设置 stat_api_key, 指令:/set_stat_key'
+            msg = "请先设置 stat.ink网站的api_key, 指令:/set_stat_key"
         await bot_send(bot, event, msg)
         return
 

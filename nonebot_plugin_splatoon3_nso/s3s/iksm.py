@@ -10,20 +10,20 @@ from nonebot import logger as nb_logger
 from ..utils import BOT_VERSION, get_or_init_client, AsHttpReq, HttpReq, ReqClient
 from .utils import SPLATNET3_URL, GRAPHQL_URL
 
-A_VERSION = '0.6.0'  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
+A_VERSION = "0.6.0"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
 NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "2.8.1"  # fallback
 WEB_VIEW_VERSION = "unknown"
 WEB_VIEW_VER_FALLBACK = "6.0.0-1249ecb9"  # fallback
 
-F_GEN_URL = 'https://api.imink.app/f'
-F_GEN_URL_2 = 'https://nxapi-znca-api.fancy.org.uk/api/znca/f'
+F_GEN_URL = "https://api.imink.app/f"
+F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 
-F_USER_AGENT = f'nonebot_plugin_splatoon3_nso/{BOT_VERSION}'
-APP_USER_AGENT = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) ' \
-                 'AppleWebKit/537.36 (KHTML, like Gecko) ' \
-                 'Chrome/94.0.4606.61 Mobile Safari/537.36'
+F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
+APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 11; Pixel 5) " \
+                 "AppleWebKit/537.36 (KHTML, like Gecko) " \
+                 "Chrome/94.0.4606.61 Mobile Safari/537.36"
 
 
 class S3S:
@@ -31,8 +31,8 @@ class S3S:
         self.req_client: ReqClient = get_or_init_client(platform, user_id, _type)
         self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
         self.user_nickname = ""
-        self.user_lang = 'zh-CN'
-        self.user_country = 'JP'
+        self.user_lang = "zh-CN"
+        self.user_country = "JP"
         self.f_gen_url = F_GEN_URL
         self.logger = nb_logger
         if _type == "cron":
@@ -49,7 +49,7 @@ class S3S:
         else:
             try:  # try to get NSO version from f API
                 f_conf_url = os.path.dirname(f_gen_url) + "/config"  # default endpoint for imink API
-                f_conf_header = {'User-Agent': F_USER_AGENT}
+                f_conf_header = {"User-Agent": F_USER_AGENT}
                 f_conf_rsp = HttpReq.get(f_conf_url, headers=f_conf_header)
                 f_conf_json = json.loads(f_conf_rsp.text)
                 ver = f_conf_json["nso_version"]
@@ -211,7 +211,7 @@ class S3S:
                 return "skip"
             except Exception as ex:
                 print(f'ex: {ex}')
-                return 'skip'
+                return "skip"
 
     async def get_session_token(self, session_token_code, auth_code_verifier):
         """Helper function for log_in_2()."""
@@ -262,16 +262,16 @@ class S3S:
             r = await self.req_client.post(url, headers=app_head, json=body)
             id_response = json.loads(r.text)
         except httpx.ConnectError:
-            raise ValueError('NetConnectError')
+            raise ValueError("NetConnectError")
         except httpx.ConnectTimeout:
-            raise ValueError('NetConnectTimeout')
+            raise ValueError("NetConnectTimeout")
         except json.JSONDecodeError as e:
-            raise ValueError('JSONDecodeError')
+            raise ValueError("JSONDecodeError")
         except Exception as e:
             raise e
 
         if id_response.get('error') == 'invalid_grant':
-            raise ValueError('invalid_grant')
+            raise ValueError("invalid_grant")
         id_access_token = id_response.get("access_token")
         id_token = id_response.get("id_token")
         if not id_access_token:
@@ -292,9 +292,9 @@ class S3S:
         try:
             r = await self.req_client.get(url, headers=app_head)
         except httpx.ConnectError:
-            raise ValueError('NetConnectError')
+            raise ValueError("NetConnectError")
         except httpx.ConnectTimeout:
-            raise ValueError('NetConnectTimeout')
+            raise ValueError("NetConnectTimeout")
         except Exception as e:
             raise e
         user_info = json.loads(r.text)
@@ -340,11 +340,11 @@ class S3S:
             r = await self.req_client.post(url, headers=app_head, json=body)
             splatoon_token = json.loads(r.text)
         except httpx.ConnectError:
-            raise ValueError('NetConnectError')
+            raise ValueError("NetConnectError")
         except httpx.ConnectTimeout:
-            raise ValueError('NetConnectTimeout')
+            raise ValueError("NetConnectTimeout")
         except json.JSONDecodeError as e:
-            raise ValueError('JSONDecodeError')
+            raise ValueError("JSONDecodeError")
         except Exception as e:
             raise e
 
@@ -370,7 +370,7 @@ class S3S:
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
                 coral_user_id = splatoon_token["result"]["user"]["id"]
             except json.JSONDecodeError as e:
-                raise ValueError('JSONDecodeError')
+                raise ValueError("JSONDecodeError")
             except Exception:
                 raise ValueError(f"resp error:{json.dumps(splatoon_token)}")
 
@@ -404,11 +404,11 @@ class S3S:
             r = await self.req_client.post(url, headers=app_head, json=body)
             web_service_resp = json.loads(r.text)
         except httpx.ConnectError:
-            raise ValueError('NetConnectError')
+            raise ValueError("NetConnectError")
         except httpx.ConnectTimeout:
-            raise ValueError('NetConnectTimeout')
+            raise ValueError("NetConnectTimeout")
         except json.JSONDecodeError as e:
-            raise ValueError('JSONDecodeError')
+            raise ValueError("JSONDecodeError")
         except Exception as e:
             raise e
 
@@ -430,7 +430,7 @@ class S3S:
             except:
                 self.logger.warning(f"f_api retry error:resp:{json.dumps(web_service_resp)}")
                 if web_service_resp.get('errorMessage') == 'Membership required error.':
-                    raise ValueError(f'Membership required error.')
+                    raise ValueError(f"Membership required error.")
                 return
 
         # web_service_token 有效期为10800秒 3h
@@ -500,7 +500,7 @@ class S3S:
                 self.logger.exception("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
             elif r.status_code == 204:  # No Content, USER_NOT_REGISTERED
                 self.logger.exception("Cannot access SplatNet 3 without having played online.")
-            raise Exception(f'{user_id} get_bullet error. {r.status_code}')
+            raise Exception(f"{user_id} get_bullet error. {r.status_code}")
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         """Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp)."""
@@ -539,7 +539,7 @@ class S3S:
                 f, uuid, timestamp = await self.call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=coral_user_id)
                 return f, uuid, timestamp
             else:
-                raise ValueError('NetConnectError')
+                raise ValueError("NetConnectError")
         except httpx.ConnectTimeout:
             self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
             if self.f_gen_url == F_GEN_URL:
@@ -548,7 +548,7 @@ class S3S:
                 f, uuid, timestamp = await self.call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=coral_user_id)
                 return f, uuid, timestamp
             else:
-                raise ValueError('NetConnectTimeout')
+                raise ValueError("NetConnectTimeout")
 
         except Exception as e:
             try:  # if api_response never gets set
@@ -562,10 +562,10 @@ class S3S:
                 raise ValueError(f"resp error:{json.dumps(api_response)}")
             except httpx.ConnectError:
                 self.logger.error(f"Couldn't connect to f generation API ({f_gen_url}). Please try again later.")
-                raise ValueError('NetConnectError')
+                raise ValueError("NetConnectError")
             except httpx.ConnectTimeout:
                 self.logger.error(f"connectTimeout to f generation API ({f_gen_url}). Please try again later.")
-                raise ValueError('NetConnectTimeout')
+                raise ValueError("NetConnectTimeout")
 
 
 if __name__ == "__main__":

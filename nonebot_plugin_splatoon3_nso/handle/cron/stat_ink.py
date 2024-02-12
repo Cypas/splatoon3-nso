@@ -19,7 +19,7 @@ from .utils import user_remove_duplicates, cron_logger
 
 async def sync_stat_ink():
     """同步至stat"""
-    cron_msg = f'sync_stat_ink start'
+    cron_msg = f"sync_stat_ink start"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
     t = datetime.datetime.utcnow()
@@ -47,9 +47,9 @@ async def sync_stat_ink_func(db_user: UserTable):
     msg = get_post_stat_msg(db_user)
 
     if msg and db_user.stat_notify:
-        cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
+        cron_logger.debug(f"{db_user.id}, {db_user.user_name}, {msg}")
         # 通知到频道
-        await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type='job')
+        await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type="job")
         # 通知到私信
         msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
         await notify_to_private(db_user.platform, db_user.user_id, msg)
@@ -69,27 +69,27 @@ def get_post_stat_msg(db_user):
         return
 
     battle_cnt, coop_cnt, url = res
-    msg = '> Exported'
+    msg = "> Exported"
     if battle_cnt:
-        msg += f' {battle_cnt} battles'
+        msg += f" {battle_cnt} battles"
     if coop_cnt:
-        msg += f' {coop_cnt} jobs'
+        msg += f" {coop_cnt} jobs"
 
     if battle_cnt and not coop_cnt:
-        url += '/spl3'
+        url += "/spl3"
     elif coop_cnt and not battle_cnt:
-        url += '/salmon3'
-    msg += f' to\n{url}\n\n'
+        url += "/salmon3"
+    msg += f" to\n{url}\n\n"
 
     log_msg = msg.replace("\n", "")
-    cron_logger.info(f'{db_user.id}, {db_user.user_name}, {log_msg}')
+    cron_logger.info(f"{db_user.id}, {db_user.user_name}, {log_msg}")
 
     return msg
 
 
 async def update_s3si_ts():
     # 更新 s3si_ts 上传脚本
-    cron_msg = f'update_s3si_ts start'
+    cron_msg = f"update_s3si_ts start"
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
     t = datetime.datetime.utcnow()
@@ -105,16 +105,16 @@ async def update_s3si_ts():
         os.system(f"git config --global http.proxy {proxy_address}")
 
     # get s3s code
-    s3s_folder = f'{path_folder}/s3sits_git'
+    s3s_folder = f"{path_folder}/s3sits_git"
     if not os.path.exists(s3s_folder):
-        cmd = f'git clone https://github.com/spacemeowx2/s3si.ts {s3s_folder}'
+        cmd = f"git clone https://github.com/spacemeowx2/s3si.ts {s3s_folder}"
         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-        cron_logger.info(f'cli: {rtn}')
+        cron_logger.info(f"cli: {rtn}")
         os.chdir(s3s_folder)
     else:
         os.chdir(s3s_folder)
-        os.system('git restore .')
-        cmd = f'git pull'
+        os.system("git restore .")
+        cmd = f"git pull"
         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
         cron_logger.info(f'cli: {rtn}')
 

@@ -57,15 +57,15 @@ async def notify_to_channel(_msg, _type='msg'):
     """消息通知至频道"""
     channel_id = ""
     # log to telegram
-    if _type == 'msg':
+    if _type == "msg":
         channel_id = tg_c_chat_id
-    elif _type == 'job':
+    elif _type == "job":
         channel_id = tg_c_job_id
 
     # log to kook
-    if _type == 'msg':
+    if _type == "msg":
         channel_id = kk_c_chat_id
-    elif _type == 'job':
+    elif _type == "job":
         channel_id = kk_c_job_id
 
     bots = get_bots()
@@ -77,7 +77,7 @@ async def notify_to_channel(_msg, _type='msg'):
                 _msg = f"```\n{_msg}```"
                 await tg_bot.send_message(channel_id, _msg)
             except Exception as e:
-                logger.warning(f'tg频道通知消息失败: {e}')
+                logger.warning(f"tg频道通知消息失败: {e}")
 
     # 推送至kook
     if notify_kk_bot_id and channel_id:
@@ -88,7 +88,7 @@ async def notify_to_channel(_msg, _type='msg'):
                 await kook_bot.send_channel_msg(channel_id=channel_id,
                                                 message=Kook_MsgSeg.KMarkdown(_msg))
             except Exception as e:
-                logger.warning(f'kook频道通知消息失败: {e}')
+                logger.warning(f"kook频道通知消息失败: {e}")
 
 
 async def notify_to_private(platform: str, user_id: str, msg: str):

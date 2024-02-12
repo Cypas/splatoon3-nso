@@ -33,11 +33,11 @@ class Splatoon:
         self.user_id = user_info.user_id or "no_user_id"
         self.user_name = user_info.user_name
         self.session_token = user_info.session_token
-        self.user_lang = 'zh-CN'
-        self.user_country = 'JP'
-        self.bullet_token = ''
-        self.g_token = ''
-        self.access_token = ''
+        self.user_lang = "zh-CN"
+        self.user_country = "JP"
+        self.bullet_token = ""
+        self.g_token = ""
+        self.access_token = ""
         s3s = S3S(self.platform, self.user_id, _type=_type)
         self.s3s = s3s
         self.nso_app_version = s3s.get_nsoapp_version()
@@ -87,7 +87,7 @@ class Splatoon:
                         f'invalid_grant_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
                     self.set_user_info(session_token=None)
                     # 待发送文本
-                    msg = f'喷3账号 {user.game_name or ""} 登录过期，请重新登录 /login'
+                    msg = f"喷3账号 {user.game_name or ''} 登录过期，请重新登录 /login"
                     if self.bot and self.event:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
@@ -146,8 +146,7 @@ class Splatoon:
         # 刷新同一game_sp_id的其他账号
         platform = self.platform
         user_id = self.user_id
-        game_sp_id = self.user_db_info.game_sp_id
-        users = model_get_another_account_user(platform, user_id, game_sp_id)
+        users = model_get_another_account_user(platform, user_id)
         if len(users) > 0:
             for u in users:
                 msg_id = get_msg_id(u.platform, u.user_id)
@@ -252,11 +251,10 @@ class Splatoon:
         except Exception as e:
             self.logger.warning(f'{msg_id} _request error: {e}')
             self.logger.warning(f'data:{data}')
-            self.logger.warning(f'res:{res}')
-            # if res:
-            #     self.logger.warning(f'res:{res}')
-            #     self.logger.warning(f'res:{res.status_code}')
-            #     self.logger.warning(f'res:{res.text}')
+            if res:
+                self.logger.warning(f'res:{res}')
+                self.logger.warning(f'status_code:{res.status_code}')
+                self.logger.warning(f'res.text:{res.text}')
             return None
 
     async def _ns_api_request(self, url, multiple=False):
