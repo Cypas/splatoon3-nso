@@ -8,7 +8,7 @@
 
 # nonebot-plugin-splatoon3-nso
 
-_✨ splatoon3游戏日程查询插件 ✨_
+_✨ splatoon3 nso查询插件 ✨_
 
 <p align="center">
 <a href="./LICENSE">
