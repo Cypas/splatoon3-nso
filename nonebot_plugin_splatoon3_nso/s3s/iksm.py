@@ -521,42 +521,37 @@ class S3S:
                 'na_id': r_user_id
             }
             if step == 2 and coral_user_id is not None:
-                api_body["coral_user_id"] = coral_user_id
+                api_body["coral_user_id"] = str(coral_user_id)
 
             api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
             resp = json.loads(api_response.text)
-
             self.logger.debug(f"get f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
             f = resp["f"]
             uuid = resp["request_id"]
             timestamp = resp["timestamp"]
             return f, uuid, timestamp
-        except httpx.ConnectError:
-            self.logger.warning(f"F_GEN_URL ConnectError，try F_GEN_URL_2 again")
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            if isinstance(e, httpx.ConnectError):
+                self.logger.warning(f"F_GEN_URL ConnectError，try F_GEN_URL_2 again")
+            elif isinstance(e, httpx.ConnectTimeout):
+                self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
             if self.f_gen_url == F_GEN_URL:
-                # 改为f_url并递归一次
+                # 改为f_url_2并递归一次
                 self.f_gen_url = F_GEN_URL_2
-                f, uuid, timestamp = await self.call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=coral_user_id)
+                f, uuid, timestamp = await self.call_f_api(access_token, step, f_gen_url, r_user_id, coral_user_id=coral_user_id)
                 return f, uuid, timestamp
             else:
-                raise ValueError("NetConnectError")
-        except httpx.ConnectTimeout:
-            self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
-            if self.f_gen_url == F_GEN_URL:
-                # 改为f_url并递归一次
-                self.f_gen_url = F_GEN_URL_2
-                f, uuid, timestamp = await self.call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=coral_user_id)
-                return f, uuid, timestamp
-            else:
-                raise ValueError("NetConnectTimeout")
+                if isinstance(e, httpx.ConnectError):
+                    raise ValueError("NetConnectError")
+                elif isinstance(e, httpx.ConnectTimeout):
+                    raise ValueError("NetConnectTimeout")
 
         except Exception as e:
             try:  # if api_response never gets set
                 self.logger.warning(
                     f"Error during f generation: \n{f_gen_url}")
                 if api_response and api_response.text:
-                    self.logger.error(
-                        f"Error during f generation:\n{json.dumps(json.loads(api_response.text), ensure_ascii=False)}")
+                    self.logger.error(f"Error during f generation:\n{api_response.text}")
                 else:
                     self.logger.error(f"Error during f generation: Error {api_response.status_code}.")
                 raise ValueError(f"resp error:{json.dumps(api_response)}")
@@ -566,6 +561,15 @@ class S3S:
             except httpx.ConnectTimeout:
                 self.logger.error(f"connectTimeout to f generation API ({f_gen_url}). Please try again later.")
                 raise ValueError("NetConnectTimeout")
+            except Exception as e:
+                # 额外的额外情况，一般是res没有任何返回内容，api接口失效了，换F_GEN_URL_2接口重试
+                self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
+                if self.f_gen_url == F_GEN_URL:
+                    # 改为f_url_2并递归一次
+                    self.f_gen_url = F_GEN_URL_2
+                    f, uuid, timestamp = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
+                                                               coral_user_id=coral_user_id)
+                    return f, uuid, timestamp
 
 
 if __name__ == "__main__":
