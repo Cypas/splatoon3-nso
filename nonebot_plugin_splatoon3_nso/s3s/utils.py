@@ -3,8 +3,6 @@
 # License: GPLv3
 
 import base64, datetime, json, re, sys, uuid
-import requests
-from bs4 import BeautifulSoup
 
 SPLATNET3_URL = "https://api.lp1.av5ja.srv.nintendo.net"
 GRAPHQL_URL = SPLATNET3_URL + "/api/graphql"

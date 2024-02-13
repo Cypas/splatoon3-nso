@@ -2,7 +2,6 @@
 # https://github.com/frozenpandaman/s3s
 # License: GPLv3
 import httpx
-import requests
 import base64, hashlib, json, os, re, sys
 from bs4 import BeautifulSoup
 from nonebot import logger as nb_logger
