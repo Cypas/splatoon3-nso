@@ -1,18 +1,16 @@
 import asyncio
 import datetime
-import os
 import time
 
 from .utils import cron_logger, user_remove_duplicates
 from datetime import datetime as dt, timedelta
 
 from ..report import get_report
-from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
+from ..send_msg import notify_to_private, cron_notify_to_channel
 from ...data.db_sqlite import Report
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
-    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, model_get_newest_user, \
-    global_user_info_dict
+    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id
 from ...utils.bot import *

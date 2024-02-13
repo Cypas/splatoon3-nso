@@ -3,12 +3,10 @@ from datetime import datetime as dt, timedelta
 from .b_or_c_tools import get_b_point_and_process, get_x_power_and_process, get_top_user, get_top_all_name, \
     PushStatistics, get_user_name_color, get_myself_name_color
 from .utils import get_game_sp_id_and_name, dict_b_mode_trans
-from ..data.data_source import global_user_info_dict, model_get_temp_image_path, model_get_user_friend
+from ..data.data_source import model_get_temp_image_path, model_get_user_friend
 from ..data.db_sqlite import UserFriendTable
 from ..s3s.splatoon import Splatoon
 from ..utils import get_time_now_china_date, plugin_release_time, get_time_now_china
-
-from ..utils.bot import *
 
 
 async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splatoon: Splatoon = None, mask=False,

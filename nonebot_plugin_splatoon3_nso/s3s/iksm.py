@@ -1,13 +1,19 @@
 # (ↄ) 2017-2022 eli fessler (frozenpandaman), clovervidia
 # https://github.com/frozenpandaman/s3s
 # License: GPLv3
+import base64
+import hashlib
+import json
+import os
+import re
+import sys
+
 import httpx
-import base64, hashlib, json, os, re, sys
 from bs4 import BeautifulSoup
 from nonebot import logger as nb_logger
 
-from ..utils import BOT_VERSION, get_or_init_client, AsHttpReq, HttpReq, ReqClient
-from .utils import SPLATNET3_URL, GRAPHQL_URL
+from .utils import SPLATNET3_URL
+from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 
 A_VERSION = "0.6.0"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用

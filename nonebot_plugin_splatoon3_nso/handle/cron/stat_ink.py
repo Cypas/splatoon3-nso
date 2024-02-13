@@ -3,17 +3,14 @@ import datetime
 import os
 import json
 import subprocess
-import time
 
-from datetime import datetime as dt
 
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
-from ...data.utils import GlobalUserInfo
 from ...utils import proxy_address
-from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
-from ...data.data_source import model_get_all_stat_user, global_user_info_dict, model_get_another_account_user
-from ..send_msg import notify_to_private, notify_to_channel, report_notify_to_channel, cron_notify_to_channel
+from ...utils.utils import DIR_RESOURCE, init_path
+from ...data.data_source import model_get_all_stat_user
+from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 
 

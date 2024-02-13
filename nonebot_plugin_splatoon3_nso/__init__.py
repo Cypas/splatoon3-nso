@@ -1,5 +1,3 @@
-import time
-
 from nonebot.message import event_preprocessor
 from nonebot.plugin import PluginMetadata
 

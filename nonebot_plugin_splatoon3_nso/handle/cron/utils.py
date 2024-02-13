@@ -1,5 +1,3 @@
-from typing import Type
-
 from nonebot import logger
 
 from ...data.db_sqlite import UserTable

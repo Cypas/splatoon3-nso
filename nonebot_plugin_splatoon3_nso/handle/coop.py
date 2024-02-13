@@ -1,4 +1,3 @@
-import base64
 from datetime import datetime as dt, timedelta
 
 from .b_or_c_tools import PushStatistics, get_user_name_color, get_myself_name_color

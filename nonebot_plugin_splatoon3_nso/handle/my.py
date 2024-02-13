@@ -4,7 +4,7 @@ from datetime import datetime as dt, timedelta
 import unicodedata
 
 from .send_msg import bot_send
-from .utils import _check_session_handler, get_game_sp_id_and_name
+from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id

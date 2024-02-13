@@ -1,7 +1,7 @@
 import asyncio
 
 from .utils import cron_logger
-from datetime import datetime as dt, timedelta
+from datetime import datetime as dt
 
 from ..send_msg import cron_notify_to_channel
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, model_set_user_friend

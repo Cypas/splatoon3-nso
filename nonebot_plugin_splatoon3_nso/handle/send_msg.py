@@ -160,7 +160,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
         # 下面为文字消息
         try:
             if isinstance(bot, QQ_Bot):
-                message = message.replace('```', '').replace('\_', '_').strip().strip('`')
+                message = message.replace("```", "").replace("\_", "_").strip().strip("`")
             await send_msg(bot, event, message)
         except Exception as e:
             logger.exception(f'bot_send error: {e}, {message}')

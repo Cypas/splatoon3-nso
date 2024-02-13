@@ -1,6 +1,5 @@
-from sqlalchemy import Column, String, create_engine, Integer, Boolean, Text, DateTime, func, Float, \
+from sqlalchemy import Column, String, create_engine, Integer, Text, DateTime, func, Float, \
     UniqueConstraint
-from sqlalchemy.sql import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
