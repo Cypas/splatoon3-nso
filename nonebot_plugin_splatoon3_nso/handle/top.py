@@ -17,7 +17,7 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
     """top查询"""
     cmd_message = args.extract_plain_text().strip()
     logger.debug(f'top: {cmd_message}')
-    battle = None
+    battle_idx = None
     player_idx = None
     get_all = False
     if cmd_message:
@@ -27,29 +27,29 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
             if not cmd:
                 continue
             if cmd.isdigit():
-                battle = int(cmd)
+                battle_idx = int(cmd)
             else:
                 player_idx = cmd.lower()
             if cmd == 'last' or cmd == 'all':
                 get_all = True
 
-    if battle:
-        battle = max(1, battle)
-        battle = min(50, battle)
+    if battle_idx:
+        battle_idx = max(1, battle_idx)
+        battle_idx = min(50, battle_idx)
     if player_idx:
         if len(player_idx) != 1 or player_idx not in 'abcdefgh':
             player_idx = 1
         else:
             player_idx = ord(player_idx) - ord('a') + 1
 
-    if battle and not player_idx:
+    if battle_idx and not player_idx:
         player_idx = 1
-    if player_idx and not battle:
-        battle = 1
+    if player_idx and not battle_idx:
+        battle_idx = 1
 
     if get_all:
         # -1代表获取全部成员
-        player_idx = '-1'
+        player_idx = "-1"
 
     _msg = ""
     if not cmd_message:
@@ -58,31 +58,31 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
     else:
         _msg = ''
 
-    top_md = await get_top(bot, event, battle=battle, player_idx=player_idx)
+    top_md = await get_top(bot, event, battle_idx=battle_idx, player_idx=player_idx)
     if top_md:
         if not top_md.startswith('####'):
             # 未查询到数据，top_md值为player_name
-            _msg += f"该条件下未查询到玩家 {top_md} 上榜数据"
+            _msg += f"未查询到玩家 {top_md} 上榜数据"
         else:
             _msg = top_md
-    else:
-        # 全部玩家，且没有任何人上榜
+    elif player_idx == "-1":
+        # 全部玩家，且没有上榜数据
         _msg += f"该局对战未查询到任何玩家上榜数据"
 
     await bot_send(bot, event, _msg)
 
 
-async def get_top(bot: Bot, event: Event, battle=None, player_idx=None):
+async def get_top(bot: Bot, event: Event, battle_idx=None, player_idx=None):
     player_name = ''
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
-    logger.info(f'get_top: {msg_id}, {battle}, {player_idx}')
+    logger.info(f'get_top: {msg_id}, {battle_idx}, {player_idx}')
 
     user = dict_get_or_set_user_info(platform, user_id)
     player_code = user.game_sp_id
-    if battle:
-        res = await get_last_battle_or_coop(bot, event, get_battle=True, idx=battle - 1, get_player_code_idx=player_idx)
+    if battle_idx:
+        res = await get_last_battle_or_coop(bot, event, get_battle=True, idx=battle_idx - 1, get_player_code_idx=player_idx)
         if isinstance(res, tuple):
             # 筛选单一玩家
             player_code, player_name = res
@@ -97,10 +97,8 @@ async def get_top(bot: Bot, event: Event, battle=None, player_idx=None):
             player_code = p_lst
 
     top_md = await get_top_md(player_code, player_name)
-    if isinstance(res, tuple):
-        return top_md or player_name
-    else:
-        return top_md
+    # 单一玩家且无记录时 返回player_name
+    return top_md or player_name
 
 
 async def get_top_md(player_code: str | list, player_name=""):

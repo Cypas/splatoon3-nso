@@ -69,7 +69,11 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             url = f"{SPLATNET3_URL}/fest_record"
 
         await page.goto(f"{url}?lang=zh-CN")
-    await page.wait_for_timeout(5000)
+    if "武器" in key:
+        # 武器页面等待更长时间
+        await page.wait_for_timeout(7000)
+    else:
+        await page.wait_for_timeout(5000)
 
     if "问卷" in key or "投票" in key:
         k = "问卷实施中"

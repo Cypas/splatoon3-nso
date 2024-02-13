@@ -6,15 +6,15 @@ from pydantic import BaseModel, validator
 
 # 其他地方出现的类似 from .. import config，均是从 __init__.py 导入的 Config 实例
 class Config(BaseModel):
-    # 默认 proxy = None 表示不使用代理进行连接
+    # 默认 proxy = "" 表示不使用代理进行连接
     splatoon3_proxy_address: str = ""
     # 局部域名代理模式,具体依据服务器对各个域名访问情况进行设置，默认True，False情况为全部域名请求代理
     splatoon3_proxy_list_mode: bool = True
     # 局部域名代理列表
     # 插件内全部请求的域名有:
     # github.com   此项无法添加到局域代理列表 git命令会访问，如果存在splatoon3_proxy_address配置项，强制要求走代理路径
-    # api.imink.app  f_gen公开授权接口，项目地址 https://github.com/imink-app/f-API
-    # nxapi-znca-api.fancy.org.uk  f_gen公开授权接口2，项目地址 https://github.com/samuelthomas2774/nxapi-znca-api
+    # api.imink.app  模拟nso授权步骤的公开接口，项目地址 https://github.com/imink-app/f-API
+    # nxapi-znca-api.fancy.org.uk  模拟nso授权步骤的公开接口2，项目地址 https://github.com/samuelthomas2774/nxapi-znca-api
     # apps.apple.com
     # accounts.nintendo.com
     # api.accounts.nintendo.com
