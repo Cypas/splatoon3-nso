@@ -7,7 +7,6 @@ from ..data.data_source import dict_get_or_set_user_info
 from ..utils import global_proxies, get_msg_id
 
 global_browser: Browser = None
-global_dict_context = {}
 
 
 async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=False):
@@ -38,7 +37,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
     viewport = ViewportSize({"width": 500, "height": height})
 
     # 取上下文对象
-    context = await init_or_get_context(msg_id, cookies, _type=_type, viewport=viewport)
+    context = await init_context(cookies=cookies, viewport=viewport)
     page = await context.new_page()
 
     if url:
@@ -85,8 +84,8 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             await page.wait_for_timeout(3000)
 
     img_raw = await page.screenshot(full_page=True)
-    await page.close()
-
+    # 关闭上下文
+    await context.close()
     return img_raw
 
 
@@ -139,19 +138,10 @@ async def get_browser() -> Browser:
     return global_browser
 
 
-async def init_or_get_context(msg_id, cookies=None, _type: str = "",
-                              viewport: ViewportSize = None) -> BrowserContext:
-    """初始化或获取用户会话对应的 context"""
-    global global_dict_context
-    context_info = global_dict_context.get(msg_id)
-    if context_info and context_info.get(_type):
-        context = context_info.get(_type)
-        return context
-    else:
-        browser = await get_browser()
-        context = await browser.new_context(viewport=viewport)
-        if cookies:
-            await context.add_cookies(cookies)
-        context_info = {_type: context}
-        global_dict_context.update({msg_id: context_info})
-        return context
+async def init_context(cookies=None, viewport: ViewportSize = None) -> BrowserContext:
+    """初始化context"""
+    browser = await get_browser()
+    context = await browser.new_context(viewport=viewport)
+    if cookies:
+        await context.add_cookies(cookies)
+    return context
