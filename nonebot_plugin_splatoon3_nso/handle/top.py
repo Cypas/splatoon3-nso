@@ -3,8 +3,7 @@ from datetime import datetime as dt, timedelta
 from .last import get_last_battle_or_coop
 from .send_msg import bot_send
 from .utils import _check_session_handler
-from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_newest_user, \
-    model_get_all_top_all
+from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_all_top_all
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id, utc_str_to_china_str
 from ..utils.bot import *

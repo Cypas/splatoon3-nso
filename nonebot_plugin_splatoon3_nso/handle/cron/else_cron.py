@@ -3,7 +3,7 @@ import os
 import shutil
 
 from .utils import cron_logger
-from datetime import datetime as dt, timedelta
+from datetime import datetime as dt
 
 from ..send_msg import cron_notify_to_channel
 from ...utils.utils import DIR_RESOURCE

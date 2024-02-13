@@ -7,6 +7,7 @@ from ..data.data_source import dict_get_or_set_user_info
 from ..utils import global_proxies, get_msg_id
 
 global_browser: Browser = None
+global_dict_ss_user: dict = {}
 
 
 async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=False):
@@ -38,6 +39,13 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
 
     # 取上下文对象
     context = await init_context(cookies=cookies, viewport=viewport)
+    # 置一个功能使用次数的计数字典
+    ss_user = global_dict_ss_user.get(msg_id)
+    if ss_user:
+        # ss计数+1
+        global_dict_ss_user.update({msg_id: ss_user+1})
+    else:
+        global_dict_ss_user.update({msg_id: 1})
     page = await context.new_page()
 
     if url:

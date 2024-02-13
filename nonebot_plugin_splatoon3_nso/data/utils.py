@@ -1,6 +1,5 @@
 import copy
 
-import httpx
 from sqlalchemy import text
 
 from .db_sqlite import DBSession, TempImageTable, DIR_TEMP_IMAGE
@@ -41,7 +40,7 @@ async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageT
     if row:
         # 判断是否是用户图像缓存，并比对缓存数据是否需要更新, 图片名称是否为空
         if (link and row.type in (
-        "friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link) or not row.file_name:
+                "friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link) or not row.file_name:
             download_flag = True
         else:
             temp_image = copy.deepcopy(row)

@@ -194,7 +194,8 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
                         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
                 msg += st_msg
 
-                logger.info(f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
+                logger.info(
+                    f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
                 await bot_send(bot, event, message=msg, skip_log_cmd=True)
                 msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
@@ -226,8 +227,6 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     finally:
         # 关闭连接池
         await splatoon.req_client.close()
-
-
 
 
 def close_push(platform, user_id):

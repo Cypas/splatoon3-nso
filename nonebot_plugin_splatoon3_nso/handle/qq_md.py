@@ -1,8 +1,4 @@
-import json
-
-from nonebot.adapters.qq.message import Keyboard
-from nonebot.adapters.qq.models import MessageKeyboard, InlineKeyboard, InlineKeyboardRow, Button, RenderData, \
-    MessageMarkdown
+from nonebot.adapters.qq.models import MessageKeyboard, MessageMarkdown
 
 from ..config import plugin_config
 from ..utils.bot import *
