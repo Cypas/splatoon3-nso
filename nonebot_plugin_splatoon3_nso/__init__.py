@@ -1,7 +1,7 @@
 from nonebot.message import event_preprocessor
 from nonebot.plugin import PluginMetadata
 
-from .config import driver, plugin_config
+from .config import driver, plugin_config, Config
 from .data.db_sqlite import init_db
 from .data.transfer import transfer_user_db
 from .handle import *
@@ -20,6 +20,7 @@ __plugin_meta__ = PluginMetadata(
     # 发布必填，当前有效类型有：`library`（为其他插件编写提供功能），`application`（向机器人用户提供功能）。
     homepage="https://github.com/Cypas/splatoon3-nso",
     # 发布必填。
+    config=Config,
     supported_adapters={"~onebot.v11", "~onebot.v12", "~telegram", "~kaiheila", "~qq"},
 )
 

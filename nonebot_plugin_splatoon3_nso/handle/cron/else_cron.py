@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import shutil
 
@@ -6,6 +7,7 @@ from .utils import cron_logger
 from datetime import datetime as dt
 
 from ..send_msg import cron_notify_to_channel
+from ...s3s.splatnet_image import global_dict_ss_user
 from ...utils.utils import DIR_RESOURCE
 from ...utils.http import global_client_dict, global_cron_client_dict
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict, \
@@ -89,6 +91,7 @@ def get_dict_status():
     cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
                 f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
                 f"global_client_cnt:{len(global_client_dict)}\n"
-                f"cron_client_cnt:{len(global_cron_client_dict)}"
+                f"cron_client_cnt:{len(global_cron_client_dict)}\n"
+                f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
     return cron_msg
