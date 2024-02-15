@@ -20,7 +20,8 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     button_cmd3 = "/last c"
 
     # 如果kv值为空，那只能不传，空值似乎最多只允许一个
-    md = MessageMarkdown.parse_obj({
+
+    md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
         "params": [{"key": "at_user_id", "values": [f"<@{user_id}>"]},
                    {"key": "text_start", "values": [f"{text_start}"]},
@@ -30,7 +31,7 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     })
 
     # 完整kv对
-    # md = MessageMarkdown.parse_obj({
+    # md = MessageMarkdown.model_validate({
     #     "custom_template_id": f"{template_id}",
     #     "params": [{"key": "at_user_id", "values": [f"<@{user_id}>"]},
     #                {"key": "text_start", "values": [f"{text_start}"]},
@@ -40,7 +41,7 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     #                ]
     # })
 
-    keyboard = MessageKeyboard.parse_obj({
+    keyboard = MessageKeyboard.model_validate({
         "content": {
             "rows": [{"buttons": [
                 {
@@ -113,7 +114,7 @@ def login_md(user_id, check_session=False) -> QQ_Msg:
     button_show = "kook服务器"
     kook_jump_link = "https://www.kookapp.cn/app/invite/mkjIOn"
 
-    md = MessageMarkdown.parse_obj({
+    md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
         "params": [{"key": "title", "values": [f"<@{user_id}>"]},
                    {"key": "data1", "values": [f"{data1}"]},
@@ -121,7 +122,7 @@ def login_md(user_id, check_session=False) -> QQ_Msg:
                    ]
     })
 
-    keyboard = MessageKeyboard.parse_obj({
+    keyboard = MessageKeyboard.model_validate({
         "content": {
             "rows": [{"buttons": [
                 {
