@@ -3,7 +3,7 @@ import datetime
 from typing import Type
 
 from nonebot import logger
-from sqlalchemy import and_
+from sqlalchemy import and_, text
 
 from .db_sqlite import *
 from .utils import model_get_or_set_temp_image, get_insert_or_update_obj, GlobalUserInfo
