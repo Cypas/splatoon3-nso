@@ -5,7 +5,7 @@ import unicodedata
 
 from .send_msg import bot_send
 from .utils import _check_session_handler
-from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path
+from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id
 from ..utils.bot import *
@@ -214,7 +214,7 @@ async def get_friends_md(splatoon, lang='zh-CN'):
     return msg
 
 
-@on_command("ns_friends", aliases={'ns_friend', 'ns_fr'}, priority=10, block=True).handle(
+@on_command("ns_friends", aliases={'ns_friend', 'ns_fr', 'nsfr'}, priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def ns_friends(bot: Bot, event: Event):
     """获取ns好友"""
@@ -469,4 +469,25 @@ async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
         msg += "stat.ink同步情况 已关闭主动推送，后台仍会2h进行一次同步\n\n"
     msg += f'/stat_notify open 开启stat.ink同步情况推送\n/stat_notify close 关闭stat.ink同步情况推送\n/sync_now 手动发起同步请求\n'
     msg += f'```'
+    await bot_send(bot, event, message=msg)
+
+
+@on_command("my_icon", aliases={'myicon'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def my_icon(bot: Bot, event: Event):
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user = model_get_or_set_user(platform, user_id)
+    msg = ""
+    msg_error = "本地未缓存nso头像，请在使用一次/me 命令进行缓存后重试"
+    if user.game_sp_id:
+        my_icon_path = await model_get_temp_image_path('my_icon', user.game_sp_id)
+        if my_icon_path:
+            with open(my_icon_path, "rb") as f:
+                _my_icon = f.read()
+                msg = _my_icon
+        else:
+            msg = msg_error
+    else:
+        msg = msg_error
+
     await bot_send(bot, event, message=msg)
