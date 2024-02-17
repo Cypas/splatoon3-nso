@@ -25,13 +25,18 @@ async def sync_stat_ink():
     # 去重
     db_users = user_remove_duplicates(db_users)
 
+    sync_count = 0
     _pool = 4
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks)
+        for r in res:
+            if r:
+                sync_count += 1
 
-    cron_msg = f"sync_stat_ink end: {datetime.datetime.utcnow() - t}"
+    cron_msg = (f"sync_stat_ink end: {datetime.datetime.utcnow() - t}\n"
+                f"sync_count: {sync_count}")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel(cron_msg)
 
@@ -43,13 +48,17 @@ async def sync_stat_ink_func(db_user: UserTable):
 
     msg = get_post_stat_msg(db_user)
 
-    if msg and db_user.stat_notify:
-        cron_logger.debug(f"{db_user.id}, {db_user.user_name}, {msg}")
-        # 通知到频道
-        await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type="job")
-        # 通知到私信
-        msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
-        await notify_to_private(db_user.platform, db_user.user_id, msg)
+    if msg:
+        if db_user.stat_notify:
+            cron_logger.debug(f"{db_user.id}, {db_user.user_name}, {msg}")
+            # 通知到频道
+            # await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type="job")
+            # 通知到私信
+            msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
+            await notify_to_private(db_user.platform, db_user.user_id, msg)
+        return True
+    else:
+        return False
 
 
 def get_post_stat_msg(db_user):
@@ -179,7 +188,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
                     })
     # no proxy
     if plugin_config.splatoon3_proxy_list_mode and proxy_address:
-        env.update({"NO_PROXY": f"stat.ink"})
+        env.update({"NO_PROXY": f"stat.ink,deno.land,api.lp1.av5ja.srv.nintendo.net"})
 
     # run deno
     deno_path = plugin_config.splatoon3_deno_path
