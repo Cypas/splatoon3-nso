@@ -72,6 +72,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         'user_id': user_id,
         'msg_id': msg_id,
         'this_push_cnt': 0,
+        'error_push_cnt': 0,
         'game_name': user.game_name or "",
         'job_id': job_id,
         'last_battle_id': "",
@@ -151,6 +152,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     user_id = job_data.get('user_id')
     msg_id = job_data.get('msg_id')
     push_cnt = job_data.get('this_push_cnt', 0)
+    error_push_cnt = job_data.get('error_push_cnt', 0)
     last_battle_id = job_data.get('last_battle_id')
     push_statistics: PushStatistics = job_data.get("push_statistics")
     # filters
@@ -169,6 +171,27 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
 
     splatoon = Splatoon(bot, event, user)
     try:
+        # 多次连续请求报错时，结束push推送
+        if error_push_cnt > 5:
+            # 关闭定时，更新push状态，发送统计
+            dict_get_or_set_user_info(platform, user_id, push=0)
+            msg = ""
+
+            # 获取统计数据
+            st_msg, push_time_minute = close_push(platform, user_id)
+            if isinstance(bot, (V12_Bot, Kook_Bot)):
+                msg = f"服务器连续多次请求报错，停止推送，bot可能遇到了网络问题，请加 新人导航 频道内的q群联系主人，本次推送持续 {push_time_minute}分钟\n\n"
+            msg += st_msg
+
+            logger.info(
+                f"push too much error,auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
+
+            await bot_send(bot, event, message=msg, skip_log_cmd=True)
+            msg = f"#{msg_id} {user.game_name or ''}\n 连续多次请求报错，停止推送，推送持续 {push_time_minute}分钟"
+            await notify_to_channel(msg)
+            return
+
+        # 获取对战或打工数据
         res = await get_last_battle_or_coop(bot, event, for_push=True, get_battle=get_battle,
                                             get_coop=get_coop,
                                             get_screenshot=get_screenshot, mask=mask)
@@ -221,8 +244,13 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             message_id = r.message_id
             job_data.update({"last_channel_msg_id": message_id})
 
+        # 连续error计数置0
+        job_data.update({"error_push_cnt": 0})
+
     except Exception as e:
         logger.warning(f'push_latest_battle error: {e}')
+        error_push_cnt += 1
+        job_data.update({"error_push_cnt": error_push_cnt})
         return
     finally:
         # 关闭连接池
