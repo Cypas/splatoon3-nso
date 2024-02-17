@@ -435,7 +435,7 @@ class S3S:
             except:
                 self.logger.warning(f"f_api retry error:resp:{json.dumps(web_service_resp)}")
                 if web_service_resp.get('errorMessage') == 'Membership required error.':
-                    raise ValueError(f"Membership required error.")
+                    raise ValueError(f"Membership required error.|{self.user_nickname}")
                 return
 
         # web_service_token 有效期为10800秒 3h
