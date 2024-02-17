@@ -76,7 +76,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             url = f"{SPLATNET3_URL}/fest_record"
 
         await page.goto(f"{url}?lang=zh-CN")
-    if "武器" in key:
+    if "武器" in key or "徽章" in key:
         # 武器页面等待更长时间
         await page.wait_for_timeout(7000)
     else:
@@ -132,7 +132,7 @@ async def init_browser() -> Browser:
         if plugin_config.splatoon3_proxy_list_mode:
             # bypass 忽略部分域名
             proxy = {"server": global_proxies,
-                     "bypass": "api-lp1.znc.srv.nintendo.net,api.lp1.av5ja.srv.nintendo.net"}
+                     "bypass": "api.lp1.av5ja.srv.nintendo.net"}
             global_browser = await p.chromium.launch(proxy=proxy)
         else:
             # 全局代理访问
