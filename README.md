@@ -110,7 +110,7 @@ _✨ splatoon3 nso查询插件 ✨_
 <summary>示例配置</summary>
   
 ```env
-# splatoon3示例配置
+# splatoon3-nso示例配置
 splatoon3_proxy_address = "" #代理地址
 splatoon3_reply_mode = False #指定回复模式
 splatoon3_proxy_list_mode = True #局部域名代理模式,具体依据自己服务器对各个域名的访问情况进行设置，默认True，False情况为全部域名请求走代理
