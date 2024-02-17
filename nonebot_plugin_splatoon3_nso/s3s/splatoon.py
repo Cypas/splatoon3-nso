@@ -100,8 +100,8 @@ class Splatoon:
                     # 会员过期
                     self.logger.warning(
                         f"membership_required: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}")
-                    _ex, nickname = str(e).split('|')
-                    nickname = nickname or ''
+                    # 切割 会员过期 警告信息
+                    nickname = str(e).split('|')[1] or ""
                     # 待发送文本
                     msg = f"喷3账号 {nickname} 会员过期"
                     if self.bot and self.event:

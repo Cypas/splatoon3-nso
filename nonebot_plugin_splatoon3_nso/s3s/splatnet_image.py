@@ -43,7 +43,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
     ss_user = global_dict_ss_user.get(msg_id)
     if ss_user:
         # ss计数+1
-        global_dict_ss_user.update({msg_id: ss_user+1})
+        global_dict_ss_user.update({msg_id: ss_user + 1})
     else:
         global_dict_ss_user.update({msg_id: 1})
     page = await context.new_page()
@@ -76,7 +76,7 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             url = f"{SPLATNET3_URL}/fest_record"
 
         await page.goto(f"{url}?lang=zh-CN")
-    if "武器" in key:
+    if "武器" in key or "徽章" in key:
         # 武器页面等待更长时间
         await page.wait_for_timeout(7000)
     else:
@@ -128,12 +128,16 @@ async def init_browser() -> Browser:
     p = await async_playwright().start()
     proxy = None
     # 代理
-    if not plugin_config.splatoon3_proxy_list_mode and global_proxies:
-        proxy = {"server": global_proxies}
-        # 代理访问
-        global_browser = await p.chromium.launch(proxy=proxy)
-    else:
-        global_browser = await p.chromium.launch(proxy=proxy)
+    if global_proxies:
+        if plugin_config.splatoon3_proxy_list_mode:
+            # bypass 忽略部分域名
+            proxy = {"server": global_proxies,
+                     "bypass": "api.lp1.av5ja.srv.nintendo.net"}
+            global_browser = await p.chromium.launch(proxy=proxy)
+        else:
+            # 全局代理访问
+            proxy = {"server": global_proxies}
+            global_browser = await p.chromium.launch(proxy=proxy)
     return global_browser
 
 
