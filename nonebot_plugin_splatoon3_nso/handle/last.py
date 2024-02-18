@@ -71,7 +71,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
                                                     idx=idx,
                                                     get_screenshot=get_screenshot, mask=mask)
 
-    if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode and not get_image:
+    if isinstance(bot, QQ_Bot) and plugin_config.splatoon3_qq_md_mode and not get_image:
         # 这里存在 /last ss 的情况，msg值实际为bytes
         await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
     else:
@@ -105,33 +105,6 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     # 更新缓存
     if user_name:
         user = dict_get_or_set_user_info(platform, user_id, user_name=user_name)
-
-    # res = await splatoon.get_test()
-    # res = await splatoon.get_battle_detail("VnNIaXN0b3J5RGV0YWlsLXUtYTQ3ajZtbm1jbWp5eDJoejdsdW06QkFOS0FSQToyMDI0MDExMlQwMjAyNDZfN2M5N2IyNWEtYWMzMi00OWQ5LWEyODAtYTE0YzllOTVmMTQ5")
-    # res = await splatoon.get_coop_statistics()
-    # data = translate_rid.get("BankaraBattleHistoriesQuery")
-    # res = await splatoon._request(data)
-
-    # print(json.dumps(res))
-
-    # t = time.time()
-    # # pic = await get_app_screenshot(user, url=url, mask=mask)
-    # res = await splatoon.get_x_battles()
-    #
-    # tt_date = time.time()
-    # tt = f'{tt_date - t:.3f}'
-    #
-    # # pic = await get_app_screenshot(user, url=url, mask=mask)
-    # res = await splatoon.get_last_one_battle()
-    #
-    # tt2_date = time.time()
-    # tt2 = f'{tt2_date - tt_date:.3f}'
-    #
-    # # pic = await get_app_screenshot(user, url=url, mask=mask)
-    # res = await splatoon.get_recent_battles()
-    #
-    # tt3_date = time.time()
-    # tt3 = f'{tt3_date - tt2_date:.3f}'
 
     if get_coop:
         get_battle = False
