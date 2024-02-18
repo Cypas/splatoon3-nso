@@ -8,6 +8,17 @@ from ..data.db_sqlite import UserFriendTable
 from ..s3s.splatoon import Splatoon
 from ..utils import get_time_now_china_date, plugin_release_time, get_time_now_china
 
+DICT_HTML_CODES = {
+    '#': '&#35;',
+    '`': '&#96;',
+    '|': '&#124;',
+    '*': '&#42;',
+    '_': '&#95;',
+    '<': '&#60;',
+    '>': '&#62;',
+    '~': '&#126;',
+}
+
 
 async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splatoon: Splatoon = None, mask=False,
                             push_statistics: PushStatistics = None):
@@ -63,7 +74,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             if _c and "r" in _c:
                 _str_color = f"rgba({int(_c['r'] * 255)}, {int(_c['g'] * 255)}, {int(_c['b'] * 255)}, {_c['a']})"
                 _str_team = f"<span style='color:{_str_color}'>{_str_team}</span>"
-            ti = f"|||||||||{_str_team}|"
+            ti = f"||||||||||{_str_team}|"
         text_list.append(f'{ti}\n')
     body += ''.join(text_list)
 
@@ -329,7 +340,9 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     weapon_sp_img = await model_get_temp_image_path("battle_weapon_special", sp_name, sp_img)
     sp_img = f'<img height="25" src="{weapon_sp_img}"/>'
 
-    name = p['name'].replace('`', '&#96;').replace('|', '&#124;')
+    name = p['name']
+    for k, v in DICT_HTML_CODES.items():
+        name = name.replace(k, v)
 
     player_code, player_name = get_game_sp_id_and_name(p)
     if p.get('isMyself'):
