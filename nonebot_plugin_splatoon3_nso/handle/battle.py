@@ -418,11 +418,11 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
         if contribution:
             str_point = f'+{contribution}'
         if fest_match.get('dragonMatchType') == 'DECUPLE':
-            rule += " (x10)"
+            rule += " <span style='color:skyblue'>(x10)</span>"
         elif fest_match.get('dragonMatchType') == 'DRAGON':
-            rule += " (x100)"
+            rule += " <span style='color:red'>(x100)</span>"
         elif fest_match.get('dragonMatchType') == 'DOUBLE_DRAGON':
-            rule += " (x333)"
+            rule += " <span style='color:red'>(x333)</span>"
 
     elif mode == "LEAGUE":
         bankara_match = ((battle_detail.get('leagueMatch') or {}).get('leagueMatchEvent') or {}).get('name')
