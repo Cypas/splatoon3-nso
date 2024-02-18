@@ -74,7 +74,8 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             if _c and "r" in _c:
                 _str_color = f"rgba({int(_c['r'] * 255)}, {int(_c['g'] * 255)}, {int(_c['b'] * 255)}, {_c['a']})"
                 _str_team = f"<span style='color:{_str_color}'>{_str_team}</span>"
-            ti = f"||||||||||{_str_team}|"
+            # 祭典队伍
+            ti = f'|||||||<td colspan="3">{_str_team}</td>|'
         text_list.append(f'{ti}\n')
     body += ''.join(text_list)
 
