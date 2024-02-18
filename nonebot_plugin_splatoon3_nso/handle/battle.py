@@ -50,8 +50,8 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     else:
         # 战绩
         body = """|||||||||||
-|-|---|---:|----:|----:|---:|---:|:---:|---:|:----|
-|序|武器|总|杀+助|死亡|kd<td colspan="2">大招</td> |涂地|玩家|
+|-|---|---:|----:|----:|---:|---:|:---:|---:|:--------|
+|序|武器|总|杀+助|亡|kd<td colspan="2">大招</td> |涂地|玩家|
 """
 
     text_list = []
