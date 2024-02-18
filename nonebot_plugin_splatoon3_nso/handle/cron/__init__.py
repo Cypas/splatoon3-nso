@@ -51,7 +51,7 @@ def scheduler_controller():
     # parse x rank player at 2:40
     add_scheduler("parse_x_rank", trigger='cron', hour=2, minute=40)
     # 更新活动排行榜
-    add_scheduler("get_event_top", trigger='cron', hour="6", minute=20)
+    add_scheduler("get_event_top", trigger='cron', hour=6, minute=20)
     # 清空s3sti.ts脚本生成的缓存文件
     add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
     # set_report at 8:00
@@ -64,7 +64,7 @@ def scheduler_controller():
     # refresh_token every 1 hours 50 min   仅为缓存内的用户提供定期刷新token
     add_scheduler("refresh_token", trigger='interval', hours=1, minutes=50)
     # update_s3si_ts 在指定时间检查脚本更新
-    add_scheduler("update_s3si_ts", trigger='cron', hour="6", minute=50)
+    add_scheduler("update_s3si_ts", trigger='cron', hour=6, minute=50)
     # sync_stat_ink 在指定时间进行同步
     add_scheduler("sync_stat_ink", trigger='cron', hour="0,2,4,6,8,10,12,14,16,18,20,22", minute=4)
     # 每周一周四清理一次公共用户字典

@@ -71,7 +71,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
                                                     idx=idx,
                                                     get_screenshot=get_screenshot, mask=mask)
 
-    if isinstance(bot, QQ_Bot) and plugin_config.splatoon3_qq_md_mode and not get_image:
+    if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode and not get_image:
         # 这里存在 /last ss 的情况，msg值实际为bytes
         await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
     else:
