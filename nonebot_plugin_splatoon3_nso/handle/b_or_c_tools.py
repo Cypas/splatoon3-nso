@@ -161,6 +161,9 @@ async def get_user_name_color(player_name, player_code):
 
     # 登录用户绿色
     if login:
+        _icon = await model_get_temp_image_path('my_icon', player_code)
+        if _icon:
+            player_name += f" <img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{_icon}'/>"
         return f'<span style="color:green">{player_name}</span>'
 
     u_str = player_name
