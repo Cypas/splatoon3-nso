@@ -198,22 +198,30 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
 
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
     cron_logger.info(cmd)
-    rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, env=env).stdout.decode('utf-8')
-    cron_logger.info(f'{user_id} cli: {rtn}')
+    rtn: subprocess.CompletedProcess[str] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env).stdout.decode('utf-8')
 
+    res = rtn.stdout
+    error = rtn.stderr
     battle_cnt = 0
     coop_cnt = 0
     url = ''
-    for line in rtn.split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-        if 'exported to https://stat.ink' in line:
-            if 'salmon3' in line:
-                coop_cnt += 1
-            else:
-                battle_cnt += 1
-            url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
+    if error:
+        # error
+        cron_logger.warning(f'{user_id} cli error,result:\n{error}')
+    elif res:
+        # success
+        cron_logger.info(f'{user_id} cli success,result:\n{res}')
+
+        for line in rtn.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            if 'exported to https://stat.ink' in line:
+                if 'salmon3' in line:
+                    coop_cnt += 1
+                else:
+                    battle_cnt += 1
+                url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
 
     cron_logger.info(f'{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
     if battle_cnt or coop_cnt:
