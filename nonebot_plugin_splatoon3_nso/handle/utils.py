@@ -32,6 +32,7 @@ dict_b_mode_trans = {
     "FEST": "祭典比赛",
     "X_MATCH": "X比赛",
     "REGULAR": "一般比赛",
+    "PRIVATE": "私房",
 
     "CHALLENGE": "挑战",
     "OPEN": "开放",
