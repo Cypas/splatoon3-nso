@@ -193,10 +193,11 @@ async def get_myself_name_color(player_name, player_code):
 
 
 def remove_user_name_icon(name):
-    """存在top_all榜单，或x榜时，移除用户名后面的好友头像，方便显示武器"""
+    """存在top_all榜单，或x榜时，移除用户名后面的头像，方便显示武器"""
     if "<img" in name:
-        origin_name = name.split('style="color:skyblue">')[-1].split(" <img height='36px'")[0]
-        name = f'<span style="color:skyblue">{origin_name}</span>'
+        idx = name.find(" <img")
+        if idx != -1:
+            name = name[:idx]
     return name
 
 
