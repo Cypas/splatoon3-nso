@@ -54,11 +54,12 @@ from nonebot.adapters.qq.event import DirectMessageCreateEvent as QQ_PME  # 频�
 from nonebot.adapters.qq.event import AtMessageCreateEvent as QQ_CME  # 频道艾特信息
 from nonebot.adapters.qq import AuditException as QQ_AuditException, ActionFailed as QQ_ActionFailed
 
-# BOT = Union[V11_Bot, V12_Bot, Tg_Bot, Kook_Bot, QQ_Bot]
-# MESSAGE_EVENT = Union[V11_ME, V12_ME, Tg_ME, Kook_ME, QQ_ME]
+# bot
+All_BOT = (V11_Bot, V12_Bot, Kook_Bot, Tg_Bot, QQ_Bot)
+# 需要限制qq平台停用的功能也应该是在该功能前直接阻断，而不是后续再进行过滤，故弃用All_BOT_Without_QQ
 
 # 公开发言消息类型
-Group_Message = (Kook_CME, Tg_GME, Tg_CME, QQ_CME, QQ_GME)
-Group_Message_Without_QQ_G = (Kook_CME, Tg_GME, Tg_CME, QQ_CME)
+All_Group_Message = (Kook_CME, Tg_GME, Tg_CME, QQ_CME, QQ_GME, V11_GME, V12_GME, V12_CME)
+All_Group_Message_Without_QQ_G = (Kook_CME, Tg_GME, Tg_CME, QQ_CME, V11_GME, V12_GME, V12_CME)
 # 私聊消息
-Private_Message = (Kook_PME, Tg_PME, QQ_PME, QQ_C2CME)
+All_Private_Message = (Kook_PME, Tg_PME, QQ_PME, QQ_C2CME, V11_PME, V12_PME)
