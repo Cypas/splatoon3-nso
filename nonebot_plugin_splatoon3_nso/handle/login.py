@@ -317,10 +317,6 @@ async def get_set_api_key(bot: Bot, event: Event):
 
 @on_command("sync_now", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def sync_now(bot: Bot, event: Event):
-    if isinstance(event, All_Group_Message):
-        await bot_send(bot, event, MSG_PRIVATE)
-        return
-
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)

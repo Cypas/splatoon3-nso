@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import datetime
 import os
 import json
@@ -198,21 +199,33 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
 
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
     cron_logger.info(cmd)
-    rtn: subprocess.CompletedProcess[str] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env).stdout.decode('utf-8')
+    rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 
-    res = rtn.stdout
-    error = rtn.stderr
+    res = rtn.stdout.decode('utf-8')
+    error = rtn.stderr.decode('utf-8')
     battle_cnt = 0
     coop_cnt = 0
     url = ''
+    error_msg = ""
+
     if error:
-        # error
-        cron_logger.warning(f'{user_id} cli error,result:\n{error}')
+        # error里面混有deno debug内容，需要经过过滤
+        for line in error.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            # 输出内容加了供终端显示颜色的ascii码，将其转化为b64 str后再判断前缀
+            if strToBase64(line).startswith('G1swbRtbMzJtRG93bmxvYWQbWzBtIGh0dHBzOi8vZGVuby5sYW5kL3'):
+                continue
+            error_msg += f"{line}\n"
+
+    if error_msg:
+        cron_logger.warning(f'{user_id} cli error,result:\n{error_msg}')
     elif res:
         # success
         cron_logger.info(f'{user_id} cli success,result:\n{res}')
 
-        for line in rtn.split('\n'):
+        for line in res.split('\n'):
             line = line.strip()
             if not line:
                 continue
@@ -226,3 +239,13 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
     cron_logger.info(f'{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
     if battle_cnt or coop_cnt:
         return battle_cnt, coop_cnt, url
+
+
+def strToBase64(s):
+    '''
+    将字符串转换为base64字符串
+    :param s:
+    :return:
+    '''
+    strEncode = base64.b64encode(s.encode('utf8'))
+    return str(strEncode, encoding='utf8')
