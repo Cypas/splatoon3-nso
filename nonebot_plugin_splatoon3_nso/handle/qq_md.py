@@ -42,63 +42,7 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     # })
 
     keyboard = MessageKeyboard.model_validate({
-        "content": {
-            "rows": [{"buttons": [
-                {
-                    "id": "1",
-                    "render_data": {
-                        "label": f"{button_show}",
-                        "visited_label": f"{button_show}",
-                        "style": 0
-                    },
-                    "action": {
-                        "type": 2,
-                        "permission": {
-                            "type": 2,
-                        },
-                        "unsupport_tips": "客户端不支持",
-                        "data": f"{button_cmd}",
-                    }
-                }
-
-            ]},
-                {"buttons": [
-                    {
-                        "id": "1",
-                        "render_data": {
-                            "label": f"{button_show2}",
-                            "visited_label": f"{button_show2}",
-                            "style": 0
-                        },
-                        "action": {
-                            "type": 2,
-                            "permission": {
-                                "type": 2,
-                            },
-                            "unsupport_tips": "客户端不支持",
-                            "data": f"{button_cmd2}",
-                        }
-                    },
-                    {
-                        "id": "1",
-                        "render_data": {
-                            "label": f"{button_show3}",
-                            "visited_label": f"{button_show3}",
-                            "style": 0
-                        },
-                        "action": {
-                            "type": 2,
-                            "permission": {
-                                "type": 2,
-                            },
-                            "unsupport_tips": "客户端不支持",
-                            "data": f"{button_cmd3}",
-                        }
-                    }
-
-                ]}
-            ]
-        }
+        "id": "102083290_1707209565"
     })
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
     return qq_msg

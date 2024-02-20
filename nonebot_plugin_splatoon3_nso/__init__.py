@@ -31,7 +31,7 @@ async def unknown_command(bot: Bot, event: Event):
     msg = ""
     if isinstance(bot, Tg_Bot):
         msg = "Sorry, I didn't understand that command. /help"
-    elif isinstance(bot, (V11_Bot, V12_Bot, QQ_Bot, Kook_Bot)):
+    elif isinstance(bot, All_BOT):
         msg = "无效指令，发送 /help 查看帮助"
     await bot.send(event, message=msg)
 
@@ -47,7 +47,7 @@ async def _help(bot: Bot, event: Event):
         elif isinstance(bot, QQ_Bot):
             msg = MSG_HELP_QQ
             await bot_send(bot, event, message=msg)
-        elif isinstance(bot, (V12_Bot, Kook_Bot,)):
+        elif isinstance(bot, All_BOT):
             msg = MSG_HELP_CN
             await bot_send(bot, event, message=msg)
 

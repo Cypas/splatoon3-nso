@@ -99,8 +99,9 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         id=job_id, args=[bot, event, job_data, filters],
         misfire_grace_time=PUSH_INTERVAL - 1, coalesce=True, max_instances=1
     )
-    msg = f'Start push! check new data(battle or coop) every {PUSH_INTERVAL} seconds. /stop_push to stop'
-    if isinstance(bot, (V12_Bot, Kook_Bot)):
+    if isinstance(bot, Tg_Bot):
+        msg = f'Start push! check new data(battle or coop) every {PUSH_INTERVAL} seconds. /stop_push to stop'
+    elif isinstance(bot, All_BOT):
         filters_str1 = ""
         if get_screenshot:
             filters_str1 += "截图"
@@ -125,7 +126,7 @@ async def stop_push(bot: Bot, event: Event):
     if isinstance(bot, QQ_Bot):
         await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
         return
-    msg = f"Stop push!"
+
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -133,7 +134,9 @@ async def stop_push(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id, push=0)
 
     st_msg, push_time_minute = close_push(platform, user_id)
-    if isinstance(bot, (V12_Bot, Kook_Bot)):
+    if isinstance(Tg_Bot):
+        msg = f"Stop push!"
+    elif isinstance(bot, All_BOT):
         msg = f"停止推送！推送持续 {push_time_minute}分钟\n"
     if not user.stat_key and user.push_cnt <= 10:
         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
@@ -179,7 +182,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
 
             # 获取统计数据
             st_msg, push_time_minute = close_push(platform, user_id)
-            if isinstance(bot, (V12_Bot, Kook_Bot)):
+            if isinstance(bot, All_BOT):
                 msg = f"服务器连续多次请求报错，停止推送，bot可能遇到了网络问题，请加 新人导航 频道内的q群联系主人，本次推送持续 {push_time_minute}分钟\n\n"
             msg += st_msg
 
@@ -211,7 +214,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
 
                 # 获取统计数据
                 st_msg, push_time_minute = close_push(platform, user_id)
-                if isinstance(bot, (V12_Bot, Kook_Bot)):
+                if isinstance(bot, All_BOT):
                     msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟\n"
                     if not user.stat_key and user.push_cnt <= 10:
                         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"

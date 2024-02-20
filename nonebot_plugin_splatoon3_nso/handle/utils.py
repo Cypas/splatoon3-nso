@@ -4,7 +4,7 @@ import os
 
 from .send_msg import bot_send_login_md
 from ..config import plugin_config
-from ..data.data_source import dict_get_or_set_user_info
+from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
 from ..utils import DIR_RESOURCE
 from ..utils.bot import *
 
@@ -32,6 +32,7 @@ dict_b_mode_trans = {
     "FEST": "祭典比赛",
     "X_MATCH": "X比赛",
     "REGULAR": "一般比赛",
+    "PRIVATE": "私房",
 
     "CHALLENGE": "挑战",
     "OPEN": "开放",
@@ -90,8 +91,6 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
         msg = ""
         if isinstance(bot, Tg_Bot):
             msg = "nso not logged in. direct message to me /login first."
-        elif isinstance(bot, (V11_Bot, V12_Bot, Kook_Bot)):
-            msg = "nso未登录，无法使用相关查询，请先私信我 /login 进行登录"
         elif isinstance(bot, QQ_Bot):
             if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
                 # 发送md
@@ -99,9 +98,10 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
                 await matcher.finish()
             else:
                 msg = "nso未登录，无法使用相关查询\n" \
-                       "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后获取绑定码\n" \
-                       f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
-
+                      "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后获取绑定码\n" \
+                      f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+        elif isinstance(bot, All_BOT):
+            msg = "nso未登录，无法使用相关查询，请先私信我 /login 进行登录"
         await matcher.finish(msg)
     else:
         # 已登录用户
@@ -111,8 +111,10 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
 
 async def get_event_info(bot, event):
     """解析event结构获取group，name等信息"""
-    data = {'platform': bot.adapter.get_name(),
-            'user_id': event.get_user_id(),
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    data = {'platform': platform,
+            'user_id': user_id,
             }
     _event = event.dict() or {}
     if isinstance(bot, Tg_Bot):
@@ -150,16 +152,21 @@ async def get_event_info(bot, event):
         #         'group_name': f'{server_name}{channel_name}',
         #     })
     elif isinstance(bot, QQ_Bot):
-        if _event.get('guild_id'):
-            # qq 频道
+        if isinstance(event, (QQ_CME, QQ_PME)):
+            # qq 频道, qq 频道私聊
             data.update({
                 'user_name': _event.get('author', {}).get('username'),
             })
 
-        else:
+        elif isinstance(event, QQ_GME):
             # qq 群
             data.update({
                 'user_name': 'QQ群',
+            })
+        elif isinstance(event, QQ_C2CME):
+            # c2c私信
+            data.update({
+                'user_name': 'C2C',
             })
         # if 'group' in event.get_event_name():
         # qq 都在群里使用
@@ -167,4 +174,107 @@ async def get_event_info(bot, event):
         #     'group_id': _event.get('guild_id') or _event.get('group_openid') or '',
         #     'group_name': _event.get('guild_id') or _event.get('group_openid') or '',
         # })
+    elif isinstance(bot, V11_Bot):
+        data.update({
+            'user_name': _event.get('sender', {}).get('nickname', ''),
+        })
+    elif isinstance(bot, V12_Bot):
+        user_name = ''
+        user = model_get_or_set_user(platform, user_id)
+        if user:
+            user_name = user.user_name
+        if not user_name:
+            user_info = await bot.get_user_info(user_id=user_id)
+            if user_info:
+                user_name = user_info.get('user_name', '')
+
+        data.update({
+            'user_name': user_name,
+        })
+
     return data
+
+# event结构解析参考代码
+# async def log_cmd_to_db(bot, event, get_map=False):
+#     try:
+#         message = event.get_plaintext().strip()
+#         _event = event.dict() or {}
+#         user_id = event.get_user_id()
+#
+#         data = {'user_id': user_id, 'cmd': message}
+#         if isinstance(bot, QQBot):
+#             data.update({
+#                 'id_type': 'qq',
+#                 'username': _event.get('sender', {}).get('nickname', '')
+#             })
+#             group_id = _event.get('group_id')
+#             if group_id:
+#                 group_name = ''
+#                 group_lst = get_all_group()
+#                 for g in group_lst:
+#                     if str(g.group_id) == str(group_id):
+#                         group_name = g.group_name
+#                         break
+#
+#                 if not group_name:
+#                     group_info = await bot.call_api('get_group_info', group_id=group_id)
+#                     group_name = group_info.get('group_name')
+#                     if group_name:
+#                         set_db_info(group_id=group_id, id_type='qq', group_name=group_name)
+#
+#                 data.update({
+#                     'group_id': group_id,
+#                     'group_name': group_name,
+#                 })
+#
+#         elif isinstance(bot, TGBot):
+#             name = _event.get('from_', {}).get('first_name', '')
+#             if _event.get('from_', {}).get('last_name'):
+#                 name += ' ' + _event.get('from_', {}).get('last_name')
+#             if not name:
+#                 name = _event.get('from_', {}).get('username') or ''
+#
+#             data.update({
+#                 'id_type': 'tg',
+#                 'username': name,
+#                 'first_name': _event.get('from_', {}).get('first_name', ''),
+#                 'last_name': _event.get('from_', {}).get('last_name', ''),
+#             })
+#             if 'group' in _event.get('chat', {}).get('type', ''):
+#                 data.update({
+#                     'group_id': _event['chat']['id'],
+#                     'group_name': _event.get('chat', {}).get('title', ''),
+#                 })
+#
+#         elif isinstance(bot, WXBot):
+#             username = ''
+#             user = get_user(user_id=user_id)
+#             if user:
+#                 username = user.username
+#             if not username:
+#                 user_info = await bot.get_user_info(user_id=user_id)
+#                 if user_info:
+#                     username = user_info.get('user_name', '')
+#             data.update({
+#                 'id_type': 'wx',
+#                 'username': username
+#             })
+#             group_id = _event.get('group_id')
+#             if group_id:
+#                 group_name = ''
+#                 group_lst = get_all_group()
+#                 for g in group_lst:
+#                     if str(g.group_id) == str(group_id):
+#                         group_name = g.group_name
+#                         break
+#
+#                 if not group_name:
+#                     group_info = await bot.get_group_info(group_id=group_id)
+#                     group_name = group_info.get('group_name')
+#                     if group_name:
+#                         set_db_info(group_id=group_id, id_type='qq', group_name=group_name)
+#
+#                 data.update({
+#                     'group_id': group_id,
+#                     'group_name': group_name,
+#                 })

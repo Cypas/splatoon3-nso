@@ -17,7 +17,7 @@ async def me(bot: Bot, event: Event):
     await bot_send(bot, event, message="请求个人数据中，请稍等...")
 
     from_group = False
-    if isinstance(event, Group_Message):
+    if isinstance(event, All_Group_Message):
         from_group = True
 
     msg = await get_me(bot, event, from_group)

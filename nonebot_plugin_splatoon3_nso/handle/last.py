@@ -106,33 +106,6 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     if user_name:
         user = dict_get_or_set_user_info(platform, user_id, user_name=user_name)
 
-    # res = await splatoon.get_test()
-    # res = await splatoon.get_battle_detail("VnNIaXN0b3J5RGV0YWlsLXUtYTQ3ajZtbm1jbWp5eDJoejdsdW06QkFOS0FSQToyMDI0MDExMlQwMjAyNDZfN2M5N2IyNWEtYWMzMi00OWQ5LWEyODAtYTE0YzllOTVmMTQ5")
-    # res = await splatoon.get_coop_statistics()
-    # data = translate_rid.get("BankaraBattleHistoriesQuery")
-    # res = await splatoon._request(data)
-
-    # print(json.dumps(res))
-
-    # t = time.time()
-    # # pic = await get_app_screenshot(user, url=url, mask=mask)
-    # res = await splatoon.get_x_battles()
-    #
-    # tt_date = time.time()
-    # tt = f'{tt_date - t:.3f}'
-    #
-    # # pic = await get_app_screenshot(user, url=url, mask=mask)
-    # res = await splatoon.get_last_one_battle()
-    #
-    # tt2_date = time.time()
-    # tt2 = f'{tt2_date - tt_date:.3f}'
-    #
-    # # pic = await get_app_screenshot(user, url=url, mask=mask)
-    # res = await splatoon.get_recent_battles()
-    #
-    # tt3_date = time.time()
-    # tt3 = f'{tt3_date - tt2_date:.3f}'
-
     if get_coop:
         get_battle = False
 

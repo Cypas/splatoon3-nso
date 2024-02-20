@@ -50,8 +50,8 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     else:
         # 战绩
         body = """|||||||||||
-|-|---|---:|----:|----:|---:|---:|:---:|---:|:----|
-|序|武器|总|杀+助|死亡|kd<td colspan="2">大招</td> |涂地|玩家|
+|-|---|---:|----:|----:|---:|---:|:---:|---:|:--------|
+|序|武器|总|杀+助|亡|kd<td colspan="2">大招</td> |涂地|玩家|
 """
 
     text_list = []
@@ -74,7 +74,8 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             if _c and "r" in _c:
                 _str_color = f"rgba({int(_c['r'] * 255)}, {int(_c['g'] * 255)}, {int(_c['b'] * 255)}, {_c['a']})"
                 _str_team = f"<span style='color:{_str_color}'>{_str_team}</span>"
-            ti = f"||||||||||{_str_team}|"
+            # 祭典队伍
+            ti = f'|||||||<td colspan="3">{_str_team}</td>|'
         text_list.append(f'{ti}\n')
     body += ''.join(text_list)
 
@@ -417,11 +418,11 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
         if contribution:
             str_point = f'+{contribution}'
         if fest_match.get('dragonMatchType') == 'DECUPLE':
-            rule += " (x10)"
+            rule += " <span style='color:skyblue'>(x10)</span>"
         elif fest_match.get('dragonMatchType') == 'DRAGON':
-            rule += " (x100)"
+            rule += " <span style='color:red'>(x100)</span>"
         elif fest_match.get('dragonMatchType') == 'DOUBLE_DRAGON':
-            rule += " (x333)"
+            rule += " <span style='color:red'>(x333)</span>"
 
     elif mode == "LEAGUE":
         bankara_match = ((battle_detail.get('leagueMatch') or {}).get('leagueMatchEvent') or {}).get('name')

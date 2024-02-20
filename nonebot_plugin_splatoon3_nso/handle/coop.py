@@ -81,7 +81,7 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
 
 #### {total_deliver_cnt}
 |  |   ||  ||||||
-| --: |--:|--:|--:|--:|:--|--|--|--|
+| --: |--:|--:|--:|--:|:--------|--|--|--|
 | 击杀 |蛋数|死亡|救人|红蛋|玩家<td colspan="2">大招</td>|武器|
 {await coop_row_user(my, wave_results, is_myself=True)}
 """

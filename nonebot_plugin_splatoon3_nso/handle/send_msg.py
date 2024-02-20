@@ -137,7 +137,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
     if img_data:
         if not QQ_md:
             await send_msg(bot, event, img_data)
-        elif isinstance(event, QQ_GME) and QQ_md:
+        elif isinstance(bot, QQ_Bot) and QQ_md:
             # 需要图片的md消息
             md_type = QQ_md.get("md_type")
             user_id = QQ_md.get("user_id")
