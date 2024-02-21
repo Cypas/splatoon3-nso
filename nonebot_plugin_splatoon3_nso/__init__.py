@@ -79,8 +79,6 @@ async def bot_on_shutdown():
     logger.info(f" bot shutdown, version: {version} ".center(120, "x"))
     bots = get_bots()
     logger.info(f"bot: {bots}")
-    # 删除全部定时任务
-    remove_all_scheduler()
 
 
 @driver.on_bot_connect
