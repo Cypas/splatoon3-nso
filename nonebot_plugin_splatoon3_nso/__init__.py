@@ -29,11 +29,12 @@ __plugin_meta__ = PluginMetadata(
 async def unknown_command(bot: Bot, event: Event):
     logger.info(f'unknown_command from {event.get_event_name()}')
     msg = ""
-    if isinstance(bot, Tg_Bot):
-        msg = "Sorry, I didn't understand that command. /help"
-    elif isinstance(bot, All_BOT):
-        msg = "无效指令，发送 /help 查看帮助"
-    await bot.send(event, message=msg)
+    if plugin_config.splatoon3_unknown_command_fallback_reply:
+        if isinstance(bot, Tg_Bot):
+            msg = "Sorry, I didn't understand that command. /help"
+        elif isinstance(bot, All_BOT):
+            msg = "无效指令，发送 /help 查看帮助"
+        await bot.send(event, message=msg)
 
 
 @on_command("help", aliases={"h", "帮助", "说明", "文档"}, priority=10).handle()
