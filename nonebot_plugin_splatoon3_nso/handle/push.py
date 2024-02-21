@@ -127,14 +127,13 @@ async def stop_push(bot: Bot, event: Event):
         await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
         return
 
-
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id, push=0)
 
     st_msg, push_time_minute = close_push(platform, user_id)
-    if isinstance(Tg_Bot):
+    if isinstance(bot, Tg_Bot):
         msg = f"Stop push!"
     elif isinstance(bot, All_BOT):
         msg = f"停止推送！推送持续 {push_time_minute}分钟\n"

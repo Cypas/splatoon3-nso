@@ -40,6 +40,8 @@ class Config(BaseModel):
     splatoon3_schedule_plugin_priority_mode: bool = False
     # 部分消息使用qq平台md卡片,开启了也没用，md模版需要在qqbot端进行审核，模板id目前在代码里是写死的
     splatoon3_qq_md_mode: bool = False
+    # 没有匹配命令时是否兜底回复
+    splatoon3_unknown_command_fallback_reply: bool = True
 
 
 driver = get_driver()
