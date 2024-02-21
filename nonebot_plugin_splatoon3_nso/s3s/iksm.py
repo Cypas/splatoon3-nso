@@ -316,9 +316,9 @@ class S3S:
         birthday = user_info["birthday"]
 
         try:
-            f, uuid, timestamp = await self.call_f_api(id_token, 1, self.f_gen_url, self.r_user_id)
+            f, uuid, timestamp = await self.f_api(id_token, 1, self.f_gen_url, self.r_user_id)
         except Exception as e:
-            raise ValueError(str(e))
+            raise e
 
         parameter = {
             'f': f,
@@ -363,7 +363,7 @@ class S3S:
         except:
             # retry once if 9403/9599 error from nintendo
             try:
-                f, uuid, timestamp = await self.call_f_api(id_token, 1, self.f_gen_url, self.r_user_id)
+                f, uuid, timestamp = await self.f_api(id_token, 1, self.f_gen_url, self.r_user_id)
                 body["parameter"]["f"] = f
                 body["parameter"]["requestId"] = uuid
                 body["parameter"]["timestamp"] = timestamp
@@ -378,9 +378,11 @@ class S3S:
                 raise ValueError("JSONDecodeError")
             except Exception:
                 raise ValueError(f"resp error:{json.dumps(splatoon_token)}")
-
-            f, uuid, timestamp = await self.call_f_api(access_token, 2, self.f_gen_url, self.r_user_id,
-                                                       coral_user_id=coral_user_id)
+            try:
+                f, uuid, timestamp = await self.f_api(access_token, 2, self.f_gen_url, self.r_user_id,
+                                                      coral_user_id=coral_user_id)
+            except Exception as e:
+                raise e
 
         return access_token, f, uuid, timestamp, coral_user_id
 
@@ -423,8 +425,8 @@ class S3S:
             # retry once if code 9403/9599 error from nintendo
             self.logger.warning(f"retry once if code 9403/9599 error from nintendo")
             try:
-                f, uuid, timestamp = await self.call_f_api(access_token, 2, self.f_gen_url, self.r_user_id,
-                                                           coral_user_id=coral_user_id)
+                f, uuid, timestamp = await self.f_api(access_token, 2, self.f_gen_url, self.r_user_id,
+                                                      coral_user_id=coral_user_id)
                 body["parameter"]["f"] = f
                 body["parameter"]["requestId"] = uuid
                 body["parameter"]["timestamp"] = timestamp
@@ -500,12 +502,44 @@ class S3S:
         except json.JSONDecodeError as e:
             self.logger.exception(f'{user_id} get_bullet error. {r.status_code}')
             if r.status_code == 401:
-                self.logger.exception("Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
+                self.logger.exception(
+                    "Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
             elif r.status_code == 403:
                 self.logger.exception("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
             elif r.status_code == 204:  # No Content, USER_NOT_REGISTERED
                 self.logger.exception("Cannot access SplatNet 3 without having played online.")
             raise Exception(f"{user_id} get_bullet error. {r.status_code}")
+
+    async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
+        res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
+                                    coral_user_id=coral_user_id)
+        if isinstance(res, tuple):
+            # 解析tuple
+            f, uuid, timestamp = res
+            return f, uuid, timestamp
+        else:
+            if self.f_gen_url == F_GEN_URL:
+                if not res:
+                    # 无响应结果
+                    self.logger.warning(f"F_GEN_URL no res，try F_GEN_URL_2 again")
+                elif isinstance(res, str):
+                    # 错误信息
+                    # 改为f_url_2并重新请求一次
+                    if "NetConnectError" in res:
+                        self.logger.warning(f"F_GEN_URL ConnectError，try F_GEN_URL_2 again")
+                    elif "NetConnectTimeout" in res:
+                        self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
+                self.f_gen_url = F_GEN_URL_2
+                res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
+                                            coral_user_id=coral_user_id)
+                if isinstance(res, tuple):
+                    # 解析tuple
+                    f, uuid, timestamp = res
+                    return f, uuid, timestamp
+                else:
+                    return None
+            else:
+                return None
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         """Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp)."""
@@ -534,47 +568,24 @@ class S3S:
             f = resp["f"]
             uuid = resp["request_id"]
             timestamp = resp["timestamp"]
-            return f, uuid, timestamp
+            if self.f_gen_url == F_GEN_URL:
+                return "NetConnectError"
+            else:
+                return f, uuid, timestamp
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             if isinstance(e, httpx.ConnectError):
-                self.logger.warning(f"F_GEN_URL ConnectError，try F_GEN_URL_2 again")
+                return "NetConnectError"
             elif isinstance(e, httpx.ConnectTimeout):
-                self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
-            if self.f_gen_url == F_GEN_URL:
-                # 改为f_url_2并递归一次
-                self.f_gen_url = F_GEN_URL_2
-                f, uuid, timestamp = await self.call_f_api(access_token, step, f_gen_url, r_user_id, coral_user_id=coral_user_id)
-                return f, uuid, timestamp
-            else:
-                if isinstance(e, httpx.ConnectError):
-                    raise ValueError("NetConnectError")
-                elif isinstance(e, httpx.ConnectTimeout):
-                    raise ValueError("NetConnectTimeout")
+                return "NetConnectTimeout"
 
         except Exception as e:
-            try:  # if api_response never gets set
-                self.logger.warning(
-                    f"Error during f generation: \n{f_gen_url}")
-                if api_response and api_response.text:
-                    self.logger.error(f"Error during f generation:\n{api_response.text}")
-                else:
-                    self.logger.error(f"Error during f generation: Error {api_response.status_code}.")
-                raise ValueError(f"resp error:{json.dumps(api_response)}")
-            except httpx.ConnectError:
-                self.logger.error(f"Couldn't connect to f generation API ({f_gen_url}). Please try again later.")
-                raise ValueError("NetConnectError")
-            except httpx.ConnectTimeout:
-                self.logger.error(f"connectTimeout to f generation API ({f_gen_url}). Please try again later.")
-                raise ValueError("NetConnectTimeout")
-            except Exception as e:
-                # 额外的额外情况，一般是res没有任何返回内容，api接口失效了，换F_GEN_URL_2接口重试
-                self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
-                if self.f_gen_url == F_GEN_URL:
-                    # 改为f_url_2并递归一次
-                    self.f_gen_url = F_GEN_URL_2
-                    f, uuid, timestamp = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
-                                                               coral_user_id=coral_user_id)
-                    return f, uuid, timestamp
+            self.logger.warning(
+                f"Error during f generation: \n{f_gen_url}")
+            if api_response and api_response.text:
+                self.logger.error(f"Error during f generation:\n{api_response.text}")
+            else:
+                self.logger.error(f"Error during f generation: Error {api_response.status_code}.")
+            return f"resp error:{json.dumps(api_response)}"
 
 
 if __name__ == "__main__":
