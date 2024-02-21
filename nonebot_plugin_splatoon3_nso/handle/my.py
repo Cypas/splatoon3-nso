@@ -31,8 +31,14 @@ async def get_me(bot, event, from_group):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     history_summary = await splatoon.get_history_summary()
+    if not history_summary:
+        history_summary = await splatoon.get_history_summary(multiple=True)
     total_query = await splatoon.get_total_query(multiple=True)
+    if not total_query:
+        total_query = await splatoon.get_total_query(multiple=True)
     coop = await splatoon.get_coops(multiple=True)
+    if not coop:
+        coop = await splatoon.get_coops(multiple=True)
 
     try:
         msg = await get_me_md(user, history_summary, total_query, coop, from_group)
@@ -232,7 +238,9 @@ async def get_ns_friends_md(splatoon: Splatoon):
     """获取ns好友md"""
     msg_id = get_msg_id(splatoon.platform, splatoon.user_id)
     try:
-        res = await splatoon.app_ns_friend_list() or {}
+        res = await splatoon.app_ns_friend_list()
+        if not res:
+            res = await splatoon.app_ns_friend_list()
     except Exception as e:
         logger.error(f"{msg_id} get ns_friends error:{e}")
         msg = "网络错误，请稍后再试"
