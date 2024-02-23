@@ -576,13 +576,17 @@ class S3S:
                 return "NetConnectTimeout"
 
         except Exception as e:
-            self.logger.warning(
-                f"Error during f generation: \n{f_gen_url}")
-            if api_response and api_response.text:
-                self.logger.error(f"Error during f generation:\n{api_response.text}")
-            else:
-                self.logger.error(f"Error during f generation: Error {api_response.status_code}.")
-            return f"resp error:{json.dumps(api_response)}"
+            try:  # if api_response never gets set
+                self.logger.warning(
+                    f"Error during f generation: \n{f_gen_url}")
+                if api_response and api_response.text:
+                    self.logger.error(f"Error during f generation:\n{api_response.text}")
+                else:
+                    self.logger.error(f"Error during f generation: Error {api_response.status_code}.")
+                return f"resp error:{json.dumps(api_response)}"
+            except Exception as e:
+                # 一般是status_code都获取不到
+                return None
 
 
 if __name__ == "__main__":
