@@ -144,7 +144,7 @@ async def update_s3si_ts():
 
 def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_token="", bullet_token=""):
     """同步战绩文件至stat.ink"""
-    cron_logger.info(f'exported_to_stat_ink: {user_id}')
+    cron_logger.info(f'start exported_to_stat_ink: user_db_id:{user_id}')
     cron_logger.debug(f'session_token: {session_token}')
     cron_logger.debug(f'api_key: {api_key}')
     user_lang = user_lang or 'zh-CN'
@@ -152,6 +152,13 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
     s3sits_folder = f'{DIR_RESOURCE}/s3sits_git'
     os.chdir(s3sits_folder)
 
+    # 检查deno路径是否配置
+    deno_path = plugin_config.splatoon3_deno_path
+    if not deno_path or not os.path.exists(deno_path):
+        cron_logger.info(f'deno_path not set: {deno_path or ""} '.center(120, '-'))
+        return
+
+    # 新建或修改配置项
     path_config_file = f'{s3sits_folder}/user_configs/config_{user_id}.json'
     if not os.path.exists(path_config_file):
         # 新建文件
@@ -169,8 +176,9 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
             f.write(json.dumps(config_data, indent=2, sort_keys=False, separators=(',', ': ')))
     else:
         # 写入配置文件
+        # fGen写入过程中 https://含有/ 会和控制符/冲突，此处控制符得改为#
         cmds = [
-            f"""sed -i 's/userLang[^,]*,/fGen\": \"{F_GEN_URL_2}\",/' {path_config_file}""",
+            f"""sed -i 's#fGen[^,]*,#fGen\": \"{F_GEN_URL_2}\",#' {path_config_file}""",
             f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/' {path_config_file}""",
             f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/' {path_config_file}""",
             f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/' {path_config_file}""",
@@ -180,7 +188,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
             cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
 
         for cmd in cmds:
-            cron_logger.debug(f'cli: {cmd}')
+            cron_logger.debug(f'user_db_id:{user_id} cli: {cmd}')
             os.system(cmd)
 
     env = {}
@@ -195,11 +203,6 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
         env.update({"NO_PROXY": f"stat.ink,deno.land,api.lp1.av5ja.srv.nintendo.net"})
 
     # run deno
-    deno_path = plugin_config.splatoon3_deno_path
-    if not deno_path or not os.path.exists(deno_path):
-        cron_logger.info(f'deno_path not set: {deno_path or ""} '.center(120, '-'))
-        return
-
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
     cron_logger.info(cmd)
     rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
@@ -223,10 +226,10 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
             error_msg += f"{line}\n"
 
     if error_msg:
-        cron_logger.warning(f'{user_id} cli error,result:\n{error_msg}')
+        cron_logger.warning(f'user_db_id:{user_id} cli error,result:\n{error_msg}')
     elif res:
         # success
-        cron_logger.info(f'{user_id} cli success,result:\n{res}')
+        cron_logger.info(f'user_db_id:{user_id} cli success,result:\n{res}')
 
         for line in res.split('\n'):
             line = line.strip()
@@ -239,7 +242,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
                     battle_cnt += 1
                 url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
 
-    cron_logger.info(f'{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
+    cron_logger.info(f'user_db_id:{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
     if battle_cnt or coop_cnt:
         return battle_cnt, coop_cnt, url
 
