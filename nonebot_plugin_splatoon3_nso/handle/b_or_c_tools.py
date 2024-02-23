@@ -106,90 +106,86 @@ def get_battle_group_idx(groups, battle_id) -> int:
     return group_idx
 
 
-async def get_top_all_name(name, player_code):
+async def get_top_all_name(name, icon, player_code):
     """对top all榜单上有名的玩家额外渲染name"""
     top_all = model_get_max_power_top_all(player_code)
     if not top_all:
-        return name, 0
-
-    # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
-    name = remove_user_name_icon(name)
+        return name, icon, 0
 
     row = top_all
     max_power = row.power
     top_str = f'F({max_power})' if row.top_type.startswith('Fest') else f'E({max_power})'
     name = name.replace('`', '&#96;').replace('|', '&#124;')
     name = name.strip() + f'</br><span style="color:#EE9D59">`{top_str}`</span>'
-    if "<img" not in name:
-        weapon_name = str(row.weapon)
-        img_type = "battle_weapon_main"
-        weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
-        if weapon_main_img:
-            name += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
-    return name, float(max_power or 0)
-
-
-async def get_top_user(name, player_code):
-    """获取top玩家md信息"""
-    _power = 0
-    top_str = ""
-    top_user = model_get_top_player(player_code)
-    if top_user:
+    # 武器图片
+    weapon_name = str(row.weapon)
+    img_type = "battle_weapon_main"
+    weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
+    if weapon_main_img:
         # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
-        name = remove_user_name_icon(name)
-
-        _x = 'x' if ':6:' in top_user.top_type else 'X'
-        if '-a:' in top_user.top_type:
-            top_str = f' <span style="color:#fc0390">{_x}{top_user.rank}({top_user.power})</span>'
-        else:
-            top_str = f' <span style="color:red">{_x}{top_user.rank}({top_user.power})</span>'
-        weapon_name = str(top_user.weapon)
-        img_type = "battle_weapon_main"
-        weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
-        if weapon_main_img:
-            top_str += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
-        _power = float(top_user.power or 0)
-
-    if top_str:
-        name = name.strip() + top_str
-    return name, _power
+        icon = f"<img height='36px' src='{weapon_main_img}'/>"
+    return name, icon, float(max_power or 0)
 
 
-async def get_user_name_color(player_name, player_code):
+async def get_top_user(name, icon, player_code):
+    """获取top玩家md信息"""
+    top_user = model_get_top_player(player_code)
+    if not top_user:
+        return name, icon, 0
+
+    _x = 'x' if ':6:' in top_user.top_type else 'X'
+    if '-a:' in top_user.top_type:
+        color = "#fc0390"
+    else:
+        color = "red"
+    name = name.replace('`', '&#96;').replace('|', '&#124;')
+    name = name.strip() + f'</br><span style="color:{color}">{_x}{top_user.rank}({top_user.power})</span>'
+    # 武器图片
+    weapon_name = str(top_user.weapon)
+    img_type = "battle_weapon_main"
+    weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
+    if weapon_main_img:
+        # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
+        icon = f"<img height='36px' src='{weapon_main_img}'/>"
+    _power = float(top_user.power or 0)
+
+    return name, icon, _power
+
+
+async def get_user_name_color(player_name, player_code, is_myself=False):
     """取用户名颜色"""
-    login = model_get_login_user_by_sp_code(player_code)
+    img = ""
+    # 自己用户名加粗
+    if is_myself:
+        player_name = f"<b>{player_name}</b>"
+        u_str = player_name
+        # 之前从/me缓存了头像
+        icon = await model_get_temp_image_path('my_icon', player_code)
+        if icon:
+            img = f"<img height='36px' src='{icon}'/>"
+        return u_str, img
 
+    login = model_get_login_user_by_sp_code(player_code)
     # 登录用户绿色
     if login:
-        _icon = await model_get_temp_image_path('my_icon', player_code)
-        if _icon:
-            player_name += f" <img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{_icon}'/>"
-        return f'<span style="color:green">{player_name}</span>'
+        u_str = f'<span style="color:green">{player_name}</span>'
+        icon = await model_get_temp_image_path('my_icon', player_code)
+        if icon:
+            img = f"<img height='36px' src='{icon}'/>"
+        return u_str, img
 
     u_str = player_name
     r = model_get_user_friend(player_name)
     # 用户好友蓝色
     if r:
-        img_type = "friend_icon"
         # 储存名使用friend_id
-        user_icon = await model_get_temp_image_path(img_type, r.friend_id, r.user_icon)
-        img = f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{user_icon}'/>"
-        u_str = f'<span style="color:skyblue">{player_name} {img}</span>'
-    return u_str
-
-
-async def get_myself_name_color(player_name, player_code):
-    """获取我自己的用户名以及头像"""
-    player_name = f"<b>{player_name}</b>"
-    u_str = player_name
-
-    my_icon = await model_get_temp_image_path('my_icon', player_code)
-    if my_icon:
-        # 之前从/me缓存了头像
-        img = f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{my_icon}'/>"
-        u_str = f'{player_name} {img}'
-
-    return u_str
+        u_str = f'<span style="color:skyblue">{player_name}</span>'
+        icon = await model_get_temp_image_path("friend_icon", r.friend_id, r.user_icon)
+        if icon:
+            img = f"<img height='36px' src='{icon}'/>"
+        return u_str, img
+    else:
+        return u_str, img
 
 
 def remove_user_name_icon(name):

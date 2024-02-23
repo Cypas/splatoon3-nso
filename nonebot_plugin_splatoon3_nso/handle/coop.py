@@ -1,6 +1,6 @@
 from datetime import datetime as dt, timedelta
 
-from .b_or_c_tools import PushStatistics, get_user_name_color, get_myself_name_color
+from .b_or_c_tools import PushStatistics, get_user_name_color
 from .utils import get_game_sp_id_and_name
 from ..data.data_source import model_get_temp_image_path
 from ..s3s.splatoon import Splatoon
@@ -80,9 +80,9 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
 {wave_msg}
 
 #### {total_deliver_cnt}
-|  |   ||  ||||||
-| --: |--:|--:|--:|--:|:--------|--|--|--|
-| 击杀 |蛋数|死亡|救人|红蛋|玩家<td colspan="2">大招</td>|武器|
+|||||||||||
+| --: |--:|--:|--:|--:|:---------|--:|:--|--|--|
+| 击杀 |蛋数|死亡|救人|红蛋|玩家|大|招|武器||
 {await coop_row_user(my, wave_results, is_myself=True)}
 """
     for p in detail['memberResults']:
@@ -139,7 +139,6 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
     except Exception as e:
         pass
 
-    # logger.info(msg)
     return msg
 
 
@@ -162,11 +161,12 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False):
         img_type = "coop_special"
         special_img = await model_get_temp_image_path(img_type, p['specialWeapon']['name'],
                                                       p['specialWeapon']['image']['url'])
-        weapon = f"<img height='18' src='{special_img}'/> |{sp_residue}|"
+        weapon = f"<img height='20' src='{special_img}'/> |{sp_residue}|"
         for w in p['weapons']:
             img_type = "coop_weapon"
             weapon_img = await model_get_temp_image_path(img_type, w['name'], w['image']['url'])
-            weapon += f"<img height='18' src='{weapon_img}'/>"
+            logger.info(weapon_img)
+            weapon += f"<img height='20' src='{weapon_img}'/>"
     except Exception as e:
         logger.warning(f'coop_row error: {e}')
         weapon = 'w||'
@@ -181,12 +181,12 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False):
         p_name = f'~~我是马赛克~~'
 
     player_code, player_name = get_game_sp_id_and_name(p['player'])
-    if not is_myself:
-        p_name = await get_user_name_color(p_name, player_code)
+    if is_myself:
+        p_name, icon = await get_user_name_color(p_name, player_code, is_myself=True)
     else:
-        p_name = await get_myself_name_color(player_name, player_code)
+        p_name, icon = await get_user_name_color(player_name, player_code)
 
     t = f"|x{p['defeatEnemyCount']}| {p['goldenDeliverCount']} |{p['rescuedCount']}d |" \
-        f"{p['rescueCount']}r|{p['deliverCount']} | {uniform} {p_name}|{weapon}|"
+        f"{p['rescueCount']}r|{p['deliverCount']} | {uniform} {p_name}|{weapon}|{icon}|"
 
     return t

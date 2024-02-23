@@ -568,10 +568,7 @@ class S3S:
             f = resp["f"]
             uuid = resp["request_id"]
             timestamp = resp["timestamp"]
-            if self.f_gen_url == F_GEN_URL:
-                return "NetConnectError"
-            else:
-                return f, uuid, timestamp
+            return f, uuid, timestamp
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             if isinstance(e, httpx.ConnectError):
                 return "NetConnectError"
