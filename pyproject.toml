@@ -20,7 +20,7 @@ nonebot-plugin-apscheduler = "^0.4.0"
 nonebot_plugin_htmlrender = "^0.3.0"
 SQLAlchemy = "^2.0.25"
 playwright = "^1.40.0"
-Pillow="10.2.0"
+Pillow="^10.2.0"
 
 
 [tool.poetry.group.test.dependencies]
