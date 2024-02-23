@@ -8,6 +8,7 @@ import subprocess
 
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
+from ...s3s.iksm import F_GEN_URL_2
 from ...utils import proxy_address
 from ...utils.utils import DIR_RESOURCE, init_path
 from ...data.data_source import model_get_all_stat_user
@@ -155,6 +156,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
     if not os.path.exists(path_config_file):
         # 新建文件
         config_data = {
+            "fGen": F_GEN_URL_2,
             "userLang": user_lang,
             "loginState": {
                 "sessionToken": session_token,
@@ -168,6 +170,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
     else:
         # 写入配置文件
         cmds = [
+            f"""sed -i 's/userLang[^,]*,/fGen\": \"{F_GEN_URL_2}\",/' {path_config_file}""",
             f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/' {path_config_file}""",
             f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/' {path_config_file}""",
             f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/' {path_config_file}""",
