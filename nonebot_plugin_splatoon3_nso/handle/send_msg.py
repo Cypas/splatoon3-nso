@@ -44,13 +44,13 @@ async def cron_notify_to_channel(msg: str, _type='job'):
     await notify_to_channel(f"{title}{msg}", _type)
 
 
-notify_tg_bot_id = plugin_config.splatoon3_notify_tg_bot_id
-tg_c_chat_id = plugin_config.splatoon3_tg_channel_msg_chat_id
-tg_c_job_id = plugin_config.splatoon3_tg_channel_job_chat_id
+notify_tg_bot_id = str(plugin_config.splatoon3_notify_tg_bot_id)
+tg_c_chat_id = str(plugin_config.splatoon3_tg_channel_msg_chat_id)
+tg_c_job_id = str(plugin_config.splatoon3_tg_channel_job_chat_id)
 
-notify_kk_bot_id = plugin_config.splatoon3_notify_kk_bot_id
-kk_c_chat_id = plugin_config.splatoon3_kk_channel_msg_chat_id
-kk_c_job_id = plugin_config.splatoon3_kk_channel_job_chat_id
+notify_kk_bot_id = str(plugin_config.splatoon3_notify_kk_bot_id)
+kk_c_chat_id = str(plugin_config.splatoon3_kk_channel_msg_chat_id)
+kk_c_job_id = str(plugin_config.splatoon3_kk_channel_job_chat_id)
 
 
 async def notify_to_channel(_msg, _type='msg'):

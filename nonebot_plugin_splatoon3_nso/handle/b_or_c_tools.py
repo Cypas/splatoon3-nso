@@ -176,6 +176,7 @@ async def get_user_name_color(player_name, player_code, is_myself=False):
 
     u_str = player_name
     _name = player_name
+    # 将编码后的特殊字符还原为文本
     if '&#' in _name:
         from .battle import DICT_HTML_CODES
         for k, v in DICT_HTML_CODES.items():
