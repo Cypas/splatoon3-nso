@@ -53,7 +53,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
                 idx = min(49, max(0, int(cmd) - 1))
                 break
 
-    image_width = 680
+    image_width = 760
     if get_equip:
         # 查询装备
         get_battle = True
