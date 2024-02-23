@@ -22,18 +22,18 @@ class Config(BaseModel):
     # 指定回复模式，开启后将通过触发词的消息进行回复
     splatoon3_reply_mode: bool = False
     # 日志消息将由该bot发送至tg频道
-    splatoon3_notify_tg_bot_id: str = ""
-    splatoon3_tg_channel_msg_chat_id: str = ""
-    splatoon3_tg_channel_job_chat_id: str = ""
+    splatoon3_notify_tg_bot_id: str | int = ""
+    splatoon3_tg_channel_msg_chat_id: str | int = ""
+    splatoon3_tg_channel_job_chat_id: str | int = ""
     # 日志消息将由该bot发送至kook频道
-    splatoon3_notify_kk_bot_id: str = ""
-    splatoon3_kk_channel_msg_chat_id: str = ""
-    splatoon3_kk_channel_job_chat_id: str = ""
+    splatoon3_notify_kk_bot_id: str | int = ""
+    splatoon3_kk_channel_msg_chat_id: str | int = ""
+    splatoon3_kk_channel_job_chat_id: str | int = ""
     # deno_path  需要先在系统下安装deno，参考https://www.denojs.cn/ 此处填写安装路径，具体到deno文件，如"/home/ubuntu/.deno/bin/deno"
     splatoon3_deno_path: str = ""
 
     # Q群在进行登录时，将用户引导至kook平台完成登录的服务器id
-    splatoon3_kk_guild_id: str = ""
+    splatoon3_kk_guild_id: str | int = ""
     # bot上线，掉线时通知到频道
     splatoon3_bot_disconnect_notify: bool = True
     # 日程插件的帮助菜单优先模式(会影响帮助菜单由哪个插件提供，该配置项与日程查询插件公用)
