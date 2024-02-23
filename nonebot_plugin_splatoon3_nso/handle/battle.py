@@ -372,7 +372,7 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     t = f"|{chr(_i + k_idx)}|{w_str}|{ak:>2}|{k_str:>5}k | {d:>2}d|{ration:>4.1f}|{sp}|{sp_img}| {p['paint']:>4}p| {name}|\n"
     if is_last_player and team_power:
         _power = f'{sum(team_power) / len(team_power):.1f}'
-        t += f'|||||||<td colspan="3"">队伍上榜者均分: ' \
+        t += f'|||||||<td colspan="3">队伍上榜者均分: ' \
              f'<span style="color:#1e96d2">{_power}</span>' \
              f'</td>|\n'
     return t
