@@ -18,7 +18,6 @@ matcher_admin = on_command("admin", block=True, permission=SUPERUSER)
 @matcher_admin.handle()
 async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
     plain_text = args.extract_plain_text().strip()
-    logger.info(f'admin: {plain_text}')
 
     match plain_text:
 

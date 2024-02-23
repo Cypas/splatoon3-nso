@@ -165,7 +165,6 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False):
         for w in p['weapons']:
             img_type = "coop_weapon"
             weapon_img = await model_get_temp_image_path(img_type, w['name'], w['image']['url'])
-            logger.info(weapon_img)
             weapon += f"<img height='20' src='{weapon_img}'/>"
     except Exception as e:
         logger.warning(f'coop_row error: {e}')
