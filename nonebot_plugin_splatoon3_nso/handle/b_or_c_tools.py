@@ -167,7 +167,12 @@ async def get_user_name_color(player_name, player_code):
         return f'<span style="color:green">{player_name}</span>'
 
     u_str = player_name
-    r = model_get_user_friend(player_name)
+    _name = player_name
+    if '&#' in _name:
+        from .battle import DICT_HTML_CODES
+        for k, v in DICT_HTML_CODES.items():
+            _name = _name.replace(v, k)
+    r = model_get_user_friend(_name)
     # 用户好友蓝色
     if r:
         img_type = "friend_icon"
