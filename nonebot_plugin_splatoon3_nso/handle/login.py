@@ -42,7 +42,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         await matcher.finish()
 
     if isinstance(event, All_Group_Message):
-        await matcher.finish(MSG_PRIVATE, reply_message=True)
+        await matcher.finish(MSG_PRIVATE)
 
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id)
