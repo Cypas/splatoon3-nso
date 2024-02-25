@@ -63,8 +63,8 @@ def scheduler_controller():
     add_scheduler("get_user_friends", trigger='interval', hours=3)
     # refresh_token every 1 hours 50 min   仅为缓存内的用户提供定期刷新token
     add_scheduler("refresh_token", trigger='interval', hours=1, minutes=50)
-    # update_s3si_ts 在指定时间检查脚本更新
-    add_scheduler("update_s3si_ts", trigger='cron', hour=6, minute=50)
+    # # update_s3si_ts 在指定时间检查脚本更新
+    # add_scheduler("update_s3si_ts", trigger='cron', hour=6, minute=50)
     # sync_stat_ink 在指定时间进行同步
     add_scheduler("sync_stat_ink", trigger='cron', hour="0,2,4,6,8,10,12,14,16,18,20,22", minute=4)
     # 每周一周四清理一次公共用户字典

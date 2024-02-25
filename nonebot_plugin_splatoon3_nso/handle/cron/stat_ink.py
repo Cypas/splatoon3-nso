@@ -1,6 +1,6 @@
 import asyncio
 import base64
-import datetime
+from datetime import datetime as dt
 import os
 import json
 import subprocess
@@ -9,7 +9,7 @@ import subprocess
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
 from ...s3s.iksm import F_GEN_URL_2
-from ...utils import proxy_address
+from ...utils import proxy_address, convert_td
 from ...utils.utils import DIR_RESOURCE, init_path
 from ...data.data_source import model_get_all_stat_user
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
@@ -20,8 +20,11 @@ async def sync_stat_ink():
     """同步至stat"""
     cron_msg = f"sync_stat_ink start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
-    t = datetime.datetime.utcnow()
+    await cron_notify_to_channel("sync_stat_ink", "start")
+    t = dt.utcnow()
+
+    # 更新s3sti脚本
+    await update_s3si_ts()
 
     db_users = model_get_all_stat_user()
     # 去重
@@ -36,11 +39,12 @@ async def sync_stat_ink():
         for r in res:
             if r:
                 sync_count += 1
-
-    cron_msg = (f"sync_stat_ink end: {datetime.datetime.utcnow() - t}\n"
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
+    cron_msg = (f"sync_stat_ink end: {str_time}\n"
                 f"sync_count: {sync_count}")
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("sync_stat_ink", "end", f"耗时:{str_time}\n同步数量: {sync_count}")
 
 
 async def sync_stat_ink_func(db_user: UserTable):
@@ -99,8 +103,8 @@ async def update_s3si_ts():
     # 更新 s3si_ts 上传脚本
     cron_msg = f"update_s3si_ts start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
-    t = datetime.datetime.utcnow()
+    await cron_notify_to_channel("update_s3si_ts", "start")
+    t = dt.utcnow()
 
     path_folder = DIR_RESOURCE
     init_path(path_folder)
@@ -136,10 +140,11 @@ async def update_s3si_ts():
 
     dir_user_configs = f'{s3s_folder}/user_configs'
     init_path(dir_user_configs)
-
-    cron_msg = f"update_s3si_ts end, {(datetime.datetime.utcnow() - t).seconds}s"
+    # 耗时
+    str_time = f"{(dt.utcnow() - t).seconds}s"
+    cron_msg = f"update_s3si_ts end, {str_time}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("update_s3si_ts", "end", f"耗时:{str_time}")
 
 
 def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_token="", bullet_token=""):

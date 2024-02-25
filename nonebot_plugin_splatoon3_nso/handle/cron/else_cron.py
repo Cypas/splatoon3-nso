@@ -13,14 +13,14 @@ from ...utils.http import global_client_dict, global_cron_client_dict
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict, \
     global_user_info_dict, global_cron_user_info_dict
 from ...s3s.splatoon import Splatoon
-from ...utils import get_msg_id
+from ...utils import get_msg_id, convert_td
 
 
 async def create_refresh_token_tasks():
     """创建刷新token任务"""
     cron_msg = f"create_refresh_token_tasks start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("refresh_token", "start")
 
     t = dt.utcnow()
     users = dict_get_all_global_users()
@@ -35,10 +35,11 @@ async def create_refresh_token_tasks():
         _p_and_id_list = list_user[i:i + _pool]
         tasks = [refresh_token_task(p_and_id) for p_and_id in _p_and_id_list]
         res = await asyncio.gather(*tasks)
-
-    cron_msg = f"create_refresh_token_tasks end: {dt.utcnow() - t}\nusers_count:{len(list_user)}"
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
+    cron_msg = f"create_refresh_token_tasks end: {str_time}\nusers_count:{len(list_user)}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("refresh_token", "end", f"耗时:{str_time}\n用户计数:{len(list_user)}")
 
 
 async def refresh_token_task(p_and_id):
@@ -67,7 +68,7 @@ async def clean_s3s_cache():
 
     cron_msg = f"clean_s3s_cache end"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("clean_s3s_cache", "end")
 
 
 async def clean_global_user_info_dict():
@@ -76,14 +77,14 @@ async def clean_global_user_info_dict():
 
     cron_msg = f"clean_global_user_info_dict end"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("clean_user_info_dict", "end")
 
 
 async def show_dict_status():
     """显示字典当前状态"""
     cron_msg = get_dict_status()
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("status", "end")
 
 
 def get_dict_status():

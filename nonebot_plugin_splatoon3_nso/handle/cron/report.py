@@ -12,7 +12,7 @@ from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
     model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict
 from ...s3s.splatoon import Splatoon
-from ...utils import get_msg_id
+from ...utils import get_msg_id, convert_td
 from ...utils.bot import *
 
 
@@ -20,9 +20,9 @@ async def create_set_report_tasks():
     """8点时请求并提前写好日报数据"""
     cron_msg = f'create_set_report_tasks start'
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("set_report", "start")
 
-    t = datetime.datetime.utcnow()
+    t = dt.utcnow()
     users = model_get_all_user()
     # 去重
     users = user_remove_duplicates(users)
@@ -46,11 +46,13 @@ async def create_set_report_tasks():
     cron_logger.info(f'clear cron user_info_dict...')
     clear_count = await dict_clear_user_info_dict(_type="cron")
 
-    cron_msg = f"create_set_report_tasks end: {datetime.datetime.utcnow() - t}\n" \
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
+    cron_msg = f"create_set_report_tasks end: {str_time}\n" \
                f"set_report_count: {set_report_count}\n" \
                f"clear_count: {clear_count}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("set_report", "end", f"耗时:{str_time}\n写日报: {set_report_count}\n清理对象: {clear_count}")
 
 
 async def set_user_report_task(p_and_id):
@@ -212,8 +214,8 @@ async def send_report_task():
     report_logger = logger.bind(report=True)
     cron_msg = f'create_send_report_tasks start'
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
-    t = datetime.datetime.utcnow()
+    await cron_notify_to_channel("send_report", "start")
+    t = dt.utcnow()
 
     users = model_get_all_user()
     for user in users:
@@ -254,6 +256,8 @@ async def send_report_task():
     # 清理任务字典
     cron_logger.info(f'clear cron user_info_dict...')
     clear_count = await dict_clear_user_info_dict(_type="cron")
-    cron_msg = f"create_send_report_tasks end: {datetime.datetime.utcnow() - t}\nclear_count: {clear_count}"
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
+    cron_msg = f"create_send_report_tasks end: {str_time}\nclear_count: {clear_count}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("send_report", "end", f"耗时:{str_time}\n清理对象: {clear_count}")

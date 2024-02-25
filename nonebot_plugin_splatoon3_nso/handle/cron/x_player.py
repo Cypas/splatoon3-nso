@@ -9,13 +9,14 @@ from ...data.data_source import model_delete_top_player, model_delete_top_all, m
     model_get_newest_user, dict_get_or_set_user_info
 from ...s3s.splatoon import Splatoon
 from .utils import cron_logger
+from ...utils import convert_td
 
 
 async def get_x_player():
     """获取x赛数据"""
     cron_msg = f"get_x_player start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("get_x_player", "start")
     t = datetime.datetime.utcnow()
 
     db_user = model_get_newest_user()
@@ -43,10 +44,11 @@ async def get_x_player():
 
     # 关闭连接池
     await splatoon.req_client.close()
-
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
     cron_msg = f"get_x_player end. {datetime.datetime.utcnow() - t}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("get_x_player", "end", f"耗时:{str_time}")
 
 
 async def parse_x_data(top_id, splatoon):
