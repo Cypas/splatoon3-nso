@@ -3,12 +3,9 @@ import io
 from PIL import Image
 
 from .qq_md import last_md, login_md
-from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china_str
+from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china
 from ..utils.bot import *
 from ..config import plugin_config
-
-require("nonebot_plugin_htmlrender")
-from nonebot_plugin_htmlrender import md_to_pic
 
 
 async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type='job'):
@@ -36,12 +33,24 @@ async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type=
     await notify_to_channel(msg, _type=_type)
 
 
-async def cron_notify_to_channel(msg: str, _type='job'):
+async def cron_notify_to_channel(title: str, mode: str, msg: str = "", _type='job'):
     """任务处理通知到频道"""
-    title = f"#cron_notify\n"
-    title += get_time_now_china_str()
-    title += "\n"
-    await notify_to_channel(f"{title}{msg}", _type)
+    str_mode = ""
+    match mode:
+        case "start":
+            str_mode = "▶"
+        case "end":
+            str_mode = "✅"
+        case "error":
+            str_mode = "❎"
+
+    title = f"#{title} {str_mode}\n"
+    str_time = get_time_now_china().strftime("%m-%d %H:%M")
+    title += str_time
+    if msg:
+        title += "\n"
+    _msg = f"{title}{msg}"
+    await notify_to_channel(_msg, _type)
 
 
 notify_tg_bot_id = str(plugin_config.splatoon3_notify_tg_bot_id)
@@ -120,6 +129,9 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
     """综合发信函数
     QQ_md的值应该为一个字典{"md_type":"last","user_id":"111"}
     """
+    require("nonebot_plugin_htmlrender")
+    from nonebot_plugin_htmlrender import md_to_pic
+
     img_data = ''
     if isinstance(message, str):
         if message and message.strip().startswith('####'):

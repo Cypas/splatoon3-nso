@@ -317,6 +317,9 @@ async def get_set_api_key(bot: Bot, event: Event):
 
 @on_command("sync_now", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def sync_now(bot: Bot, event: Event):
+    if isinstance(bot, QQ_Bot):
+        await bot_send(bot, event, "QQ平台暂不支持该命令，请在其他平台使用该命令")
+        return
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)

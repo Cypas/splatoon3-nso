@@ -6,14 +6,14 @@ from datetime import datetime as dt
 from ..send_msg import cron_notify_to_channel
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, model_set_user_friend
 from ...s3s.splatoon import Splatoon
-from ...utils import get_msg_id
+from ...utils import get_msg_id, convert_td
 
 
 async def create_get_user_friends_tasks():
     """创建获取好友列表任务"""
     cron_msg = f"create_get_user_friends_tasks start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("get_user_friends", "start")
 
     t = dt.utcnow()
     users = dict_get_all_global_users()
@@ -36,10 +36,11 @@ async def create_get_user_friends_tasks():
             model_set_user_friend(f_list)
             friends_count += len(f_list)
     cron_logger.info(f"get friends: {friends_count}")
-
-    cron_msg = f"create_get_user_friends_tasks end: {(dt.utcnow() - t).seconds}s\nget friends: {friends_count}"
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
+    cron_msg = f"create_get_user_friends_tasks end: {str_time}\nget friends: {friends_count}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("get_user_friends", "end", f"耗时:{str_time}\n获取好友: {friends_count}")
 
 
 async def get_friends_task(p_and_id):

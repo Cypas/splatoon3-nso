@@ -49,8 +49,8 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
             await bot_send(bot, event, message=f"已关闭全部{push_cnt}个push")
 
-        case "parse_x_rank":
-            await bot_send(bot, event, message="即将开始parse_x_rank")
+        case "get_x_player":
+            await bot_send(bot, event, message="即将开始get_x_player")
             await get_x_player()
 
         case "get_event_top":
@@ -88,7 +88,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await bot_send(bot, event, message="即将开始clean_s3s_cache")
             await clean_s3s_cache()
 
-        case "clean_global_user_info_dict":
+        case "clean_user_info_dict":
             await bot_send(bot, event, message="即将开始clean_global_user_info_dict")
             await clean_global_user_info_dict()
 
