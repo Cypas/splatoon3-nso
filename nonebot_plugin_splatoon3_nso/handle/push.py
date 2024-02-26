@@ -174,7 +174,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     splatoon = Splatoon(bot, event, user)
     try:
         # 多次连续请求报错时，结束push推送
-        if error_push_cnt > 5:
+        if error_push_cnt >= 3:
             # 关闭定时，更新push状态，发送统计
             dict_get_or_set_user_info(platform, user_id, push=0)
             msg = ""
