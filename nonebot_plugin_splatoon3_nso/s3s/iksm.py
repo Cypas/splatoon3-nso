@@ -26,9 +26,9 @@ F_GEN_URL = "https://api.imink.app/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 
 F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
-APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 11; Pixel 5) " \
+APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
-                 "Chrome/94.0.4606.61 Mobile Safari/537.36"
+                 "Chrome/120.0.6099.230 Mobile Safari/537.36"
 
 
 class S3S:
@@ -255,7 +255,7 @@ class S3S:
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Connection': 'Keep-Alive',
-            'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 7.1.2)'
+            'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 14; Pixel 7a Build/UQ1A.240105.004)'
         }
         body = {
             'client_id': '71b963c1b7b6d119',
@@ -337,7 +337,7 @@ class S3S:
             'Content-Type': 'application/json; charset=utf-8',
             'Connection': 'Keep-Alive',
             'Accept-Encoding': 'gzip',
-            'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/7.1.2)',
+            'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/14)',
         }
 
         url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
@@ -396,7 +396,7 @@ class S3S:
             'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json; charset=utf-8',
             'Accept-Encoding': 'gzip',
-            'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/7.1.2)'
+            'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/14)'
         }
         parameter = {
             'f': f,
