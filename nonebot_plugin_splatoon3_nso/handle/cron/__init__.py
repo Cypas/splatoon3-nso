@@ -3,7 +3,8 @@ import threading
 
 from nonebot import require, logger
 
-from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, show_dict_status
+from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, show_dict_status, \
+    init_nso_version
 from .event_top import get_event_top
 from .stat_ink import update_s3si_ts, sync_stat_ink
 from .report import create_set_report_tasks, send_report_task
@@ -69,6 +70,8 @@ def scheduler_controller():
     add_scheduler("sync_stat_ink", trigger='cron', hour="0,2,4,6,8,10,12,14,16,18,20,22", minute=4)
     # 每周一周四清理一次公共用户字典
     add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
+    # 每天23:59分将 NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空
+    add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
 
 
 async def cron(_type):
@@ -94,6 +97,8 @@ async def cron(_type):
             await clean_s3s_cache()
         case "clean_global_user_info_dict":
             await clean_global_user_info_dict()
+        case "init_nso_version":
+            await init_nso_version()
 
 
 def remove_all_scheduler():

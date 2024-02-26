@@ -593,6 +593,13 @@ class S3S:
                 return None
 
 
+def init_global_nso_version_and_web_view_version():
+    """全局变量NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空"""
+    global NSOAPP_VERSION
+    global WEB_VIEW_VERSION
+    NSOAPP_VERSION = "unknown"
+    WEB_VIEW_VERSION = "unknown"
+
 if __name__ == "__main__":
     print("This program cannot be run alone. See https://github.com/frozenpandaman/s3s")
     sys.exit(0)
