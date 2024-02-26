@@ -15,10 +15,10 @@ from nonebot import logger as nb_logger
 from .utils import SPLATNET3_URL
 from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 
-A_VERSION = "0.6.0"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
+A_VERSION = "0.6.2"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
 NSOAPP_VERSION = "unknown"
-NSOAPP_VER_FALLBACK = "2.8.0"  # fallback
+NSOAPP_VER_FALLBACK = "2.9.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
 WEB_VIEW_VER_FALLBACK = "6.0.0-eb33aadc"  # fallback
 
@@ -107,7 +107,7 @@ class S3S:
 
             try:
                 home = HttpReq.get(SPLATNET3_URL, headers=app_head, cookies=app_cookies)
-            except httpx.ConnectError:
+            except (httpx.ConnectError, httpx.ConnectTimeout):
                 return WEB_VIEW_VER_FALLBACK
 
             if home.status_code != 200:
@@ -529,14 +529,17 @@ class S3S:
                         self.logger.warning(f"F_GEN_URL ConnectError，try F_GEN_URL_2 again")
                     elif "NetConnectTimeout" in res:
                         self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
+                    else:
+                        self.logger.warning(f"F_GEN_URL res Error，try F_GEN_URL_2 again, Error:{res}")
                 self.f_gen_url = F_GEN_URL_2
-                res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
+                res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id,
                                             coral_user_id=coral_user_id)
                 if isinstance(res, tuple):
                     # 解析tuple
                     f, uuid, timestamp = res
                     return f, uuid, timestamp
                 else:
+                    self.logger.warning(f"F_GEN_URL2 Error: {res}")
                     return None
             else:
                 return None
@@ -577,16 +580,25 @@ class S3S:
 
         except Exception as e:
             try:  # if api_response never gets set
-                self.logger.warning(
-                    f"Error during f generation: \n{f_gen_url}")
                 if api_response and api_response.text:
-                    self.logger.error(f"Error during f generation:\n{api_response.text}")
+                    self.logger.warning(
+                        f"Error during f generation: {f_gen_url}\nres:{api_response.text}")
                 else:
-                    self.logger.error(f"Error during f generation: Error {api_response.status_code}.")
-                return f"resp error:{json.dumps(api_response)}"
+                    self.logger.warning(
+                        f"Error during f generation: \n{f_gen_url}  status_code:{api_response.status_code}")
+                return f"resp error:{api_response.text}"
             except Exception as e:
+                self.logger.error(f"Error during f generation: Error {e}.")
                 # 一般是status_code都获取不到
                 return None
+
+
+def init_global_nso_version_and_web_view_version():
+    """全局变量NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空"""
+    global NSOAPP_VERSION
+    global WEB_VIEW_VERSION
+    NSOAPP_VERSION = "unknown"
+    WEB_VIEW_VERSION = "unknown"
 
 
 if __name__ == "__main__":

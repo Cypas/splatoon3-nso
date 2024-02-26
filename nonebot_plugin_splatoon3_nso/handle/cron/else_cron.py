@@ -96,3 +96,9 @@ def get_dict_status():
                 f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
     return cron_msg
+
+
+async def init_nso_version():
+    """将NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空"""
+    from ...s3s.iksm import init_global_nso_version_and_web_view_version
+    init_global_nso_version_and_web_view_version()
