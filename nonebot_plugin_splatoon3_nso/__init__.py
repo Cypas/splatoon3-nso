@@ -84,7 +84,7 @@ async def bot_on_shutdown():
 @driver.on_bot_connect
 async def _(bot: Bot):
     bot_name = bot.adapter.get_name()
-    logger.info(f" {bot_name} bot connect {bot.self_id} ".center(60, "-").center(120, " "))
+    logger.info(f" {bot_name} bot connect {bot.self_id} ".center(30, "-").center(30, " "))
     if bot_name == "QQ":
         text = f"bot {bot_name}: {bot.self_id} online ~"
         if plugin_config.splatoon3_bot_disconnect_notify:

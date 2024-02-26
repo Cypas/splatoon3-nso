@@ -600,6 +600,7 @@ def init_global_nso_version_and_web_view_version():
     NSOAPP_VERSION = "unknown"
     WEB_VIEW_VERSION = "unknown"
 
+
 if __name__ == "__main__":
     print("This program cannot be run alone. See https://github.com/frozenpandaman/s3s")
     sys.exit(0)
