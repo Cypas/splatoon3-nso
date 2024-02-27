@@ -220,7 +220,7 @@ async def get_x_top_md(splatoon):
         jp_res = await splatoon.get_x_ranking('PACIFIC')  # 日服 暇古
         us_res = await splatoon.get_x_ranking('ATLANTIC', multiple=True)  # 美服 艾洛眼
     except ValueError:
-        return "网络错误，请稍后再试..."
+        return "bot网络错误，请稍后再试"
     except Exception as e:
         return "No X found!"
 

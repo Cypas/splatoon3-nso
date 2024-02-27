@@ -161,10 +161,17 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
                 # 获取图片url
                 url = await get_image_url(img_data)
                 # 根据不同type渲染不同md
+                qq_md_msg = ""
                 match md_type:
                     case "last":
                         qq_md_msg = last_md(user_id, image_size=(width, height), url=url)
-                        await bot.send(event, qq_md_msg)
+                try:
+                    await bot.send(event, qq_md_msg)
+                except QQ_ActionFailed as e:
+                    if "消息被去重" in e:
+                        pass
+                    else:
+                        logger.warning(f"QQ send msg error: {e}")
 
         # if not kwargs.get('skip_log_cmd'):
         #     await log_cmd_to_db(bot, event)
@@ -174,8 +181,11 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
             if isinstance(bot, QQ_Bot):
                 message = message.replace("```", "").replace("\_", "_").strip().strip("`")
             await send_msg(bot, event, message)
-        except Exception as e:
-            logger.exception(f'bot_send error: {e}, {message}')
+        except QQ_ActionFailed as e:
+            if "消息被去重" in e:
+                pass
+            else:
+                logger.warning(f"QQ send msg error: {e}")
 
         # if not kwargs.get('skip_log_cmd'):
         #     await log_cmd_to_db(bot, event)
@@ -213,7 +223,13 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
         elif isinstance(bot, Kook_Bot):
             await bot.send(event, message=Kook_MsgSeg.text(msg), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
-            await bot.send(event, message=QQ_MsgSeg.text(msg))
+            try:
+                await bot.send(event, message=QQ_MsgSeg.text(msg))
+            except QQ_ActionFailed as e:
+                if "消息被去重" in e:
+                    pass
+                else:
+                    logger.warning(f"QQ send msg error: {e}")
 
     elif isinstance(msg, bytes):
         # 图片
@@ -241,13 +257,18 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
             url = await bot.upload_file(img)
             await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
-            if not isinstance(event, GroupAtMessageCreateEvent):
-                await bot.send(event, message=QQ_MsgSeg.file_image(img))
-            else:
-                url = await get_image_url(img)
-                if url:
-                    await bot.send(event, message=QQ_MsgSeg.image(url))
-
+            try:
+                if not isinstance(event, GroupAtMessageCreateEvent):
+                    await bot.send(event, message=QQ_MsgSeg.file_image(img))
+                else:
+                    url = await get_image_url(img)
+                    if url:
+                        await bot.send(event, message=QQ_MsgSeg.image(url))
+            except QQ_ActionFailed as e:
+                if "消息被去重" in e:
+                    pass
+                else:
+                    logger.warning(f"QQ send msg error: {e}")
 
 async def get_image_url(img: bytes) -> str:
     """通过kook获取图片url"""

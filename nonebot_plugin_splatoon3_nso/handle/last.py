@@ -118,7 +118,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
         #     # 再次尝试一次
         #     res = await splatoon.get_last_one_battle()
         #     if not res:
-        #         return f'`网络错误，请稍后再试.`', False
+        #         return f'`bot网络错误，请稍后再试.`', False
         # b_info = res['data']['vsResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
         # # 这个b_info实际上不完整，可用信息只有battle_id和mode，但响应速度整体都低于查询最近对战信息
         # battle_id = b_info['id']
@@ -136,7 +136,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                         # 跳过本次循环
                         raise ValueError('no recent_battles')
                     else:
-                        return f"`网络错误，请稍后再试.`", False
+                        return f"`bot网络错误，请稍后再试.`", False
             b_info = res['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]
             battle_id = b_info['id']
             battle_t = get_battle_time_or_coop_time(battle_id)
@@ -145,7 +145,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 # 跳过本次循环
                 raise e
             else:
-                return f"`网络错误，请稍后再试.`", False
+                return f"`bot网络错误，请稍后再试.`", False
         except Exception as e:
             b_info = {}
             battle_id = ""
@@ -163,7 +163,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                         # 跳过本次循环
                         raise ValueError('no coops')
                     else:
-                        return f"`网络错误，请稍后再试.`", False
+                        return f"`bot网络错误，请稍后再试.`", False
 
             coop = res['data']['coopResult']
             # /last c 2 指令可能存在跨期查询的问题，idx需要查询每期nodes数量
@@ -197,7 +197,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 # 跳过本次循环
                 raise e
             else:
-                return f"`网络错误，请稍后再试.`", False
+                return f"`bot网络错误，请稍后再试.`", False
         except Exception:
             coop_info = {}
             coop_id = ""
@@ -217,7 +217,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 raise ValueError('NetConnectError')
             else:
                 # last等正常请求
-                return f"`网络错误，请稍后再试.`", False
+                return f"`bot网络错误，请稍后再试.`", False
 
     # 计算是否正在游玩
     str_time = max(battle_t, coop_t)
@@ -324,7 +324,7 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
 
     except Exception as e:
         logger.exception(e)
-        msg = f'网络错误，获取最近 {"对战" if is_battle else "打工"}数据失败，请稍后再试'
+        msg = f'bot网络错误，获取最近 {"对战" if is_battle else "打工"}数据失败，请稍后再试'
     return msg
 
 

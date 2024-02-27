@@ -184,7 +184,7 @@ async def friends(bot: Bot, event: Event):
 async def get_friends_md(splatoon, lang='zh-CN'):
     res = await splatoon.get_friends()
     if not res:
-        return '网络错误，请稍后再试.'
+        return 'bot网络错误，请稍后再试.'
 
     msg = f'''#### 在线好友 HKT {dt.now():%Y-%m-%d %H:%M:%S}
 ||||||
@@ -243,7 +243,7 @@ async def get_ns_friends_md(splatoon: Splatoon):
             res = await splatoon.app_ns_friend_list()
     except Exception as e:
         logger.error(f"{msg_id} get ns_friends error:{e}")
-        msg = "网络错误，请稍后再试"
+        msg = "bot网络错误，请稍后再试"
         return msg
 
     res = res.get('result')
@@ -360,7 +360,7 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
             res = await splatoon.app_ns_myself() or {}
         except Exception as e:
             logger.error(f"{msg_id} get friend_code error:{e}")
-            msg = "网络错误，请稍后再试"
+            msg = "bot网络错误，请稍后再试"
         finally:
             # 关闭连接池
             await splatoon.req_client.close()
