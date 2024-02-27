@@ -113,7 +113,7 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
         _dict_rank = model_get_power_rank()
         _rank = _dict_rank.get(user.game_sp_id)
         if _rank:
-            x_msg = x_msg.replace('||', f'x赛最高战力bot排名 | {_rank}\n||')
+            x_msg = x_msg.replace('||', f'X赛最高战力</br>bot排名 | {_rank}\n||')
 
     _league = ''
     _open = ''
