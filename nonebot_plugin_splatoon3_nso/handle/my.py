@@ -6,6 +6,7 @@ import unicodedata
 from .send_msg import bot_send
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, model_get_power_rank
+from ..data.utils import GlobalUserInfo
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id
 from ..utils.bot import *
@@ -51,7 +52,7 @@ async def get_me(bot, event, from_group):
     return msg
 
 
-async def get_me_md(user, summary, total, coops, from_group=False):
+async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=False):
     """获取 我的 md文本"""
     player = summary['data']['currentPlayer']
     history = summary['data']['playHistory']
@@ -111,9 +112,8 @@ async def get_me_md(user, summary, total, coops, from_group=False):
     if any([ar, lf, gl, cl]):
         _dict_rank = model_get_power_rank()
         _rank = _dict_rank.get(user.game_sp_id)
-        _rank = _dict_rank.get('qz5loyr73kj3bsf5anmm')
         if _rank:
-            x_msg = x_msg.replace('||', f'最高战力排名 | {_rank}\n||')
+            x_msg = x_msg.replace('||', f'x赛最高战力bot排名 | {_rank}\n||')
 
     _league = ''
     _open = ''
