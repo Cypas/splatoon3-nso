@@ -44,7 +44,7 @@ async def get_history_md(splatoon: Splatoon, _type='open'):
         elif _type == 'fest':
             res = await splatoon.get_regular_battles()
     except ValueError as e:
-        return "网络错误，请稍后再试!"
+        return "bot网络错误，请稍后再试!"
     if not res:
         return "No battle found!"
 

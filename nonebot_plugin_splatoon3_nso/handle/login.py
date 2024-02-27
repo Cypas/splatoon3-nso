@@ -63,7 +63,11 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             logger.error(f'login error: {e}')
 
     s3s = S3S(platform, user_id)
-    url, auth_code_verifier = await s3s.log_in()
+    try:
+        url, auth_code_verifier = await s3s.log_in()
+    except Exception as e:
+        logger.error(f'get login_in url error: {e}')
+        await matcher.finish("bot网络错误，请稍后重试")
     global_login_status_dict.update(
         {msg_id: {"auth_code_verifier": auth_code_verifier,
                   "s3s": s3s,
