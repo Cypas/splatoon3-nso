@@ -7,6 +7,7 @@ import json
 import os
 import re
 import sys
+import urllib
 
 import httpx
 from bs4 import BeautifulSoup
@@ -15,7 +16,7 @@ from nonebot import logger as nb_logger
 from .utils import SPLATNET3_URL
 from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 
-A_VERSION = "0.6.2"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
+A_VERSION = "0.6.3"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
 NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "2.9.0"  # fallback
@@ -157,7 +158,7 @@ class S3S:
         auth_state = base64.urlsafe_b64encode(os.urandom(36))
         auth_code_verifier = base64.urlsafe_b64encode(os.urandom(32))
         auth_cv_hash = hashlib.sha256()
-        auth_cv_hash.update(auth_code_verifier.replace(b"=", b""))
+        auth_cv_hash.update(auth_code_verifier.replace(b'=', b''))
         auth_code_challenge = base64.urlsafe_b64encode(auth_cv_hash.digest())
 
         app_head = {
@@ -177,22 +178,14 @@ class S3S:
             'client_id': '71b963c1b7b6d119',
             'scope': 'openid user user.birthday user.mii user.screenName',
             'response_type': 'session_token_code',
-            'session_token_code_challenge': auth_code_challenge.replace(b"=", b"").decode('utf-8'),
+            'session_token_code_challenge': auth_code_challenge.replace(b'=', b'').decode('utf-8'),
             'session_token_code_challenge_method': 'S256',
             'theme': 'login_form'
         }
 
-        url = "https://accounts.nintendo.com/connect/1.0.0/authorize"
+        url = f"https://accounts.nintendo.com/connect/1.0.0/authorize?{urllib.parse.urlencode(body)}"
+        post_login = url
 
-        # follow_redirects 参数 允许重定向，在request中默认是开启的，httpx默认关闭，需要主动开启
-        r = await self.req_client.get(url, headers=app_head, params=body, follow_redirects=True)
-        post_login = r.history[0].url
-
-        print(
-            "\nMake sure you have fully read the \"Token generation\" section of the readme before proceeding. To manually input a token instead, enter \"skip\" at the prompt below.")
-        print("\nNavigate to this URL in your browser:")
-        print(post_login)
-        print("Log in, right click the \"Select this account\" button, copy the link address, and paste it below:")
         return post_login, auth_code_verifier
 
     async def login_in_2(self, use_account_url, auth_code_verifier):
@@ -201,8 +194,8 @@ class S3S:
             try:
                 if use_account_url == "skip":
                     return "skip"
-                session_token_code = re.search('de=(.*)&', use_account_url)
-                session_token = await self.get_session_token(session_token_code.group(1), auth_code_verifier)
+                session_token_code = re.search('de=(.*)&st', use_account_url).group(1)
+                session_token = await self.get_session_token(session_token_code, auth_code_verifier)
                 return session_token
             except KeyboardInterrupt:
                 print("\nBye!")
@@ -237,7 +230,7 @@ class S3S:
         body = {
             'client_id': '71b963c1b7b6d119',
             'session_token_code': session_token_code,
-            'session_token_code_verifier': auth_code_verifier.replace(b"=", b"").decode('utf-8')
+            'session_token_code_verifier': auth_code_verifier.replace(b'=', b'').decode('utf-8')
         }
 
         url = 'https://accounts.nintendo.com/connect/1.0.0/api/session_token'
