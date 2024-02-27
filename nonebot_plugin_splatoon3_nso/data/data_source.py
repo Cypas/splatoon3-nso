@@ -503,3 +503,18 @@ def model_get_top_all_count_by_top_type(top_type):
 #         .order_by(TopAll.create_time.desc()).first()
 #     session.close()
 #     return top
+
+
+def model_get_power_rank():
+    session = DBSession()
+    data = session.execute(text(f"""
+select user_id_sp, max(max_power) max_power,
+       row_number() over (order by max_power desc) rank
+from report r
+group by user_id_sp
+order by max_power desc
+""")).all()
+
+    res = [row._mapping for row in data]
+    session.close()
+    return dict((str(i.user_id_sp), i.rank) for i in res)
