@@ -5,7 +5,8 @@ import unicodedata
 
 from .send_msg import bot_send
 from .utils import _check_session_handler
-from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, model_get_power_rank
+from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
+    model_get_power_rank, model_set_user_friend
 from ..data.utils import GlobalUserInfo
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id
@@ -217,6 +218,13 @@ async def get_friends_md(splatoon, lang='zh-CN'):
         else:
             n = f'{n}|{img}|'
         msg += f'''|{n}| {_state}|\n'''
+
+        # 写入好友数据库
+        friend_id = f['id']
+        player_name = f.get('playerName') or ''
+        nickname = f.get('nickname') or ''
+        user_icon = f['userIcon']['url']
+        model_set_user_friend([(splatoon.user_id, friend_id, player_name, nickname, user_icon)])
 
     msg += '||\n'
     _dict['TOTAL'] = sum(_dict.values())
