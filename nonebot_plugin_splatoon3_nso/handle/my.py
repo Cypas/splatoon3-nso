@@ -5,7 +5,8 @@ import unicodedata
 
 from .send_msg import bot_send
 from .utils import _check_session_handler
-from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user
+from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, model_get_power_rank
+from ..data.utils import GlobalUserInfo
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id
 from ..utils.bot import *
@@ -51,7 +52,7 @@ async def get_me(bot, event, from_group):
     return msg
 
 
-async def get_me_md(user, summary, total, coops, from_group=False):
+async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=False):
     """获取 我的 md文本"""
     player = summary['data']['currentPlayer']
     history = summary['data']['playHistory']
@@ -108,6 +109,11 @@ async def get_me_md(user, summary, total, coops, from_group=False):
     x_msg = '||'
     if any([ar, lf, gl, cl]) and not from_group:
         x_msg = f"X赛最高战力 | 区域:{ar:>7.2f}, 塔楼:{lf:>7.2f}<br> 鱼虎:{gl:>7.2f}, 蛤蜊:{cl:>7.2f}\n||"
+    if any([ar, lf, gl, cl]):
+        _dict_rank = model_get_power_rank()
+        _rank = _dict_rank.get(user.game_sp_id)
+        if _rank:
+            x_msg = x_msg.replace('||', f'X赛最高战力</br>bot排名 | {_rank}\n||')
 
     _league = ''
     _open = ''
