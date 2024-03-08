@@ -4,7 +4,7 @@ import os
 
 from .send_msg import bot_send_login_md
 from ..config import plugin_config
-from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
+from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, dict_clear_one_user_info_dict
 from ..utils import DIR_RESOURCE
 from ..utils.bot import *
 
@@ -105,6 +105,14 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
         await matcher.finish(msg)
     else:
         # 已登录用户
+        # 检查是否同意用户协议
+        if not user_info.user_agreement:
+            msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，此类第三方调用可能会导致nso鱿鱼圈被封禁，目前未观察到游戏连带被禁的情况。(要怪请去怪乌贼研究所)\n" \
+                  "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
+            await bot.send(event, msg)
+            msg = "/我已知晓nso查询可能导致鱿鱼圈被封禁的风险并重新启用nso查询"
+            await dict_clear_one_user_info_dict(platform, user_id)
+            await matcher.finish(msg)
         # cmd_cnt+1
         dict_get_or_set_user_info(platform, user_id, cmd_cnt=user_info.cmd_cnt + 1)
 

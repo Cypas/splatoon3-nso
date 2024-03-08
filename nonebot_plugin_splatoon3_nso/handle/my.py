@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime as dt, timedelta
 
 import unicodedata
+from nonebot import on_keyword
 
 from .send_msg import bot_send
 from .utils import _check_session_handler
@@ -513,3 +514,17 @@ async def my_icon(bot: Bot, event: Event):
         msg = msg_error
 
     await bot_send(bot, event, message=msg)
+
+
+@on_keyword({"我已知晓nso查询可能导致鱿鱼圈被封禁的风险并重新启用nso查询"}, block=True).handle()
+async def re_enable(bot: Bot, event: Event):
+    """同意条款重新启用nso查询"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user = model_get_or_set_user(platform, user_id)
+    if user:
+        # 更新协议状态
+        user = model_get_or_set_user(platform, user_id, user_agreement=1)
+        msg = "nso功能已重新启用，您可以继续使用/last 等nso查询命令"
+        await bot_send(bot, event, message=msg)
+
