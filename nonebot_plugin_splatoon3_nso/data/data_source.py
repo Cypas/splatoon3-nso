@@ -49,6 +49,7 @@ def dict_get_or_set_user_info(platform, user_id, _type="normal", **kwargs):
                 push=0,
                 push_cnt=user.push_cnt or 0,
                 cmd_cnt=user.cmd_cnt or 0,
+                user_agreement=user.user_agreement or 0,
                 stat_key=user.stat_key,
                 ns_name=user.ns_name,
                 ns_friend_code=user.ns_friend_code,
@@ -113,6 +114,18 @@ async def dict_clear_user_info_dict(_type: str) -> int:
     return count
 
 
+async def dict_clear_one_user_info_dict(platform, user_id):
+    """清空某一用户的字典和client对象"""
+    global global_user_info_dict
+    key = get_msg_id(platform, user_id)
+    # 删除缓存
+    if key in global_user_info_dict:
+        global_user_info_dict.pop(key)
+        # 关闭client
+        client = get_or_init_client(platform, user_id)
+        await client.close()
+
+
 async def model_get_temp_image_path(_type, name, link=None) -> str:
     """获取缓存文件路径"""
     row = await model_get_or_set_temp_image(_type, name, link=link)
@@ -173,7 +186,7 @@ def model_delete_user(platform, user_id):
 def model_get_all_user() -> list[UserTable]:
     """获取全部session_token不为空用户"""
     session = DBSession()
-    users = session.query(UserTable).filter(UserTable.session_token.isnot(None)).all()
+    users = session.query(UserTable).filter(UserTable.session_token.isnot(None), UserTable.user_agreement == 1).all()
     session.close()
     return users
 
@@ -182,7 +195,7 @@ def model_get_all_stat_user() -> list[UserTable]:
     """获取全部session_token不为空,且stat key不为空用户"""
     session = DBSession()
     users = session.query(UserTable).filter(
-        and_(UserTable.session_token.isnot(None), UserTable.stat_key.isnot(None))).all()
+        and_(UserTable.session_token.isnot(None), UserTable.stat_key.isnot(None), UserTable.user_agreement == 1)).all()
     session.close()
     return users
 
@@ -195,7 +208,8 @@ def model_get_another_account_user(platform, user_id) -> list[Type[UserTable]]:
         and_(UserTable.platform == platform, UserTable.user_id == user_id)).subquery()
     # 查找sp_id但非本账号id
     users = session.query(UserTable).filter(
-        and_(UserTable.game_sp_id.isnot(None), UserTable.game_sp_id == subq.c.sub_game_sp_id, UserTable.id != subq.c.sub_id)).all()
+        and_(UserTable.game_sp_id.isnot(None), UserTable.game_sp_id == subq.c.sub_game_sp_id,
+             UserTable.id != subq.c.sub_id)).all()
     session.close()
     return users
 
@@ -482,6 +496,7 @@ def model_get_top_all_count_by_top_type(top_type):
     top_count = session.query(func.count(TopAll.id)).where(TopAll.top_type.contains(top_type)).scalar()
     session.close()
     return top_count
+
 
 # def model_get_newest_event_top_all():
 #     """获取最新的event比赛排行榜数据"""

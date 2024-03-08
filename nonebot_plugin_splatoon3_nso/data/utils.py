@@ -23,6 +23,7 @@ class GlobalUserInfo:
         self.push = kwargs.get('push', 0)
         self.push_cnt = kwargs.get('push_cnt', 0)
         self.cmd_cnt = kwargs.get('cmd_cnt', 0)
+        self.user_agreement = kwargs.get('user_agreement', 0)
         self.stat_key = kwargs.get('stat_key', None)
         self.ns_name = kwargs.get('ns_name', None)
         self.ns_friend_code = kwargs.get('ns_friend_code', None)

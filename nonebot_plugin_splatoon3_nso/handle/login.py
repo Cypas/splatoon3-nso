@@ -81,9 +81,11 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
                   f"{url}"
 
         elif isinstance(bot, All_BOT):
-            msg = "在浏览器中打开下面链接（移动端复制链接至其他浏览器,\n" \
-                  "登陆后，在显示红色的选择此人按钮时，右键红色按钮(手机端长按复制)\n" \
-                  "复制其链接后发送给机器人，链接是一串npf开头的文本(两分钟内有效！)"
+            msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，此类第三方调用可能会导致nso鱿鱼圈被封禁，目前未观察到游戏连带被禁的情况。(要怪请去怪乌贼研究所)\n" \
+                  "若继续完成以下登录流程，则视为您已知晓此风险并继续使用nso查询\n\n"
+            msg += "登录流程: 在浏览器中打开下面链接（移动端复制链接至其他浏览器,\n" \
+                   "登陆后，在显示红色的选择此人按钮时，右键红色按钮(手机端长按复制)\n" \
+                   "复制其链接后发送给机器人，链接是一串npf开头的文本(两分钟内有效！)"
             await bot.send(event, message=msg)
             await bot.send(event, message='我是分割线'.center(20, '-'))
             await bot.send(event, message=url)
@@ -122,7 +124,7 @@ async def login_in_2(bot: Bot, event: Event):
     event_info = await get_event_info(bot, event)
     user_name = event_info.get('user_name', "")
     # 更新数据库
-    user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=user_name)
+    user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=user_name, user_agreement=1)
     # 刷新token
     await bot.send(event, message="登录中，正在刷新token，请等待大约10s")
     splatoon = Splatoon(bot, event, user)
@@ -172,7 +174,7 @@ async def login_in_2(bot: Bot, event: Event):
     await notify_to_channel(_msg)
 
 
-@on_command("clear_db_info", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("clear_db_info", priority=10, block=True).handle()
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     platform = bot.adapter.get_name()
@@ -183,7 +185,8 @@ async def clear_db_info(bot: Bot, event: Event):
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
     model_delete_user(platform, user_id)
-    global_user_info_dict.pop(msg_id)
+    if msg_id in global_user_info_dict:
+        global_user_info_dict.pop(msg_id)
 
     msg = "All your data cleared! 已清空账号数据!"
     logger.info(msg)
