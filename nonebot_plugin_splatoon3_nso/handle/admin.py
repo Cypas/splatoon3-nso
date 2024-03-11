@@ -96,3 +96,14 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             msg = get_dict_status()
             await bot_send(bot, event, message=msg)
             await show_dict_status()
+
+    if plain_text.startswith("kook_leave"):
+        """kook bot离开某服务器
+        kook_leave {guild_id}
+        """
+        args = plain_text.split(" ")
+        if len(args) == 2:
+            guild_id = args[1]
+            Kook_Bot.guild_leave()
+            await bot.guild_leave(guild_id)
+            await bot_send(bot, event, message=f"已退出服务器{guild_id}")

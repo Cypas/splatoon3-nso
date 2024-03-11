@@ -270,6 +270,7 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
                 else:
                     logger.warning(f"QQ send msg error: {e}")
 
+
 async def get_image_url(img: bytes) -> str:
     """通过kook获取图片url"""
     bots = nonebot.get_bots()

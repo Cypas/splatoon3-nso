@@ -7,7 +7,7 @@ from nonebot import on_keyword
 from .send_msg import bot_send
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
-    model_get_power_rank, model_set_user_friend
+    model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict
 from ..data.utils import GlobalUserInfo
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id
@@ -527,4 +527,17 @@ async def re_enable(bot: Bot, event: Event):
         user = model_get_or_set_user(platform, user_id, user_agreement=1)
         msg = "nso功能已重新启用，您可以继续使用/last 等nso查询命令"
         await bot_send(bot, event, message=msg)
+        users = model_get_another_account_user(platform, user_id)
+        if len(users) > 0:
+            for u in users:
+                msg_id = get_msg_id(u.platform, u.user_id)
+                # 如果存在全局缓存，也更新缓存数据
+                key = get_msg_id(u.platform, u.user_id)
+                user_info = global_user_info_dict.get(key)
+                if user_info:
+                    # 更新缓存数据
+                    dict_get_or_set_user_info(u.platform, u.user_id, user_agreement=1)
+                else:
+                    # 更新数据库数据
+                    model_get_or_set_user(u.platform, u.user_id, user_agreement=1)
 
