@@ -86,8 +86,9 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
         # 根据game_sp_id去重全部users
         result = []
         for u in lst:
-            if u.game_sp_id and u.game_sp_id not in [r.game_sp_id for r in result]:
-                result.append(u)
+            if u.user_agreement == 1:
+                if u.game_sp_id and u.game_sp_id not in [r.game_sp_id for r in result]:
+                    result.append(u)
         return result
 
     users: list[GlobalUserInfo] = list(global_user_info_dict.values())

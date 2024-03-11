@@ -64,7 +64,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
 
     s3s = S3S(platform, user_id)
     try:
-        url, auth_code_verifier = await s3s.log_in()
+        url, auth_code_verifier = await s3s.login_in()
     except Exception as e:
         logger.error(f'get login_in url error: {e}')
         await matcher.finish("bot网络错误，请稍后重试")
@@ -250,9 +250,9 @@ async def set_login_code(bot: Bot, event: Event):
 
     # 复制信息至新账号
     user = dict_get_or_set_user_info(platform, user_id, session_token=old_user.session_token, g_token=old_user.g_token,
-                                     bullet_token=old_user.bullet_token,
-                                     access_token=old_user.access_token, game_name=old_user.game_name,
-                                     game_sp_id=old_user.game_sp_id, stat_key=old_user.stat_key)
+                                     bullet_token=old_user.bullet_token, access_token=old_user.access_token,
+                                     game_name=old_user.game_name, game_sp_id=old_user.game_sp_id,
+                                     stat_key=old_user.stat_key, user_agreement=old_user.user_agreement)
 
     # 清空 code
     global_login_code_dict.pop(login_code)

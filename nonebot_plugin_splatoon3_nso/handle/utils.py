@@ -111,7 +111,7 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
                   "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
             await bot.send(event, msg)
             msg = "/我已知晓nso查询可能导致鱿鱼圈被封禁的风险并重新启用nso查询"
-            await dict_clear_one_user_info_dict(platform, user_id)
+            # await dict_clear_one_user_info_dict(platform, user_id)
             await matcher.finish(msg)
         # cmd_cnt+1
         dict_get_or_set_user_info(platform, user_id, cmd_cnt=user_info.cmd_cnt + 1)

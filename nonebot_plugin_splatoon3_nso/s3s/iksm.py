@@ -151,7 +151,7 @@ class S3S:
 
             return WEB_VIEW_VERSION
 
-    async def log_in(self):
+    async def login_in(self):
         """登录步骤第一步
         Logs in to a Nintendo Account and returns a session_token."""
 
@@ -501,6 +501,9 @@ class S3S:
                 self.logger.exception("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
             elif r.status_code == 204:  # No Content, USER_NOT_REGISTERED
                 self.logger.exception("Cannot access SplatNet 3 without having played online.")
+            elif r.status_code == 499:  # 鱿鱼圈封禁
+                self.logger.exception(f"{user_id} has be banned")
+                raise Exception(f"{user_id} has be banned")
             raise Exception(f"{user_id} get_bullet error. {r.status_code}")
 
     async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
