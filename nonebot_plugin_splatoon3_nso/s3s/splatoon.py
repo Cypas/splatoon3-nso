@@ -8,7 +8,7 @@ from nonebot.internal.adapter import Event
 from .utils import gen_graphql_body, translate_rid, GRAPHQL_URL
 from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S
 from ..data.utils import GlobalUserInfo
-from ..handle.send_msg import bot_send, notify_to_private
+from ..handle.send_msg import bot_send, notify_to_private, notify_to_channel
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, model_get_another_account_user, \
     global_user_info_dict
 from ..utils import get_msg_id, get_or_init_client
@@ -125,10 +125,21 @@ class Splatoon:
                 new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
                 if not new_bullet_token:
                     raise ValueError(f"no new_bullet_token")
+                user = dict_get_or_set_user_info(self.platform, self.user_id, user_agreement=1)
             except Exception as e:
                 msg_id = get_msg_id(self.platform, self.user_id)
-                self.logger.warning(f'{msg_id} get g_token success,get bullet_token error,start try again.reason:{e}')
-                new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
+                if "has be banned" in e:
+                    # 鱿鱼圈封禁
+                    user = dict_get_or_set_user_info(self.platform, self.user_id, user_agreement=-1)
+                    msg = f"喷3账号 {user.game_name or ''} 鱿鱼圈被封禁，无法使用相关查询，一般会在2-3周后自动解封"
+                    if self.bot and self.event:
+                        # 来自用户主动请求
+                        await bot_send(self.bot, self.event, msg)
+                    await notify_to_channel(f"新的鱿鱼圈封禁用户: {e}")
+                else:
+                    self.logger.warning(
+                        f'{msg_id} get g_token success,get bullet_token error,start try again.reason:{e}')
+                    new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
         # 刷新值
         if new_g_token and new_bullet_token:
             self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token)

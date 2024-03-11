@@ -104,6 +104,5 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
         args = plain_text.split(" ")
         if len(args) == 2:
             guild_id = args[1]
-            Kook_Bot.guild_leave()
-            await bot.guild_leave(guild_id)
+            await bot.guild_leave(guild_id=guild_id)
             await bot_send(bot, event, message=f"已退出服务器{guild_id}")

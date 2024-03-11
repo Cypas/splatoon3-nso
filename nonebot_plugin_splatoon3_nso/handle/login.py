@@ -64,7 +64,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
 
     s3s = S3S(platform, user_id)
     try:
-        url, auth_code_verifier = await s3s.log_in()
+        url, auth_code_verifier = await s3s.login_in()
     except Exception as e:
         logger.error(f'get login_in url error: {e}')
         await matcher.finish("bot网络错误，请稍后重试")
