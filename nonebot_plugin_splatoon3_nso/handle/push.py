@@ -37,6 +37,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     get_coop = False
     get_screenshot = False
     mask = False
+    fast = False
     cmd_message = args.extract_plain_text().strip()
     # 筛选参数
     if cmd_message:
@@ -52,10 +53,13 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
             get_screenshot = True
         if "m" in cmd_lst or "mask" in cmd_lst:
             mask = True
+        if "f" in cmd_lst or "fast" in cmd_lst:
+            fast = True
     filters = {"get_battle": get_battle,
                "get_coop": get_coop,
                "get_screenshot": get_screenshot,
                "mask": mask,
+               "fast": fast,
                }
     # 看来源是否是群聊
     channel_id = ""
@@ -64,6 +68,11 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     elif isinstance(event, Kook_CME):
         channel_id = event.group_id
 
+    # 轮询间隔时间
+    if not fast:
+        push_interval = PUSH_INTERVAL * 8  # 增加到2min
+    else:
+        push_interval = PUSH_INTERVAL
     # 添加定时任务
     job_id = f"{msg_id}_push"
     logger.info(f"add push_job {job_id}")
@@ -78,6 +87,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         'last_battle_id': "",
         'channel_id': channel_id,
         'last_channel_msg_id': "",
+        'push_interval': push_interval,
         'push_statistics': PushStatistics(),
     }
 
@@ -95,12 +105,12 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     executor：apscheduler定义的执行器，job创建时设置执行器的名字，根据字符串你名字到scheduler获取到执行此job的 执行器，执行job指定的函数
     """
     scheduler.add_job(
-        push_latest_battle, 'interval', seconds=PUSH_INTERVAL, next_run_time=dt.now() + timedelta(seconds=3),
+        push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
         id=job_id, args=[bot, event, job_data, filters],
-        misfire_grace_time=PUSH_INTERVAL - 1, coalesce=True, max_instances=1
+        misfire_grace_time=push_interval - 1, coalesce=True, max_instances=1
     )
     if isinstance(bot, Tg_Bot):
-        msg = f'Start push! check new data(battle or coop) every {PUSH_INTERVAL} seconds. /stop_push to stop'
+        msg = f'Start push! check new data(battle or coop) every {push_interval} seconds. /stop_push to stop'
     elif isinstance(bot, All_BOT):
         filters_str1 = ""
         if get_screenshot:
@@ -113,7 +123,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
             filters_str2 = "对战"
         if get_coop:
             filters_str2 = "打工"
-        msg = f'开始推送{filters_str1}战绩，每{PUSH_INTERVAL}秒查询一次最新 {filters_str2} 数据\n/stop_push 停止推送'
+        msg = f'开始推送{filters_str1}战绩，每{push_interval}秒查询一次最新 {filters_str2} 数据\n/stop_push 停止推送'
     await bot_send(bot, event, msg)
 
 
@@ -156,6 +166,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
     push_cnt = job_data.get('this_push_cnt', 0)
     error_push_cnt = job_data.get('error_push_cnt', 0)
     last_battle_id = job_data.get('last_battle_id')
+    push_interval = job_data.get('push_interval')
     push_statistics: PushStatistics = job_data.get("push_statistics")
     # filters
     get_battle = filters["get_battle"]
@@ -206,7 +217,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
 
         # 如果battle_id未改变  或  last_battle_id长时间未赋值
         if last_battle_id == battle_id or (push_cnt > 2 and not last_battle_id):
-            if not is_playing and push_cnt * PUSH_INTERVAL / 60 > 20:
+            if not is_playing and push_cnt * push_interval / 60 > 20:
                 # 关闭定时，更新push状态，发送统计
                 dict_get_or_set_user_info(platform, user_id, push=0)
                 msg = 'No game record for 20 minutes, stop push.'
@@ -276,10 +287,11 @@ def close_push(platform, user_id):
 
     if job_data:
         push_statistics: PushStatistics = job_data.get("push_statistics")
+        push_interval = job_data.get("push_interval")
         if push_statistics:
             msg += push_statistics.get_battle_st_msg()
             msg += push_statistics.get_coop_st_msg()
         # 计算推送持续时间
         push_cnt = job_data.get('this_push_cnt', 0)
-        push_time_minute: float = float(push_cnt * PUSH_INTERVAL) / 60
+        push_time_minute: float = float(push_cnt * push_interval) / 60
     return msg, push_time_minute
