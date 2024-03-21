@@ -70,7 +70,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
 
     # 轮询间隔时间
     if not fast:
-        push_interval = PUSH_INTERVAL * 8  # 增加到2min
+        push_interval = PUSH_INTERVAL * 4  # 增加到1min
     else:
         push_interval = PUSH_INTERVAL
     # 添加定时任务
