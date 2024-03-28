@@ -10,10 +10,10 @@ from ..utils.bot import *
 @on_command("report", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     """日报统计查询"""
-    cmd_list = args.extract_plain_text().strip().split(' ')
+    cmd_list = args.extract_plain_text().strip()
     report_day = ''
-    if len(cmd_list) > 1:
-        report_day = cmd_list[1].strip()
+    if cmd_list:
+        report_day = cmd_list
         try:
             dt.strptime(report_day, '%Y-%m-%d')
         except:
@@ -39,7 +39,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
         msg = "\n喷喷小报\n"
 
     u = dict_get_or_set_user_info(platform, user_id, _type=_type)
-    report_list = model_get_report(user_id_sp=u.game_sp_id)
+    report_list = model_get_report(user_id_sp=u.game_sp_id, create_time=report_day)
 
     if not report_list or len(report_list) == 1:
         return
@@ -49,7 +49,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     fst_day = ''
     if report_day:
         fst_day = report_list[-1].create_time.strftime('%Y-%m-%d')
-        for r in report_list[1:]:
+        for r in report_list[::-1]:
             if r.last_play_time.strftime('%Y-%m-%d') < max(report_day, fst_day):
                 old = r
                 break
