@@ -35,7 +35,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             # 发送md
             await bot_send_login_md(bot, event, user_id)
         else:
-            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后获取绑定码\n" \
+            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/get_login_code命令获取绑定码\n" \
                   f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
             await bot_send(bot, event, msg)
 

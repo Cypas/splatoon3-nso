@@ -53,7 +53,7 @@ def login_md(user_id, check_session=False) -> QQ_Msg:
     data1 = ""
     if check_session:
         data1 += "nso未登录，无法使用相关查询，"
-    data1 += "QQ平台当前无法完成登录流程，请至其他平台完成登录后获取绑定码"
+    data1 += "QQ平台当前无法完成登录流程，请至其他平台完成登录后使用/get_login_code命令获取绑定码"
     data2 = f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
     button_show = "kook服务器"
     kook_jump_link = "https://www.kookapp.cn/app/invite/mkjIOn"
