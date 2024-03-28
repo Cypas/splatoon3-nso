@@ -98,7 +98,7 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
                 await matcher.finish()
             else:
                 msg = "nso未登录，无法使用相关查询\n" \
-                      "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/get_login_code命令获取绑定码\n" \
+                      "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
                       f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
         elif isinstance(bot, All_BOT):
             msg = "nso未登录，无法使用相关查询，请先私信我 /login 进行登录"

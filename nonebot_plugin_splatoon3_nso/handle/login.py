@@ -35,7 +35,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             # 发送md
             await bot_send_login_md(bot, event, user_id)
         else:
-            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/get_login_code命令获取绑定码\n" \
+            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
                   f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
             await bot_send(bot, event, msg)
 
@@ -126,7 +126,8 @@ async def login_in_2(bot: Bot, event: Event):
     event_info = await get_event_info(bot, event)
     user_name = event_info.get('user_name', "")
     # 更新数据库
-    user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=user_name, user_agreement=1)
+    user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=user_name,
+                                     user_agreement=1)
     # 刷新token
     await bot.send(event, message="登录中，正在刷新token，请等待大约10s")
     splatoon = Splatoon(bot, event, user)
@@ -195,7 +196,8 @@ async def clear_db_info(bot: Bot, event: Event):
     await bot_send(bot, event, message=msg)
 
 
-@on_command("get_login_code", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("get_login_code", aliases={'getlogincode', 'glc', 'getlc'}, priority=10, block=True).handle(
+    parameterless=[Depends(_check_session_handler)])
 async def get_login_code(bot: Bot, event: Event):
     """获取绑定码"""
     if isinstance(event, QQ_GME):
