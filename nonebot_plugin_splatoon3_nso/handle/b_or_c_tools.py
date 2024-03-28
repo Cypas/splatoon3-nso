@@ -351,7 +351,7 @@ class PushStatistics:
             # 段位变更
             if coop_detail.get('afterGrade'):
                 # 传说40
-                lv = f"{coop_detail['afterGrade']['name']}{coop_detail['afterGradePoint']}"
+                lv = f"{coop_detail['afterGrade']['name']} {coop_detail['afterGradePoint']}"
                 c.lv_change.append(lv)
 
         except Exception as e:
@@ -377,7 +377,7 @@ class PushStatistics:
             if b.deemed_lose:
                 msg += f"掉线：{b.deemed_lose}，"
             if b.exempted_lose:
-                msg += f"队友掉线，免除惩罚：{b.exempted_lose}，"
+                msg += f"队友掉线：{b.exempted_lose}，"
 
             if b.win:
                 win_rate = b.win / (b.win + b.lose)
@@ -452,9 +452,10 @@ class PushStatistics:
             # boss 金银牌
             if c.boss:
                 msg += f"{c.boss_name}：出现{c.boss}，击杀{c.boss_kill}\n"
-                msg += f"金鳞片：{c.gold}，"
-                msg += f"银鳞片：{c.silver}，"
-                msg += f"铜鳞片：{c.bronze}，"
+                msg += f"鳞片："
+                msg += f"金:{c.gold}，"
+                msg += f"银:{c.silver}，"
+                msg += f"铜:{c.bronze}，"
                 msg += "\n"
 
         msg += "```"

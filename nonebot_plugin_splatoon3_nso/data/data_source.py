@@ -322,7 +322,7 @@ def model_get_today_report(user_id_sp):
     return report
 
 
-def model_get_report(user_id_sp):
+def model_get_report(user_id_sp, create_time=""):
     """获取日报"""
     if not user_id_sp:
         return None
@@ -331,16 +331,27 @@ def model_get_report(user_id_sp):
     #     query = [Report.user_id_sp == user_id_sp]
     #     report = session.query(Report).filter(*query).order_by(Report.create_time.desc()).all()
 
-    report = session.query(Report).from_statement(text("""
-SELECT *
-FROM report WHERE (user_id_sp, last_play_time, create_time) IN
-( SELECT user_id_sp, last_play_time, MAX(create_time)
-  FROM report
-  GROUP BY user_id_sp, last_play_time)
-and user_id_sp=:user_id_sp
-order by create_time desc
-limit 30""")
-                                                  ).params(user_id_sp=user_id_sp).all()
+    if not create_time:
+        report = session.query(Report).from_statement(text("""
+    SELECT *
+    FROM report WHERE (user_id_sp, last_play_time, create_time) IN
+    ( SELECT user_id_sp, last_play_time, MAX(create_time)
+      FROM report
+      GROUP BY user_id_sp, last_play_time)
+    and user_id_sp=:user_id_sp
+    order by create_time desc
+    limit 30""")
+                                                      ).params(user_id_sp=user_id_sp).all()
+    else:
+        report = session.query(Report).from_statement(text("""
+        SELECT *
+        FROM report WHERE (user_id_sp, last_play_time, create_time) IN
+        ( SELECT user_id_sp, last_play_time, MAX(create_time)
+          FROM report
+          GROUP BY user_id_sp, last_play_time)
+        and user_id_sp=:user_id_sp and create_time>=:create_time
+        order by create_time desc""")
+                                                      ).params(user_id_sp=user_id_sp, create_time=create_time).all()
     session.close()
     return report
 
