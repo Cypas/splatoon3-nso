@@ -179,8 +179,10 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                     # 超出一组记录
                     idx -= group_count
                     coop_group_idx += 1
+                else:
+                    break
             if idx > coop_total_count:
-                msg = "查询索引超出最大历史记录，请用更小索引重试"
+                msg = "查询索引超出最大打工历史记录，请用更小索引重试，或使用/last b指定为对战模式重新进行查询"
                 is_playing = False
                 return msg, is_playing
             # 减1变回索引
