@@ -35,7 +35,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             # 发送md
             await bot_send_login_md(bot, event, user_id)
         else:
-            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后获取绑定码\n" \
+            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/get_login_code命令获取绑定码\n" \
                   f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
             await bot_send(bot, event, msg)
 
@@ -111,6 +111,8 @@ async def login_in_2(bot: Bot, event: Event):
     err_msg = "登录失败，请 /login 重试, 并在浏览器打开bot新发给你的登录链接，在重新完成登录后，复制按钮的新链接给我，链接是一串npf开头的文本"
     if (not text) or (len(text) < 500) or (not text.startswith('npf')) or (auth_code_verifier is None):
         logger.info(err_msg)
+        # 登录失败直接销毁用户等待字典
+        global_login_status_dict.pop(msg_id)
         await bot.send(event, message=err_msg)
         return
 
