@@ -111,6 +111,8 @@ async def login_in_2(bot: Bot, event: Event):
     err_msg = "登录失败，请 /login 重试, 并在浏览器打开bot新发给你的登录链接，在重新完成登录后，复制按钮的新链接给我，链接是一串npf开头的文本"
     if (not text) or (len(text) < 500) or (not text.startswith('npf')) or (auth_code_verifier is None):
         logger.info(err_msg)
+        # 登录失败直接销毁用户等待字典
+        global_login_status_dict.pop(msg_id)
         await bot.send(event, message=err_msg)
         return
 
