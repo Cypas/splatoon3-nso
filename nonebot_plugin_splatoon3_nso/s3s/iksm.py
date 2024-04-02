@@ -40,7 +40,12 @@ class S3S:
         self.user_nickname = ""
         self.user_lang = "zh-CN"
         self.user_country = "JP"
-        self.f_gen_url = F_GEN_URL
+
+        # 两个f_api 负载均衡
+        f_url_lst = [F_GEN_URL, F_GEN_URL_2]
+        random.shuffle(f_url_lst)
+        self.f_gen_url = f_url_lst[0]
+
         self.logger = nb_logger
         if _type == "cron":
             self.logger = nb_logger.bind(cron=True)
@@ -508,26 +513,44 @@ class S3S:
             raise Exception(f"{user_id} get_bullet error. {r.status_code}")
 
     async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
-        # 两个f_api 负载均衡
-        f_url_lst = [F_GEN_URL, F_GEN_URL_2]
-        random.shuffle(f_url_lst)
-        for _f_url in f_url_lst:
-            self.f_gen_url = _f_url
-            res = await self.call_f_api(access_token, step, _f_url, r_user_id, coral_user_id=coral_user_id)
-            if res and isinstance(res, tuple):
+        res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
+                                    coral_user_id=coral_user_id)
+        if isinstance(res, tuple):
+            # 解析tuple
+            f, uuid, timestamp = res
+            return f, uuid, timestamp
+        else:
+            # 判断重试时的对象名称以及f地址
+            if self.f_gen_url == F_GEN_URL:
+                now_f_str = "F_URL"
+                next_f_str = "F_URL_2"
+                next_f_url = F_GEN_URL_2
+            else:
+                now_f_str = "F_URL_2"
+                next_f_str = "F_URL"
+                next_f_url = F_GEN_URL
+            if not res:
+                # 无响应结果
+                self.logger.warning(f"{now_f_str} no res，try {next_f_str} again")
+            elif isinstance(res, str):
+                # 错误信息
+                # 改为另一个f接口并重新请求一次
+                if "NetConnectError" in res:
+                    self.logger.warning(f"{now_f_str} ConnectError，try {next_f_str} again")
+                elif "NetConnectTimeout" in res:
+                    self.logger.warning(f"{now_f_str} ConnectTimeout，try {next_f_str} again")
+                else:
+                    self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{res}")
+            self.f_gen_url = next_f_url
+            res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id,
+                                        coral_user_id=coral_user_id)
+            if isinstance(res, tuple):
                 # 解析tuple
                 f, uuid, timestamp = res
                 return f, uuid, timestamp
             else:
-                # 错误信息
-                self.logger.warning(f"F_GEN_URL res Error url: {_f_url}, Error:{res}")
-                if isinstance(res, str):
-                    if "NetConnectError" in res:
-                        self.logger.warning(f"F_GEN_URL ConnectError")
-                    elif "NetConnectTimeout" in res:
-                        self.logger.warning(f"F_GEN_URL ConnectTimeout")
-                    else:
-                        self.logger.warning(f"F_GEN_URL res Error, Error:{res}")
+                self.logger.warning(f"{next_f_str} Both Error: {res}")
+                return None
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         """Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp)."""
