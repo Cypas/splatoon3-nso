@@ -1,14 +1,13 @@
-import time
-
 from nonebot.message import event_preprocessor
 from nonebot.plugin import PluginMetadata
 
-from .config import driver, plugin_config
+from .config import driver, plugin_config, Config
 from .data.db_sqlite import init_db
 from .data.transfer import transfer_user_db
 from .handle import *
 from .handle.cron import remove_all_scheduler, scheduler_controller
 from .handle.send_msg import bot_send, notify_to_channel
+from .s3s.splatnet_image import global_browser
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
 from .utils.bot import *
 
@@ -21,32 +20,35 @@ __plugin_meta__ = PluginMetadata(
     # 发布必填，当前有效类型有：`library`（为其他插件编写提供功能），`application`（向机器人用户提供功能）。
     homepage="https://github.com/Cypas/splatoon3-nso",
     # 发布必填。
+    config=Config,
     supported_adapters={"~onebot.v11", "~onebot.v12", "~telegram", "~kaiheila", "~qq"},
 )
 
 
 @on_startswith(("/", "、"), priority=99).handle()
 async def unknown_command(bot: Bot, event: Event):
-    logger.info(f'unknown_command {event.get_event_name()}')
-    if 'private' in event.get_event_name():
-        _msg = "Sorry, I didn't understand that command. /help"
-        if isinstance(bot, (V11_Bot, QQ_Bot, V12_Bot, Kook_Bot)):
-            _msg = '无效命令，输入 /help 查看帮助'
-        await bot.send(event, message=_msg)
+    logger.info(f'unknown_command from {event.get_event_name()}')
+    msg = ""
+    if plugin_config.splatoon3_unknown_command_fallback_reply:
+        if isinstance(bot, Tg_Bot):
+            msg = "Sorry, I didn't understand that command. /help"
+        elif isinstance(bot, All_BOT):
+            msg = "无效指令，发送 /help 查看帮助"
+        await bot.send(event, message=msg)
 
 
-@on_command("help", aliases={'h', '帮助', '说明', '文档'}, priority=10).handle()
+@on_command("help", aliases={"h", "帮助", "说明", "文档"}, priority=10).handle()
 async def _help(bot: Bot, event: Event):
     # 帮助菜单日程插件优先模式
     if plugin_config.splatoon3_schedule_plugin_priority_mode:
         return
     else:
         if isinstance(bot, Tg_Bot):
-            await bot_send(bot, event, message=MSG_HELP, disable_web_page_preview=True)
+            await bot_send(bot, event, message=MSG_HELP)
         elif isinstance(bot, QQ_Bot):
             msg = MSG_HELP_QQ
             await bot_send(bot, event, message=msg)
-        elif isinstance(bot, (V12_Bot, Kook_Bot,)):
+        elif isinstance(bot, All_BOT):
             msg = MSG_HELP_CN
             await bot_send(bot, event, message=msg)
 
@@ -54,8 +56,8 @@ async def _help(bot: Bot, event: Event):
 @driver.on_startup
 async def bot_on_start():
     # 检查旧数据库文件与新数据库文件是否存在
-    old_db_path = f'{DIR_RESOURCE}/data.sqlite'
-    new_db_path = f'{DIR_RESOURCE}/nso_data.sqlite'
+    old_db_path = f"{DIR_RESOURCE}/data.sqlite"
+    new_db_path = f"{DIR_RESOURCE}/nso_data.sqlite"
     if os.path.exists(old_db_path) and not os.path.exists(new_db_path):
         # 旧数据库存在，新数据库不存在，启动转移函数
         logger.info("检测到旧版本用户数据库，将开始进行数据转移")
@@ -67,26 +69,24 @@ async def bot_on_start():
     # 创建定时任务
     scheduler_controller()
     version = BOT_VERSION
-    logger.info(f' bot start, version: {version} '.center(120, '-'))
-    await notify_to_channel(f'bot start, version: {version}')
+    logger.info(f" bot start, version: {version} ".center(120, "-"))
+    await notify_to_channel(f"bot start, version: {version}")
 
 
 @driver.on_shutdown
 async def bot_on_shutdown():
     version = BOT_VERSION
-    logger.info(f' bot shutdown, version: {version} '.center(120, 'x'))
+    logger.info(f" bot shutdown, version: {version} ".center(120, "x"))
     bots = get_bots()
-    logger.info(f'bot: {bots}')
-    # 删除全部定时任务
-    remove_all_scheduler()
+    logger.info(f"bot: {bots}")
 
 
 @driver.on_bot_connect
 async def _(bot: Bot):
     bot_name = bot.adapter.get_name()
-    logger.info(f' {bot_name} bot connect {bot.self_id} '.center(60, '-').center(120, ' '))
-    if bot_name == 'QQ':
-        text = f'bot {bot_name}: {bot.self_id} online ~'
+    logger.info(f" {bot_name} bot connect {bot.self_id} ".center(60, "-").center(90, " "))
+    if bot_name == "QQ":
+        text = f"bot {bot_name}: {bot.self_id} online ~"
         if plugin_config.splatoon3_bot_disconnect_notify:
             await notify_to_channel(text)
 
@@ -94,7 +94,7 @@ async def _(bot: Bot):
 @driver.on_bot_disconnect
 async def _(bot: Bot):
     bot_name = bot.adapter.get_name()
-    text = f'bot {bot_name}: {bot.self_id} disconnect !!!!!!!!!!!!!!!!!!!'
+    text = f"bot {bot_name}: {bot.self_id} disconnect !!!!!!!!!!!!!!!!!!!"
     if plugin_config.splatoon3_bot_disconnect_notify:
         try:
             await notify_to_channel(text)

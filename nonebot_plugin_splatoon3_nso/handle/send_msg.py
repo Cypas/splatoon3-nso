@@ -1,15 +1,11 @@
 import io
 
 from PIL import Image
-from nonebot.adapters.qq import AuditException, ActionFailed
 
 from .qq_md import last_md, login_md
-from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china_str
+from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china
 from ..utils.bot import *
 from ..config import plugin_config
-
-require("nonebot_plugin_htmlrender")
-from nonebot_plugin_htmlrender import md_to_pic
 
 
 async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type='job'):
@@ -37,36 +33,48 @@ async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type=
     await notify_to_channel(msg, _type=_type)
 
 
-async def cron_notify_to_channel(msg: str, _type='job'):
+async def cron_notify_to_channel(title: str, mode: str, msg: str = "", _type='job'):
     """任务处理通知到频道"""
-    title = f"#cron_notify\n"
-    title += get_time_now_china_str()
-    title += "\n"
-    await notify_to_channel(f"{title}{msg}", _type)
+    str_mode = ""
+    match mode:
+        case "start":
+            str_mode = "▶"
+        case "end":
+            str_mode = "✅"
+        case "error":
+            str_mode = "❎"
+
+    title = f"#{title} {str_mode}\n"
+    str_time = get_time_now_china().strftime("%m-%d %H:%M")
+    title += str_time
+    if msg:
+        title += "\n"
+    _msg = f"{title}{msg}"
+    await notify_to_channel(_msg, _type)
 
 
-notify_tg_bot_id = plugin_config.splatoon3_notify_tg_bot_id
-tg_c_chat_id = plugin_config.splatoon3_tg_channel_msg_chat_id
-tg_c_job_id = plugin_config.splatoon3_tg_channel_job_chat_id
+notify_tg_bot_id = str(plugin_config.splatoon3_notify_tg_bot_id)
+tg_c_chat_id = str(plugin_config.splatoon3_tg_channel_msg_chat_id)
+tg_c_job_id = str(plugin_config.splatoon3_tg_channel_job_chat_id)
 
-notify_kk_bot_id = plugin_config.splatoon3_notify_kk_bot_id
-kk_c_chat_id = plugin_config.splatoon3_kk_channel_msg_chat_id
-kk_c_job_id = plugin_config.splatoon3_kk_channel_job_chat_id
+notify_kk_bot_id = str(plugin_config.splatoon3_notify_kk_bot_id)
+kk_c_chat_id = str(plugin_config.splatoon3_kk_channel_msg_chat_id)
+kk_c_job_id = str(plugin_config.splatoon3_kk_channel_job_chat_id)
 
 
 async def notify_to_channel(_msg, _type='msg'):
     """消息通知至频道"""
     channel_id = ""
     # log to telegram
-    if _type == 'msg':
+    if _type == "msg":
         channel_id = tg_c_chat_id
-    elif _type == 'job':
+    elif _type == "job":
         channel_id = tg_c_job_id
 
     # log to kook
-    if _type == 'msg':
+    if _type == "msg":
         channel_id = kk_c_chat_id
-    elif _type == 'job':
+    elif _type == "job":
         channel_id = kk_c_job_id
 
     bots = get_bots()
@@ -78,7 +86,7 @@ async def notify_to_channel(_msg, _type='msg'):
                 _msg = f"```\n{_msg}```"
                 await tg_bot.send_message(channel_id, _msg)
             except Exception as e:
-                logger.warning(f'tg频道通知消息失败: {e}')
+                logger.warning(f"tg频道通知消息失败: {e}")
 
     # 推送至kook
     if notify_kk_bot_id and channel_id:
@@ -89,7 +97,7 @@ async def notify_to_channel(_msg, _type='msg'):
                 await kook_bot.send_channel_msg(channel_id=channel_id,
                                                 message=Kook_MsgSeg.KMarkdown(_msg))
             except Exception as e:
-                logger.warning(f'kook频道通知消息失败: {e}')
+                logger.warning(f"kook频道通知消息失败: {e}")
 
 
 async def notify_to_private(platform: str, user_id: str, msg: str):
@@ -117,75 +125,82 @@ async def notify_to_private(platform: str, user_id: str, msg: str):
         await send_private_msg(bot, user_id, msg)
 
 
-async def bot_send(bot: Bot, event: Event, message: str | bytes = "", **kwargs):
-    """综合发信函数，发送图片需要添加参数 photo={img_data}"""
-    img_data = ''
-    if message and message.strip().startswith('####'):
-        width = 1000
-        if 'image_width' in kwargs:
-            width = kwargs.get('image_width')
-        # 打工
-        if 'W1 ' in message and 'duration: ' not in message:
-            width = 680
-        img_data = await md_to_pic(message, width=width, css_path=f'{DIR_RESOURCE}/md.css')
+async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_width=None, skip_log_cmd=True, QQ_md=None):
+    """综合发信函数
+    QQ_md的值应该为一个字典{"md_type":"last","user_id":"111"}
+    """
+    require("nonebot_plugin_htmlrender")
+    from nonebot_plugin_htmlrender import md_to_pic
 
-    if kwargs.get('photo'):
-        img_data = kwargs.get('photo')
+    img_data = ''
+    if isinstance(message, str):
+        if message and message.strip().startswith('####'):
+            width = 1000
+            if image_width:
+                width = image_width
+            # 打工
+            if 'W1 ' in message and 'duration: ' not in message:
+                width = 720
+            img_data = await md_to_pic(message, width=width, css_path=f'{DIR_RESOURCE}/md.css')
+    if isinstance(message, bytes):
+        # 图片数据
+        img_data = message
 
     if img_data:
-        await send_msg(bot, event, img_data)
+        if not QQ_md:
+            await send_msg(bot, event, img_data)
+        elif isinstance(bot, QQ_Bot) and QQ_md:
+            # 需要图片的md消息
+            md_type = QQ_md.get("md_type")
+            user_id = QQ_md.get("user_id")
+            if md_type:
+                # 通过pillow库获取图片宽高数据
+                image = Image.open(io.BytesIO(img_data))
+                width, height = image.size
+                image.close()
+                # 获取图片url
+                url = await get_image_url(img_data)
+                # 根据不同type渲染不同md
+                qq_md_msg = ""
+                match md_type:
+                    case "last":
+                        qq_md_msg = last_md(user_id, image_size=(width, height), url=url)
+                try:
+                    await bot.send(event, qq_md_msg)
+                except QQ_ActionFailed as e:
+                    if "消息被去重" in e:
+                        pass
+                    else:
+                        logger.warning(f"QQ send msg error: {e}")
 
         # if not kwargs.get('skip_log_cmd'):
         #     await log_cmd_to_db(bot, event)
     else:
         # 下面为文字消息
-        if isinstance(bot, (Tg_Bot, Kook_Bot, QQ_Bot)):
-            if 'group' in event.get_event_name() or isinstance(bot, QQ_Bot):
-                # /me 截断
-                if '开放' in message and ': (+' not in message:
-                    coop_lst = message.split('2022-')[-1].split('2023-')[-1].strip().split('\n')
-                    message = message.split('2022-')[0].split('2023-')[0].strip() + '\n'
-                    for l in coop_lst:
-                        if '打工次数' in l or '头目鲑鱼' in l:
-                            message += '\n' + l
-                    # message += '```'
         try:
             if isinstance(bot, QQ_Bot):
-                message = message.replace('```', '').replace('\_', '_').strip().strip('`')
+                message = message.replace("```", "").replace("\_", "_").strip().strip("`")
             await send_msg(bot, event, message)
-        except Exception as e:
-            logger.exception(f'bot_send error: {e}, {message}')
+        except QQ_ActionFailed as e:
+            if "消息被去重" in e:
+                pass
+            else:
+                logger.warning(f"QQ send msg error: {e}")
 
         # if not kwargs.get('skip_log_cmd'):
         #     await log_cmd_to_db(bot, event)
 
 
-async def bot_send_last_md(bot: Bot, event: Event, message: str, user_id: str, image_width=None):
+async def bot_send_last_md(bot: Bot, event: Event, message: str | bytes, user_id: str, image_width=None):
     """发送qq md消息"""
-    img_data = ''
-    width = 1000
-    if message and message.strip().startswith('####'):
-        if image_width:
-            width = image_width
-        # 打工
-        if 'W1 ' in message and 'duration: ' not in message:
-            width = 680
-        img_data = await md_to_pic(message, width=width, css_path=f'{DIR_RESOURCE}/md.css')
-
-    if img_data:
-        # 通过pillow库获取图片宽高数据
-        image = Image.open(io.BytesIO(img_data))
-        width, height = image.size
-        image.close()
-        # 获取图片url
-        url = await get_image_url(img_data)
-        qq_msg = last_md(user_id, image_size=(width, height), url=url)
-        await bot.send(event, qq_msg)
+    QQ_md = {"md_type": "last",
+             "user_id": user_id}
+    await bot_send(bot, event, message, image_width, QQ_md=QQ_md)
 
 
-async def bot_send_login_md(bot: Bot, event: Event, user_id: str):
+async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=False):
     """发送login md消息"""
-    qq_msg = login_md(user_id)
+    qq_msg = login_md(user_id, check_session=check_session)
     await bot.send(event, qq_msg)
 
 
@@ -208,7 +223,13 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
         elif isinstance(bot, Kook_Bot):
             await bot.send(event, message=Kook_MsgSeg.text(msg), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
-            await bot.send(event, message=QQ_MsgSeg.text(msg))
+            try:
+                await bot.send(event, message=QQ_MsgSeg.text(msg))
+            except QQ_ActionFailed as e:
+                if "消息被去重" in e:
+                    pass
+                else:
+                    logger.warning(f"QQ send msg error: {e}")
 
     elif isinstance(msg, bytes):
         # 图片
@@ -236,12 +257,18 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
             url = await bot.upload_file(img)
             await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
-            if not isinstance(event, GroupAtMessageCreateEvent):
-                await bot.send(event, message=QQ_MsgSeg.file_image(img))
-            else:
-                url = await get_image_url(img)
-                if url:
-                    await bot.send(event, message=QQ_MsgSeg.image(url))
+            try:
+                if not isinstance(event, GroupAtMessageCreateEvent):
+                    await bot.send(event, message=QQ_MsgSeg.file_image(img))
+                else:
+                    url = await get_image_url(img)
+                    if url:
+                        await bot.send(event, message=QQ_MsgSeg.image(url))
+            except QQ_ActionFailed as e:
+                if "消息被去重" in e:
+                    pass
+                else:
+                    logger.warning(f"QQ send msg error: {e}")
 
 
 async def get_image_url(img: bytes) -> str:
@@ -264,9 +291,9 @@ async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):
         elif isinstance(bot, QQ_Bot):
             try:
                 await bot.send_to_channel(channel_id=source_id, message=QQ_MsgSeg.text(msg))
-            except AuditException as e:
+            except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
-            except ActionFailed as e:
+            except QQ_ActionFailed as e:
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_message(chat_id=source_id, text=msg)
@@ -279,9 +306,9 @@ async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):
         elif isinstance(bot, QQ_Bot):
             try:
                 await bot.send_to_channel(channel_id=source_id, message=QQ_MsgSeg.file_image(img))
-            except AuditException as e:
+            except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
-            except ActionFailed as e:
+            except QQ_ActionFailed as e:
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_photo(source_id, img)
@@ -297,9 +324,9 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
             try:
                 if event:
                     await bot.send_to_dms(guild_id=event.guild_id, message=msg, msg_id=event.id)
-            except AuditException as e:
+            except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
-            except ActionFailed as e:
+            except QQ_ActionFailed as e:
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_message(chat_id=source_id, text=msg)
@@ -313,9 +340,9 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
         elif isinstance(bot, QQ_Bot):
             try:
                 await bot.send_to_dms(guild_id=event.guild_id, message=QQ_MsgSeg.file_image(img), msg_id=event.id)
-            except AuditException as e:
+            except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
-            except ActionFailed as e:
+            except QQ_ActionFailed as e:
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_photo(source_id, img)

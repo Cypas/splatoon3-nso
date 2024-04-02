@@ -11,18 +11,18 @@ async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splato
     """获取真格模式挑战点数和挑战进度"""
     try:
         point = 0
-        b_process = ''
+        b_process = ""
         if not bankara_match:
-            return point, ''
+            return point, ""
 
-        if bankara_match == 'OPEN':
+        if bankara_match == "OPEN":
             # open
             point = battle_detail['bankaraMatch']['earnedUdemaePoint']
             if point > 0:
                 point = f'+{point}'
         else:
             # challenge
-            bankara_info = await splatoon.get_bankara_battles()
+            bankara_info = await splatoon.get_bankara_battles(multiple=True)
             # 得确定对战位于哪一个group
             if idx == 0:
                 group_idx = 0
@@ -51,7 +51,7 @@ async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splato
     except Exception as e:
         logger.exception(e)
         point = 0
-        b_process = ''
+        b_process = ""
 
     return point, b_process
 
@@ -60,9 +60,9 @@ async def get_x_power_and_process(battle_detail, splatoon: Splatoon, idx=0):
     """获取x赛分数和挑战进度"""
     try:
         power = 0
-        x_process = ''
+        x_process = ""
 
-        x_res = await splatoon.get_x_battles()
+        x_res = await splatoon.get_x_battles(multiple=True)
         # 得确定对战位于哪一个group
         if idx == 0:
             group_idx = 0
@@ -85,7 +85,7 @@ async def get_x_power_and_process(battle_detail, splatoon: Splatoon, idx=0):
     except Exception as e:
         logger.warning(f"get x power error:{e}")
         power = 0
-        x_process = ''
+        x_process = ""
 
     return power, x_process
 
@@ -106,94 +106,100 @@ def get_battle_group_idx(groups, battle_id) -> int:
     return group_idx
 
 
-async def get_top_all_name(name, player_code):
+async def get_top_all_name(name, icon, player_code):
     """对top all榜单上有名的玩家额外渲染name"""
     top_all = model_get_max_power_top_all(player_code)
     if not top_all:
-        return name, 0
-
-    # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
-    name = remove_user_name_icon(name)
+        return name, icon, 0
 
     row = top_all
     max_power = row.power
     top_str = f'F({max_power})' if row.top_type.startswith('Fest') else f'E({max_power})'
     name = name.replace('`', '&#96;').replace('|', '&#124;')
     name = name.strip() + f'</br><span style="color:#EE9D59">`{top_str}`</span>'
-    if '<img' not in name:
-        weapon_name = str(row.weapon)
-        img_type = "battle_weapon_main"
-        weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
-        if weapon_main_img:
-            name += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
-    return name, float(max_power or 0)
-
-
-async def get_top_user(name, player_code):
-    """获取top玩家md信息"""
-    _power = 0
-    top_str = ''
-    top_user = model_get_top_player(player_code)
-    if top_user:
+    # 武器图片
+    weapon_name = str(row.weapon)
+    img_type = "battle_weapon_main"
+    weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
+    if weapon_main_img:
         # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
-        name = remove_user_name_icon(name)
-
-        _x = 'x' if ':6:' in top_user.top_type else 'X'
-        if '-a:' in top_user.top_type:
-            top_str = f' <span style="color:#fc0390">{_x}{top_user.rank}({top_user.power})</span>'
-        else:
-            top_str = f' <span style="color:red">{_x}{top_user.rank}({top_user.power})</span>'
-        weapon_name = str(top_user.weapon)
-        img_type = "battle_weapon_main"
-        weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
-        if weapon_main_img:
-            top_str += f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{weapon_main_img}'/>"
-        _power = float(top_user.power or 0)
-
-    if top_str:
-        name = name.strip() + top_str
-    return name, _power
+        icon = f"<img height='36px' src='{weapon_main_img}'/>"
+    return name, icon, float(max_power or 0)
 
 
-async def get_user_name_color(player_name, player_code):
+async def get_top_user(name, icon, player_code):
+    """获取top玩家md信息"""
+    top_user = model_get_top_player(player_code)
+    if not top_user:
+        return name, icon, 0
+
+    _x = 'x' if ':6:' in top_user.top_type else 'X'
+    if '-a:' in top_user.top_type:
+        color = "#fc0390"
+    else:
+        color = "red"
+    name = name.replace('`', '&#96;').replace('|', '&#124;')
+    name = name.strip() + f'</br><span style="color:{color}">{_x}{top_user.rank}({top_user.power})</span>'
+    # 武器图片
+    weapon_name = str(top_user.weapon)
+    img_type = "battle_weapon_main"
+    weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
+    if weapon_main_img:
+        # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
+        icon = f"<img height='36px' src='{weapon_main_img}'/>"
+    _power = float(top_user.power or 0)
+
+    return name, icon, _power
+
+
+async def get_user_name_color(player_name, player_code, is_myself=False):
     """取用户名颜色"""
-    login = model_get_login_user_by_sp_code(player_code)
+    img = ""
+    # 自己用户名加粗
+    if is_myself:
+        player_name = f"<b>{player_name}</b>"
+        u_str = player_name
+        # 之前从/me缓存了头像
+        icon = await model_get_temp_image_path('my_icon', player_code)
+        if icon:
+            img = f"<img height='36px' src='{icon}'/>"
+        return u_str, img
 
+    login = model_get_login_user_by_sp_code(player_code)
     # 登录用户绿色
     if login:
-        return f'<span style="color:green">{player_name}</span>'
+        u_str = f'<span style="color:green">{player_name}</span>'
+        icon = await model_get_temp_image_path('my_icon', player_code)
+        if icon:
+            img = f"<img height='36px' src='{icon}'/>"
+        return u_str, img
 
     u_str = player_name
-    r = model_get_user_friend(player_name)
+    _name = player_name
+    # 将编码后的特殊字符还原为文本
+    if '&#' in _name:
+        from .battle import DICT_HTML_CODES
+        for k, v in DICT_HTML_CODES.items():
+            _name = _name.replace(v, k)
+    r = model_get_user_friend(_name)
     # 用户好友蓝色
     if r:
-        img_type = "friend_icon"
         # 储存名使用friend_id
-        user_icon = await model_get_temp_image_path(img_type, r.friend_id, r.user_icon)
-        img = f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{user_icon}'/>"
-        u_str = f'<span style="color:skyblue">{player_name} {img}</span>'
-    return u_str
-
-
-async def get_myself_name_color(player_name, player_code):
-    """获取我自己的用户名以及头像"""
-    player_name = f"<b>{player_name}</b>"
-    u_str = player_name
-
-    my_icon = await model_get_temp_image_path('my_icon', player_code)
-    if my_icon:
-        # 之前从/me缓存了头像
-        img = f"<img height='36px' style='position:absolute;right:5px;margin-top:-6px' src='{my_icon}'/>"
-        u_str = f'{player_name} {img}'
-
-    return u_str
+        u_str = f'<span style="color:skyblue">{player_name}</span>'
+        icon = await model_get_temp_image_path("friend_icon", r.friend_id, r.user_icon)
+        if icon:
+            img = f"<img height='36px' src='{icon}'/>"
+        return u_str, img
+    else:
+        return u_str, img
 
 
 def remove_user_name_icon(name):
-    """存在top_all榜单，或x榜时，移除用户名后面的好友头像，方便显示武器"""
-    if '<img' in name:
-        origin_name = name.split('style="color:skyblue">')[-1].split(" <img height='36px'")[0]
-        name = f'<span style="color:skyblue">{origin_name}</span>'
+    """存在top_all榜单，或x榜时，移除用户名后面的头像，方便显示武器"""
+    if "<img" in name:
+        idx = name.find(" <img")
+        if idx != -1:
+            name = name[:idx]
     return name
 
 
@@ -345,7 +351,7 @@ class PushStatistics:
             # 段位变更
             if coop_detail.get('afterGrade'):
                 # 传说40
-                lv = f"{coop_detail['afterGrade']['name']}{coop_detail['afterGradePoint']}"
+                lv = f"{coop_detail['afterGrade']['name']} {coop_detail['afterGradePoint']}"
                 c.lv_change.append(lv)
 
         except Exception as e:
@@ -371,7 +377,7 @@ class PushStatistics:
             if b.deemed_lose:
                 msg += f"掉线：{b.deemed_lose}，"
             if b.exempted_lose:
-                msg += f"队友掉线，免除惩罚：{b.exempted_lose}，"
+                msg += f"队友掉线：{b.exempted_lose}，"
 
             if b.win:
                 win_rate = b.win / (b.win + b.lose)
@@ -398,10 +404,11 @@ class PushStatistics:
                     msg += f"最高分数：{b.max_open_power:.2f}\n"
             # 击杀
             # kd比  避免除数和被除数为0的情况
-            if b.d == 0:
-                b.d = 1
-            if b.k != 0 and b.d != 0:
-                k_rate = b.k / b.d
+            if b.k != 0:
+                if b.d == 0:
+                    k_rate = b.k / 1
+                else:
+                    k_rate = b.k / b.d
             else:
                 k_rate = 0
             msg += f"总击杀：{b.ka}，"
@@ -445,9 +452,10 @@ class PushStatistics:
             # boss 金银牌
             if c.boss:
                 msg += f"{c.boss_name}：出现{c.boss}，击杀{c.boss_kill}\n"
-                msg += f"金鳞片：{c.gold}，"
-                msg += f"银鳞片：{c.silver}，"
-                msg += f"铜鳞片：{c.bronze}，"
+                msg += f"鳞片："
+                msg += f"金:{c.gold}，"
+                msg += f"银:{c.silver}，"
+                msg += f"铜:{c.bronze}，"
                 msg += "\n"
 
         msg += "```"

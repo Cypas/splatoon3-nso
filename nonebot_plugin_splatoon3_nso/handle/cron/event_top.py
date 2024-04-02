@@ -7,18 +7,19 @@ from ...data.data_source import model_delete_top_all, model_add_top_all, \
     model_get_newest_user, dict_get_or_set_user_info, model_get_top_all_count_by_top_type
 from ...s3s.splatoon import Splatoon
 from .utils import cron_logger
+from ...utils import convert_td
 
 
 async def get_event_top():
     """获取活动排行榜人员"""
     cron_msg = f"get_event_top start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
-    t = datetime.datetime.utcnow()
+    await cron_notify_to_channel("get_event_top", "start")
+    t = dt.utcnow()
 
     db_user = model_get_newest_user()
     if not db_user:
-        cron_logger.info(f'no user login.')
+        cron_logger.info(f"no user login.")
         return
     user = dict_get_or_set_user_info(db_user.platform, db_user.user_id)
     splatoon = Splatoon(None, None, user)
@@ -30,10 +31,11 @@ async def get_event_top():
     finally:
         # 关闭连接池
         await splatoon.req_client.close()
-
-    cron_msg = f"get_event_top end. {datetime.datetime.utcnow() - t}"
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
+    cron_msg = f"get_event_top end {str_time}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("get_event_top", "end", f"耗时:{str_time}")
 
 
 async def get_event_top_player_task(splatoon):
@@ -54,7 +56,7 @@ async def get_event_top_player_task(splatoon):
                 cron_logger.info(f'top_all.type search {search_type}, {count or 0}')
                 if count:
                     continue
-                res = await splatoon.get_event_items(top_id)
+                res = await splatoon.get_event_items(top_id, multiple=True)
                 parse_league(res)
 
 

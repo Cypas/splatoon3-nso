@@ -1,9 +1,6 @@
-import json
+from nonebot.adapters.qq.models import MessageKeyboard, MessageMarkdown
 
-from nonebot.adapters.qq.message import Keyboard
-from nonebot.adapters.qq.models import MessageKeyboard, InlineKeyboard, InlineKeyboardRow, Button, RenderData, \
-    MessageMarkdown
-
+from ..config import plugin_config
 from ..utils.bot import *
 
 
@@ -23,7 +20,8 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     button_cmd3 = "/last c"
 
     # 如果kv值为空，那只能不传，空值似乎最多只允许一个
-    md = MessageMarkdown.parse_obj({
+
+    md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
         "params": [{"key": "at_user_id", "values": [f"<@{user_id}>"]},
                    {"key": "text_start", "values": [f"{text_start}"]},
@@ -33,7 +31,7 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     })
 
     # 完整kv对
-    # md = MessageMarkdown.parse_obj({
+    # md = MessageMarkdown.model_validate({
     #     "custom_template_id": f"{template_id}",
     #     "params": [{"key": "at_user_id", "values": [f"<@{user_id}>"]},
     #                {"key": "text_start", "values": [f"{text_start}"]},
@@ -43,77 +41,24 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     #                ]
     # })
 
-    keyboard = MessageKeyboard.parse_obj({
-        "content": {
-            "rows": [{"buttons": [
-                {
-                    "id": "1",
-                    "render_data": {
-                        "label": f"{button_show}",
-                        "visited_label": f"{button_show}",
-                        "style": 0
-                    },
-                    "action": {
-                        "type": 2,
-                        "permission": {
-                            "type": 2,
-                        },
-                        "unsupport_tips": "客户端不支持",
-                        "data": f"{button_cmd}",
-                    }
-                }
-
-            ]},
-                {"buttons": [
-                    {
-                        "id": "1",
-                        "render_data": {
-                            "label": f"{button_show2}",
-                            "visited_label": f"{button_show2}",
-                            "style": 0
-                        },
-                        "action": {
-                            "type": 2,
-                            "permission": {
-                                "type": 2,
-                            },
-                            "unsupport_tips": "客户端不支持",
-                            "data": f"{button_cmd2}",
-                        }
-                    },
-                    {
-                        "id": "1",
-                        "render_data": {
-                            "label": f"{button_show3}",
-                            "visited_label": f"{button_show3}",
-                            "style": 0
-                        },
-                        "action": {
-                            "type": 2,
-                            "permission": {
-                                "type": 2,
-                            },
-                            "unsupport_tips": "客户端不支持",
-                            "data": f"{button_cmd3}",
-                        }
-                    }
-
-                ]}
-            ]
-        }
+    keyboard = MessageKeyboard.model_validate({
+        "id": "102083290_1707209565"
     })
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
     return qq_msg
 
 
-def login_md(user_id) -> QQ_Msg:
+def login_md(user_id, check_session=False) -> QQ_Msg:
     template_id = "102083290_1705923685"
-    data1 = "Q群当前无法登录nso，请至其他平台完成登录后获取绑定码"
-    data2 = "Kook服务器id：85644423"
+    data1 = ""
+    if check_session:
+        data1 += "nso未登录，无法使用相关查询，"
+    data1 += "QQ平台当前无法完成登录流程，请至其他平台完成登录后使用 /getlc 命令获取绑定码"
+    data2 = f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
     button_show = "kook服务器"
     kook_jump_link = "https://www.kookapp.cn/app/invite/mkjIOn"
 
-    md = MessageMarkdown.parse_obj({
+    md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
         "params": [{"key": "title", "values": [f"<@{user_id}>"]},
                    {"key": "data1", "values": [f"{data1}"]},
@@ -121,7 +66,7 @@ def login_md(user_id) -> QQ_Msg:
                    ]
     })
 
-    keyboard = MessageKeyboard.parse_obj({
+    keyboard = MessageKeyboard.model_validate({
         "content": {
             "rows": [{"buttons": [
                 {

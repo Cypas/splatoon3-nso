@@ -127,3 +127,19 @@ def utc_str_to_china_str(time_str: str) -> str:
     """
     china_time = get_time_now_china_str(time_converter(time_str))
     return china_time
+
+
+def convert_td(td: timedelta) -> str:
+    """timedelta类型数据格式化为字符串"""
+    # 通过 timedelta类型 取秒
+    seconds = td.seconds
+    # 时
+    RemainingSec = seconds % (24 * 3600)
+    hours = RemainingSec // 3600
+    # 分
+    RemainingSec = RemainingSec % 3600
+    minutes = RemainingSec // 60
+    # 秒
+    seconds = RemainingSec % 60
+    str_time = f"{minutes:02}m:{seconds:02}s"
+    return str_time

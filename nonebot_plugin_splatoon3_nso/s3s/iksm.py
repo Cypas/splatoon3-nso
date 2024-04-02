@@ -1,29 +1,35 @@
 # (ↄ) 2017-2022 eli fessler (frozenpandaman), clovervidia
 # https://github.com/frozenpandaman/s3s
 # License: GPLv3
+import base64
+import hashlib
+import json
+import os
+import re
+import sys
+import urllib
+
 import httpx
-import requests
-import base64, hashlib, json, os, re, sys
 from bs4 import BeautifulSoup
-from nonebot import logger
+from nonebot import logger as nb_logger
 
-from ..utils import BOT_VERSION, get_or_init_client, AsHttpReq, HttpReq, ReqClient
-from .utils import SPLATNET3_URL, GRAPHQL_URL
+from .utils import SPLATNET3_URL
+from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 
-A_VERSION = '0.6.0'  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
+A_VERSION = "0.6.3"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
 NSOAPP_VERSION = "unknown"
-NSOAPP_VER_FALLBACK = "2.8.1"  # fallback
+NSOAPP_VER_FALLBACK = "2.9.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
-WEB_VIEW_VER_FALLBACK = "6.0.0-1249ecb9"  # fallback
+WEB_VIEW_VER_FALLBACK = "6.0.0-eb33aadc"  # fallback
 
-F_GEN_URL = 'https://api.imink.app/f'
-F_GEN_URL_2 = 'https://nxapi-znca-api.fancy.org.uk/api/znca/f'
+F_GEN_URL = "https://api.imink.app/f"
+F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 
-F_USER_AGENT = f'nonebot_plugin_splatoon3_nso/{BOT_VERSION}'
-APP_USER_AGENT = 'Mozilla/5.0 (Linux; Android 11; Pixel 5) ' \
-                 'AppleWebKit/537.36 (KHTML, like Gecko) ' \
-                 'Chrome/94.0.4606.61 Mobile Safari/537.36'
+F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
+APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
+                 "AppleWebKit/537.36 (KHTML, like Gecko) " \
+                 "Chrome/120.0.6099.230 Mobile Safari/537.36"
 
 
 class S3S:
@@ -31,9 +37,12 @@ class S3S:
         self.req_client: ReqClient = get_or_init_client(platform, user_id, _type)
         self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
         self.user_nickname = ""
-        self.user_lang = 'zh-CN'
-        self.user_country = 'JP'
+        self.user_lang = "zh-CN"
+        self.user_country = "JP"
         self.f_gen_url = F_GEN_URL
+        self.logger = nb_logger
+        if _type == "cron":
+            self.logger = nb_logger.bind(cron=True)
 
     @staticmethod
     def get_nsoapp_version(f_gen_url=None):
@@ -46,7 +55,7 @@ class S3S:
         else:
             try:  # try to get NSO version from f API
                 f_conf_url = os.path.dirname(f_gen_url) + "/config"  # default endpoint for imink API
-                f_conf_header = {'User-Agent': F_USER_AGENT}
+                f_conf_header = {"User-Agent": F_USER_AGENT}
                 f_conf_rsp = HttpReq.get(f_conf_url, headers=f_conf_header)
                 f_conf_json = json.loads(f_conf_rsp.text)
                 ver = f_conf_json["nso_version"]
@@ -99,7 +108,7 @@ class S3S:
 
             try:
                 home = HttpReq.get(SPLATNET3_URL, headers=app_head, cookies=app_cookies)
-            except httpx.ConnectError:
+            except (httpx.ConnectError, httpx.ConnectTimeout):
                 return WEB_VIEW_VER_FALLBACK
 
             if home.status_code != 200:
@@ -142,14 +151,14 @@ class S3S:
 
             return WEB_VIEW_VERSION
 
-    async def log_in(self):
+    async def login_in(self):
         """登录步骤第一步
         Logs in to a Nintendo Account and returns a session_token."""
 
         auth_state = base64.urlsafe_b64encode(os.urandom(36))
         auth_code_verifier = base64.urlsafe_b64encode(os.urandom(32))
         auth_cv_hash = hashlib.sha256()
-        auth_cv_hash.update(auth_code_verifier.replace(b"=", b""))
+        auth_cv_hash.update(auth_code_verifier.replace(b'=', b''))
         auth_code_challenge = base64.urlsafe_b64encode(auth_cv_hash.digest())
 
         app_head = {
@@ -169,22 +178,14 @@ class S3S:
             'client_id': '71b963c1b7b6d119',
             'scope': 'openid user user.birthday user.mii user.screenName',
             'response_type': 'session_token_code',
-            'session_token_code_challenge': auth_code_challenge.replace(b"=", b"").decode('utf-8'),
+            'session_token_code_challenge': auth_code_challenge.replace(b'=', b'').decode('utf-8'),
             'session_token_code_challenge_method': 'S256',
             'theme': 'login_form'
         }
 
-        url = "https://accounts.nintendo.com/connect/1.0.0/authorize"
+        url = f"https://accounts.nintendo.com/connect/1.0.0/authorize?{urllib.parse.urlencode(body)}"
+        post_login = url
 
-        # follow_redirects 参数 允许重定向，在request中默认是开启的，httpx默认关闭，需要主动开启
-        r = await self.req_client.get(url, headers=app_head, params=body, follow_redirects=True)
-        post_login = r.history[0].url
-
-        print(
-            "\nMake sure you have fully read the \"Token generation\" section of the readme before proceeding. To manually input a token instead, enter \"skip\" at the prompt below.")
-        print("\nNavigate to this URL in your browser:")
-        print(post_login)
-        print("Log in, right click the \"Select this account\" button, copy the link address, and paste it below:")
         return post_login, auth_code_verifier
 
     async def login_in_2(self, use_account_url, auth_code_verifier):
@@ -193,8 +194,8 @@ class S3S:
             try:
                 if use_account_url == "skip":
                     return "skip"
-                session_token_code = re.search('de=(.*)&', use_account_url)
-                session_token = await self.get_session_token(session_token_code.group(1), auth_code_verifier)
+                session_token_code = re.search('de=(.*)&st', use_account_url).group(1)
+                session_token = await self.get_session_token(session_token_code, auth_code_verifier)
                 return session_token
             except KeyboardInterrupt:
                 print("\nBye!")
@@ -208,7 +209,7 @@ class S3S:
                 return "skip"
             except Exception as ex:
                 print(f'ex: {ex}')
-                return 'skip'
+                return "skip"
 
     async def get_session_token(self, session_token_code, auth_code_verifier):
         """Helper function for log_in_2()."""
@@ -229,7 +230,7 @@ class S3S:
         body = {
             'client_id': '71b963c1b7b6d119',
             'session_token_code': session_token_code,
-            'session_token_code_verifier': auth_code_verifier.replace(b"=", b"").decode('utf-8')
+            'session_token_code_verifier': auth_code_verifier.replace(b'=', b'').decode('utf-8')
         }
 
         url = 'https://accounts.nintendo.com/connect/1.0.0/api/session_token'
@@ -247,7 +248,7 @@ class S3S:
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Connection': 'Keep-Alive',
-            'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 7.1.2)'
+            'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 14; Pixel 7a Build/UQ1A.240105.004)'
         }
         body = {
             'client_id': '71b963c1b7b6d119',
@@ -258,15 +259,17 @@ class S3S:
         try:
             r = await self.req_client.post(url, headers=app_head, json=body)
             id_response = json.loads(r.text)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
-            raise ValueError('NetConnectError')
+        except httpx.ConnectError:
+            raise ValueError("NetConnectError")
+        except httpx.ConnectTimeout:
+            raise ValueError("NetConnectTimeout")
         except json.JSONDecodeError as e:
-            raise ValueError('JSONDecodeError')
+            raise ValueError("JSONDecodeError")
         except Exception as e:
             raise e
 
         if id_response.get('error') == 'invalid_grant':
-            raise ValueError('invalid_grant')
+            raise ValueError("invalid_grant")
         id_access_token = id_response.get("access_token")
         id_token = id_response.get("id_token")
         if not id_access_token:
@@ -286,8 +289,10 @@ class S3S:
         url = "https://api.accounts.nintendo.com/2.0.0/users/me"
         try:
             r = await self.req_client.get(url, headers=app_head)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
-            raise ValueError('NetConnectError')
+        except httpx.ConnectError:
+            raise ValueError("NetConnectError")
+        except httpx.ConnectTimeout:
+            raise ValueError("NetConnectTimeout")
         except Exception as e:
             raise e
         user_info = json.loads(r.text)
@@ -304,9 +309,9 @@ class S3S:
         birthday = user_info["birthday"]
 
         try:
-            f, uuid, timestamp = await self.call_f_api(id_token, 1, self.f_gen_url, self.r_user_id)
+            f, uuid, timestamp = await self.f_api(id_token, 1, self.f_gen_url, self.r_user_id)
         except Exception as e:
-            raise ValueError(str(e))
+            raise e
 
         parameter = {
             'f': f,
@@ -325,17 +330,19 @@ class S3S:
             'Content-Type': 'application/json; charset=utf-8',
             'Connection': 'Keep-Alive',
             'Accept-Encoding': 'gzip',
-            'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/7.1.2)',
+            'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/14)',
         }
 
         url = "https://api-lp1.znc.srv.nintendo.net/v3/Account/Login"
         try:
             r = await self.req_client.post(url, headers=app_head, json=body)
             splatoon_token = json.loads(r.text)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
-            raise ValueError('NetConnectError')
+        except httpx.ConnectError:
+            raise ValueError("NetConnectError")
+        except httpx.ConnectTimeout:
+            raise ValueError("NetConnectTimeout")
         except json.JSONDecodeError as e:
-            raise ValueError('JSONDecodeError')
+            raise ValueError("JSONDecodeError")
         except Exception as e:
             raise e
 
@@ -349,7 +356,7 @@ class S3S:
         except:
             # retry once if 9403/9599 error from nintendo
             try:
-                f, uuid, timestamp = await self.call_f_api(id_token, 1, self.f_gen_url, self.r_user_id)
+                f, uuid, timestamp = await self.f_api(id_token, 1, self.f_gen_url, self.r_user_id)
                 body["parameter"]["f"] = f
                 body["parameter"]["requestId"] = uuid
                 body["parameter"]["timestamp"] = timestamp
@@ -361,12 +368,14 @@ class S3S:
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
                 coral_user_id = splatoon_token["result"]["user"]["id"]
             except json.JSONDecodeError as e:
-                raise ValueError('JSONDecodeError')
+                raise ValueError("JSONDecodeError")
             except Exception:
                 raise ValueError(f"resp error:{json.dumps(splatoon_token)}")
-
-            f, uuid, timestamp = await self.call_f_api(access_token, 2, self.f_gen_url, self.r_user_id,
-                                                       coral_user_id=coral_user_id)
+            try:
+                f, uuid, timestamp = await self.f_api(access_token, 2, self.f_gen_url, self.r_user_id,
+                                                      coral_user_id=coral_user_id)
+            except Exception as e:
+                raise e
 
         return access_token, f, uuid, timestamp, coral_user_id
 
@@ -380,7 +389,7 @@ class S3S:
             'Authorization': f'Bearer {access_token}',
             'Content-Type': 'application/json; charset=utf-8',
             'Accept-Encoding': 'gzip',
-            'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/7.1.2)'
+            'User-Agent': f'com.nintendo.znca/{nsoapp_version}(Android/14)'
         }
         parameter = {
             'f': f,
@@ -394,10 +403,12 @@ class S3S:
         try:
             r = await self.req_client.post(url, headers=app_head, json=body)
             web_service_resp = json.loads(r.text)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
-            raise ValueError('NetConnectError')
+        except httpx.ConnectError:
+            raise ValueError("NetConnectError")
+        except httpx.ConnectTimeout:
+            raise ValueError("NetConnectTimeout")
         except json.JSONDecodeError as e:
-            raise ValueError('JSONDecodeError')
+            raise ValueError("JSONDecodeError")
         except Exception as e:
             raise e
 
@@ -405,9 +416,10 @@ class S3S:
             web_service_token = web_service_resp["result"]["accessToken"]
         except:
             # retry once if code 9403/9599 error from nintendo
+            self.logger.warning(f"retry once if code 9403/9599 error from nintendo")
             try:
-                f, uuid, timestamp = await self.call_f_api(access_token, 2, self.f_gen_url, self.r_user_id,
-                                                           coral_user_id=coral_user_id)
+                f, uuid, timestamp = await self.f_api(access_token, 2, self.f_gen_url, self.r_user_id,
+                                                      coral_user_id=coral_user_id)
                 body["parameter"]["f"] = f
                 body["parameter"]["requestId"] = uuid
                 body["parameter"]["timestamp"] = timestamp
@@ -416,9 +428,9 @@ class S3S:
                 web_service_resp = json.loads(r.text)
                 web_service_token = web_service_resp["result"]["accessToken"]
             except:
-                logger.warning(json.dumps(web_service_resp))
+                self.logger.warning(f"f_api retry error:resp:{json.dumps(web_service_resp)}")
                 if web_service_resp.get('errorMessage') == 'Membership required error.':
-                    raise ValueError(f'Membership required error.')
+                    raise ValueError(f"Membership required error.|{self.user_nickname}")
                 return
 
         # web_service_token 有效期为10800秒 3h
@@ -432,7 +444,7 @@ class S3S:
             if not user_info or not id_token:
                 raise ValueError(f"no id_token or user_info")
         except Exception as e:
-            logger.warning(f"get_id_token_and_user_info error:{e}")
+            self.logger.warning(f"get_id_token_and_user_info error:{e}")
             raise e
 
         try:
@@ -442,14 +454,14 @@ class S3S:
             if not f:
                 raise ValueError(f"no f")
         except Exception as e:
-            logger.warning(f"get_access_token error:{e}")
+            self.logger.warning(f"get_access_token error:{e}")
             raise e
         try:
             g_token = await self._get_g_token(access_token, f, uuid, timestamp, coral_user_id)
             if not g_token:
                 raise ValueError(f"no g_token")
         except Exception as e:
-            logger.warning(f"get_g_token error:{e}")
+            self.logger.warning(f"get_g_token error:{e}")
             raise e
 
         return access_token, g_token, self.user_nickname, self.user_lang, self.user_country
@@ -481,14 +493,52 @@ class S3S:
             bullet_token = r_json['bulletToken']
             return bullet_token
         except json.JSONDecodeError as e:
-            logger.exception(f'{user_id} get_bullet error. {r.status_code}')
+            self.logger.exception(f'{user_id} get_bullet error. {r.status_code}')
             if r.status_code == 401:
-                logger.exception("Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
+                self.logger.exception(
+                    "Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
             elif r.status_code == 403:
-                logger.exception("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
+                self.logger.exception("Forbidden error (ERROR_OBSOLETE_VERSION). Cannot fetch tokens at this time.")
             elif r.status_code == 204:  # No Content, USER_NOT_REGISTERED
-                logger.exception("Cannot access SplatNet 3 without having played online.")
-            raise Exception(f'{user_id} get_bullet error. {r.status_code}')
+                self.logger.exception("Cannot access SplatNet 3 without having played online.")
+            elif r.status_code == 499:  # 鱿鱼圈封禁
+                self.logger.exception(f"{user_id} has be banned")
+                raise Exception(f"{user_id} has be banned")
+            raise Exception(f"{user_id} get_bullet error. {r.status_code}")
+
+    async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
+        res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
+                                    coral_user_id=coral_user_id)
+        if isinstance(res, tuple):
+            # 解析tuple
+            f, uuid, timestamp = res
+            return f, uuid, timestamp
+        else:
+            if self.f_gen_url == F_GEN_URL:
+                if not res:
+                    # 无响应结果
+                    self.logger.warning(f"F_GEN_URL no res，try F_GEN_URL_2 again")
+                elif isinstance(res, str):
+                    # 错误信息
+                    # 改为f_url_2并重新请求一次
+                    if "NetConnectError" in res:
+                        self.logger.warning(f"F_GEN_URL ConnectError，try F_GEN_URL_2 again")
+                    elif "NetConnectTimeout" in res:
+                        self.logger.warning(f"F_GEN_URL ConnectTimeout，try F_GEN_URL_2 again")
+                    else:
+                        self.logger.warning(f"F_GEN_URL res Error，try F_GEN_URL_2 again, Error:{res}")
+                self.f_gen_url = F_GEN_URL_2
+                res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id,
+                                            coral_user_id=coral_user_id)
+                if isinstance(res, tuple):
+                    # 解析tuple
+                    f, uuid, timestamp = res
+                    return f, uuid, timestamp
+                else:
+                    self.logger.warning(f"F_GEN_URL2 Error: {res}")
+                    return None
+            else:
+                return None
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         """Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp)."""
@@ -509,29 +559,42 @@ class S3S:
                 'na_id': r_user_id
             }
             if step == 2 and coral_user_id is not None:
-                api_body["coral_user_id"] = coral_user_id
+                api_body["coral_user_id"] = str(coral_user_id)
 
             api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
             resp = json.loads(api_response.text)
-
-            logger.debug(f"get f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
+            self.logger.debug(f"get f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
             f = resp["f"]
             uuid = resp["request_id"]
             timestamp = resp["timestamp"]
             return f, uuid, timestamp
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            if isinstance(e, httpx.ConnectError):
+                return "NetConnectError"
+            elif isinstance(e, httpx.ConnectTimeout):
+                return "NetConnectTimeout"
+
         except Exception as e:
             try:  # if api_response never gets set
-                logger.warning(
-                    f"Error during f generation: \n{f_gen_url}\nbody:{json.dumps(api_body)}")
                 if api_response and api_response.text:
-                    logger.error(
-                        f"Error during f generation:\n{json.dumps(json.loads(api_response.text), ensure_ascii=False)}")
+                    self.logger.warning(
+                        f"Error during f generation: {f_gen_url}\nres:{api_response.text}")
                 else:
-                    logger.error(f"Error during f generation: Error {api_response.status_code}.")
-                raise ValueError(f"resp error:{json.dumps(api_response)}")
-            except:
-                logger.error(f"Couldn't connect to f generation API ({f_gen_url}). Please try again later.")
-                raise ValueError('NetConnectError')
+                    self.logger.warning(
+                        f"Error during f generation: \n{f_gen_url}  status_code:{api_response.status_code}")
+                return f"resp error:{api_response.text}"
+            except Exception as e:
+                self.logger.error(f"Error during f generation: Error {e}.")
+                # 一般是status_code都获取不到
+                return None
+
+
+def init_global_nso_version_and_web_view_version():
+    """全局变量NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空"""
+    global NSOAPP_VERSION
+    global WEB_VIEW_VERSION
+    NSOAPP_VERSION = "unknown"
+    WEB_VIEW_VERSION = "unknown"
 
 
 if __name__ == "__main__":

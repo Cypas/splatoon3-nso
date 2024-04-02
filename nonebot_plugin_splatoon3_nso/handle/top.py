@@ -3,7 +3,7 @@ from datetime import datetime as dt, timedelta
 from .last import get_last_battle_or_coop
 from .send_msg import bot_send
 from .utils import _check_session_handler
-from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_newest_user, model_get_all_top_all
+from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_all_top_all
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id, utc_str_to_china_str
 from ..utils.bot import *
@@ -16,7 +16,7 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
     """top查询"""
     cmd_message = args.extract_plain_text().strip()
     logger.debug(f'top: {cmd_message}')
-    battle = None
+    battle_idx = None
     player_idx = None
     get_all = False
     if cmd_message:
@@ -26,62 +26,67 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
             if not cmd:
                 continue
             if cmd.isdigit():
-                battle = int(cmd)
+                battle_idx = int(cmd)
             else:
                 player_idx = cmd.lower()
             if cmd == 'last' or cmd == 'all':
                 get_all = True
 
-    if battle:
-        battle = max(1, battle)
-        battle = min(50, battle)
+    if battle_idx:
+        battle_idx = max(1, battle_idx)
+        battle_idx = min(50, battle_idx)
     if player_idx:
         if len(player_idx) != 1 or player_idx not in 'abcdefgh':
             player_idx = 1
         else:
             player_idx = ord(player_idx) - ord('a') + 1
 
-    if battle and not player_idx:
+    if battle_idx and not player_idx:
         player_idx = 1
-    if player_idx and not battle:
-        battle = 1
+    if player_idx and not battle_idx:
+        battle_idx = 1
 
     if get_all:
         # -1代表获取全部成员
-        player_idx = '-1'
+        player_idx = "-1"
 
     _msg = ""
     if not cmd_message:
         _msg += "未查询到自己的任何上榜数据"
-        _msg += "\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中查询数据，若以上榜单都未上榜，则查不到数据，/top命令具体参数可查看/nso帮助"
+        _msg += "\n/top未添加任何参数时，默认会查询自己在x赛500强，任意活动前100，任意祭典百杰 中上榜过的数据\n若以上榜单都未上榜，则查不到数据\n/top命令具体参数可查看/nso帮助"
     else:
         _msg = ''
 
-    photo = await get_top(bot, event, battle=battle, player_idx=player_idx)
-    if photo:
-        if not photo.startswith('###'):
-            _msg += f'该条件下未查询到成员{photo}上榜数据'
+    top_md = await get_top(bot, event, battle_idx=battle_idx, player_idx=player_idx)
+    if top_md:
+        if not top_md.startswith('####'):
+            # 未查询到数据，top_md值为player_name
+            _msg += f"未查询到玩家 {top_md} 上榜数据"
         else:
-            _msg = photo
+            _msg = top_md
+    elif player_idx == "-1":
+        # 全部玩家，且没有上榜数据
+        _msg += f"该局对战未查询到任何玩家上榜数据"
+
     await bot_send(bot, event, _msg)
 
 
-async def get_top(bot: Bot, event: Event, battle=None, player_idx=None):
+async def get_top(bot: Bot, event: Event, battle_idx=None, player_idx=None):
     player_name = ''
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
-    logger.info(f'get_top: {msg_id}, {battle}, {player_idx}')
+    logger.info(f'get_top: {msg_id}, {battle_idx}, {player_idx}')
 
     user = dict_get_or_set_user_info(platform, user_id)
     player_code = user.game_sp_id
-    if battle:
-        res = await get_last_battle_or_coop(bot, event, get_battle=True, idx=battle - 1, get_player_code_idx=player_idx)
+    if battle_idx:
+        res = await get_last_battle_or_coop(bot, event, get_battle=True, idx=battle_idx - 1, get_player_code_idx=player_idx)
         if isinstance(res, tuple):
             # 筛选单一玩家
             player_code, player_name = res
         else:
-            # last 全部玩家
+            # all 全部玩家
             p_lst = []
             _i = 96  # 97号为a，为top提供索引
             for p in res:
@@ -90,8 +95,9 @@ async def get_top(bot: Bot, event: Event, battle=None, player_idx=None):
                     p_lst.append(f"{p[0]}_{chr(_i)}")
             player_code = p_lst
 
-    photo = await get_top_md(player_code, player_name)
-    return photo or player_name
+    top_md = await get_top_md(player_code, player_name)
+    # 单一玩家且无记录时 返回player_name
+    return top_md or player_name
 
 
 async def get_top_md(player_code: str | list, player_name=""):
@@ -121,14 +127,14 @@ async def get_top_md(player_code: str | list, player_name=""):
     if not res:
         return
 
-# 6列
+    # 6列
     msg = f'''#### 全部排行榜数据 (玩家:{player_name}) HKT {dt.now():%Y-%m-%d %H:%M:%S}
 |||||||
 |---|---:|:---|---|---|---|
 |排行榜名称|排名|最高分|武器|玩家|时间|
 '''
 
-# 7列
+    # 7列
     if isinstance(player_code, list):
         msg = f'''#### 全部排行榜数据 HKT {dt.now():%Y-%m-%d %H:%M:%S}
 ||||||||
@@ -139,6 +145,11 @@ async def get_top_md(player_code: str | list, player_name=""):
     p_code = ''
     if res:
         p_code = res[0].player_code
+
+    max_power = 0
+    if isinstance(player_code, str) and len(res) > 1:
+        max_power = max([i.power for i in res])
+
     for i in res:
         t_type = i.top_type
         if 'LeagueMatchRankingTeam' in t_type:
@@ -161,7 +172,12 @@ async def get_top_md(player_code: str | list, player_name=""):
             msg += f'||\n'
             p_code = i.player_code
         if isinstance(player_code, str):
-            msg += f'{t_type}|{i.rank}|{i.power}|{str_w}|{i.player_name}|{_t}\n'
+            if max_power and max_power == i.power:
+                msg += (f'<span style="color:red">{t_type}</span>|'
+                        f'<span style="color:red">{i.rank}</span>|'
+                        f'<span style="color:red">{i.power}</span>|{str_w}|{i.player_name}|{_t}\n')
+            else:
+                msg += f'{t_type}|{i.rank}|{i.power}|{str_w}|{i.player_name}|{_t}\n'
         else:
             msg += f'{t_type}|{i.rank}|{i.power}|{str_w}|{i.player_name}|{dict_p[i.player_code]}|{_t}\n'
 
@@ -202,11 +218,11 @@ async def get_x_top_md(splatoon):
     """获取x排行榜md"""
     try:
         jp_res = await splatoon.get_x_ranking('PACIFIC')  # 日服 暇古
-        us_res = await splatoon.get_x_ranking('ATLANTIC', try_again=True)  # 美服 艾洛眼
+        us_res = await splatoon.get_x_ranking('ATLANTIC', multiple=True)  # 美服 艾洛眼
     except ValueError:
-        return '网络错误，请稍后再试...'
+        return "bot网络错误，请稍后再试"
     except Exception as e:
-        return 'No X found!'
+        return "No X found!"
 
     jp_x = jp_res['data']['xRanking']['currentSeason']
     jp_time = jp_x['lastUpdateTime']

@@ -9,18 +9,19 @@ from ...data.data_source import model_delete_top_player, model_delete_top_all, m
     model_get_newest_user, dict_get_or_set_user_info
 from ...s3s.splatoon import Splatoon
 from .utils import cron_logger
+from ...utils import convert_td
 
 
 async def get_x_player():
     """获取x赛数据"""
     cron_msg = f"get_x_player start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("get_x_player", "start")
     t = datetime.datetime.utcnow()
 
     db_user = model_get_newest_user()
     if not db_user:
-        cron_logger.info(f'no user login.')
+        cron_logger.info(f"no user login.")
         return
     user = dict_get_or_set_user_info(db_user.platform, db_user.user_id)
     splatoon = Splatoon(None, None, user)
@@ -30,15 +31,24 @@ async def get_x_player():
     # for top_id in ('WFJhbmtpbmdTZWFzb24tcDoz', 'WFJhbmtpbmdTZWFzb24tYToz'):  #season-3
     # for top_id in ('WFJhbmtpbmdTZWFzb24tcDo0', 'WFJhbmtpbmdTZWFzb24tYTo0'):  #season-4
     # for top_id in ('WFJhbmtpbmdTZWFzb24tcDo1', 'WFJhbmtpbmdTZWFzb24tYTo1'):  #season-5
-    for top_id in ('WFJhbmtpbmdTZWFzb24tcDo2', 'WFJhbmtpbmdTZWFzb24tYTo2'):  # season-6
+    #for top_id in ('WFJhbmtpbmdTZWFzb24tcDo2', 'WFJhbmtpbmdTZWFzb24tYTo2'):  # season-6
+
+    d1 = dt.utcnow()
+    d2 = dt(2022, 3, 1)
+    diff_month = (d1.year - d2.year) * 12 + d1.month - d2.month
+    _season = diff_month // 3 - 1
+    cron_logger.info(f'_season: {_season}')
+    _lst = [f'XRankingSeason-p:{_season}', f'XRankingSeason-a:{_season}']
+    for top_id in [base64.b64encode(s.encode()).decode('utf-8') for s in _lst]:
         await parse_x_data(top_id, splatoon)
 
     # 关闭连接池
     await splatoon.req_client.close()
-
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
     cron_msg = f"get_x_player end. {datetime.datetime.utcnow() - t}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("get_x_player", "end", f"耗时:{str_time}")
 
 
 async def parse_x_data(top_id, splatoon):

@@ -2,9 +2,11 @@
 # https://github.com/frozenpandaman/s3s
 # License: GPLv3
 
-import base64, datetime, json, re, sys, uuid
-import requests
-from bs4 import BeautifulSoup
+import base64
+import datetime
+import json
+import sys
+import uuid
 
 SPLATNET3_URL = "https://api.lp1.av5ja.srv.nintendo.net"
 GRAPHQL_URL = SPLATNET3_URL + "/api/graphql"
@@ -92,8 +94,8 @@ def epoch_time(time_string):
     """Converts a playedTime string into an integer representing the epoch time."""
 
     utc_time = datetime.datetime.strptime(time_string, "%Y-%m-%dT%H:%M:%SZ")
-    epoch_time = int((utc_time - datetime.datetime(1970, 1, 1)).total_seconds())
-    return epoch_time
+    _epoch_time = int((utc_time - datetime.datetime(1970, 1, 1)).total_seconds())
+    return _epoch_time
 
 
 def gen_graphql_body(sha256hash, varname=None, varvalue=None):

@@ -2,11 +2,12 @@ from nonebot import logger
 from playwright.async_api import async_playwright, Browser, BrowserContext, ViewportSize
 
 from .utils import SPLATNET3_URL
+from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
-from ..utils import proxies, get_msg_id
+from ..utils import global_proxies, get_msg_id
 
-global_browser = None
-global_dict_context = {}
+global_browser: Browser = None
+global_dict_ss_user: dict = {}
 
 
 async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=False):
@@ -37,7 +38,14 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
     viewport = ViewportSize({"width": 500, "height": height})
 
     # 取上下文对象
-    context = await init_or_get_context(msg_id, cookies, _type=_type, viewport=viewport)
+    context = await init_context(cookies=cookies, viewport=viewport)
+    # 置一个功能使用次数的计数字典
+    ss_user = global_dict_ss_user.get(msg_id)
+    if ss_user:
+        # ss计数+1
+        global_dict_ss_user.update({msg_id: ss_user + 1})
+    else:
+        global_dict_ss_user.update({msg_id: 1})
     page = await context.new_page()
 
     if url:
@@ -55,33 +63,11 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
         # 先进入首页(对于请求来说没必要模拟这一步)
         # await page.goto(f"{SPLATNET3_URL}/?lang=zh-CN")
         # await page.wait_for_timeout(1000)
-        trans = {
-            '个人穿搭': 'my_outfits',
-            '好友': 'friends',
-            '最近': 'history/latest',
-            '涂地': 'history/regular',
-            '蛮颓': 'history/bankara',
-            'X赛': 'history/xmatch',
-            'x赛': 'history/xmatch',
-            'X': 'history/xmatch',
-            'x': 'history/xmatch',
-            '活动': 'history/event',
-            '私房': 'history/private',
-            '武器': 'weapon_record',
-            '徽章': 'history_record/badge',
-            '打工记录': 'coop_record/play_record',
-            '打工': 'coop',
-            '鲑鱼跑': 'coop',
-            '击倒数量': 'coop_record/enemies',
-            '祭典': 'fest_record',
-            '英雄模式': 'hero_record',
-            '英雄': 'hero_record',
-            '地图': 'stage_record',
-        }
-        # 未匹配，默认地址
-        url = f"{SPLATNET3_URL}/history/latest"
 
-        for k, v in trans.items():
+        # 未匹配，默认地址
+        # url = f"{SPLATNET3_URL}/history/latest"
+
+        for k, v in ss_url_trans.items():
             if k in key:
                 url = f"{SPLATNET3_URL}/{v}"
                 break
@@ -90,6 +76,11 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             url = f"{SPLATNET3_URL}/fest_record"
 
         await page.goto(f"{url}?lang=zh-CN")
+    if "武器" in key or "徽章" in key:
+        # 武器页面等待更长时间
+        await page.wait_for_timeout(7000)
+    else:
+        await page.wait_for_timeout(5000)
 
     if "问卷" in key or "投票" in key:
         k = "问卷实施中"
@@ -98,25 +89,55 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             raise ValueError("text not found")
         else:
             await locator.nth(0).click()
+            await page.wait_for_timeout(4000)
 
-    await page.wait_for_timeout(6000)
     img_raw = await page.screenshot(full_page=True)
-    await page.close()
-
+    # 关闭上下文
+    await context.close()
     return img_raw
+
+
+ss_url_trans = {
+    '个人穿搭': 'my_outfits',
+    '好友': 'friends',
+    '最近': 'history/latest',
+    '涂地': 'history/regular',
+    '蛮颓': 'history/bankara',
+    'X赛': 'history/xmatch',
+    'x赛': 'history/xmatch',
+    'X': 'history/xmatch',
+    'x': 'history/xmatch',
+    '活动': 'history/event',
+    '私房': 'history/private',
+    '武器': 'weapon_record',
+    '徽章': 'history_record/badge',
+    '打工记录': 'coop_record/play_record',
+    '打工': 'coop',
+    '鲑鱼跑': 'coop',
+    '击倒数量': 'coop_record/enemies',
+    '祭典': 'fest_record',
+    '英雄模式': 'hero_record',
+    '英雄': 'hero_record',
+    '地图': 'stage_record',
+}
 
 
 async def init_browser() -> Browser:
     """初始化 browser 并唤起"""
     global global_browser
     p = await async_playwright().start()
+    proxy = None
     # 代理
-    if proxies:
-        proxy = {"server": proxies}
-        # 代理访问
-        global_browser = await p.chromium.launch(proxy=proxy)
-    else:
-        global_browser = await p.chromium.launch()
+    if global_proxies:
+        if plugin_config.splatoon3_proxy_list_mode:
+            # bypass 忽略部分域名
+            proxy = {"server": global_proxies,
+                     "bypass": "api.lp1.av5ja.srv.nintendo.net"}
+            global_browser = await p.chromium.launch(proxy=proxy)
+        else:
+            # 全局代理访问
+            proxy = {"server": global_proxies}
+            global_browser = await p.chromium.launch(proxy=proxy)
     return global_browser
 
 
@@ -129,19 +150,10 @@ async def get_browser() -> Browser:
     return global_browser
 
 
-async def init_or_get_context(msg_id, cookies=None, _type: str = "",
-                              viewport: ViewportSize = None) -> BrowserContext:
-    """初始化或获取用户会话对应的 context"""
-    global global_dict_context
-    context_info = global_dict_context.get(msg_id)
-    if context_info and context_info.get(_type):
-        context = context_info.get(_type)
-        return context
-    else:
-        browser = await get_browser()
-        context = await browser.new_context(viewport=viewport)
-        if cookies:
-            await context.add_cookies(cookies)
-        context_info = {_type: context}
-        global_dict_context.update({msg_id: context_info})
-        return context
+async def init_context(cookies=None, viewport: ViewportSize = None) -> BrowserContext:
+    """初始化context"""
+    browser = await get_browser()
+    context = await browser.new_context(viewport=viewport)
+    if cookies:
+        await context.add_cookies(cookies)
+    return context

@@ -3,7 +3,7 @@ import datetime
 from typing import Type
 
 from nonebot import logger
-from sqlalchemy import and_
+from sqlalchemy import and_, text
 
 from .db_sqlite import *
 from .utils import model_get_or_set_temp_image, get_insert_or_update_obj, GlobalUserInfo
@@ -48,6 +48,8 @@ def dict_get_or_set_user_info(platform, user_id, _type="normal", **kwargs):
                 game_sp_id=user.game_sp_id,
                 push=0,
                 push_cnt=user.push_cnt or 0,
+                cmd_cnt=user.cmd_cnt or 0,
+                user_agreement=user.user_agreement or 0,
                 stat_key=user.stat_key,
                 ns_name=user.ns_name,
                 ns_friend_code=user.ns_friend_code,
@@ -84,8 +86,9 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
         # 根据game_sp_id去重全部users
         result = []
         for u in lst:
-            if u.game_sp_id and u.game_sp_id not in [r.game_sp_id for r in result]:
-                result.append(u)
+            if u.user_agreement == 1:
+                if u.game_sp_id and u.game_sp_id not in [r.game_sp_id for r in result]:
+                    result.append(u)
         return result
 
     users: list[GlobalUserInfo] = list(global_user_info_dict.values())
@@ -110,6 +113,18 @@ async def dict_clear_user_info_dict(_type: str) -> int:
     # 清空字典
     user_dict.clear()
     return count
+
+
+async def dict_clear_one_user_info_dict(platform, user_id):
+    """清空某一用户的字典和client对象"""
+    global global_user_info_dict
+    key = get_msg_id(platform, user_id)
+    # 删除缓存
+    if key in global_user_info_dict:
+        global_user_info_dict.pop(key)
+        # 关闭client
+        client = get_or_init_client(platform, user_id)
+        await client.close()
 
 
 async def model_get_temp_image_path(_type, name, link=None) -> str:
@@ -142,7 +157,7 @@ def model_clean_db_cache():
 
 def model_get_or_set_user(platform, user_id, **kwargs) -> UserTable:
     """获取或插入或更新user信息"""
-    logger.debug(f'get_or_set_user: {kwargs}')
+    logger.debug(f"get_or_set_user: {kwargs}")
     try:
         session = DBSession()
         filter_dict = {"platform": platform, "user_id": user_id}
@@ -157,7 +172,7 @@ def model_get_or_set_user(platform, user_id, **kwargs) -> UserTable:
         return user
 
     except Exception as e:
-        logger.error(f'model_get_or_set_user error: {e}')
+        logger.error(f"model_get_or_set_user error: {e}")
         return None
 
 
@@ -172,7 +187,7 @@ def model_delete_user(platform, user_id):
 def model_get_all_user() -> list[UserTable]:
     """获取全部session_token不为空用户"""
     session = DBSession()
-    users = session.query(UserTable).filter(UserTable.session_token.isnot(None)).all()
+    users = session.query(UserTable).filter(UserTable.session_token.isnot(None), UserTable.user_agreement == 1).all()
     session.close()
     return users
 
@@ -181,16 +196,21 @@ def model_get_all_stat_user() -> list[UserTable]:
     """获取全部session_token不为空,且stat key不为空用户"""
     session = DBSession()
     users = session.query(UserTable).filter(
-        and_(UserTable.session_token.isnot(None), UserTable.stat_key.isnot(None))).all()
+        and_(UserTable.session_token.isnot(None), UserTable.stat_key.isnot(None), UserTable.user_agreement == 1)).all()
     session.close()
     return users
 
 
-def model_get_another_account_user(platform, user_id, game_sp_id) -> list[Type[UserTable]]:
+def model_get_another_account_user(platform, user_id) -> list[Type[UserTable]]:
     """查找同game_sp_id的其他账号"""
     session = DBSession()
-    users = session.query(UserTable).filter(and_(and_(UserTable.platform != platform, UserTable.user_id != user_id),
-                                                 UserTable.game_sp_id == game_sp_id)).all()
+    # 查找账号id
+    subq = session.query(UserTable.id.label("sub_id"), UserTable.game_sp_id.label("sub_game_sp_id")).filter(
+        and_(UserTable.platform == platform, UserTable.user_id == user_id)).subquery()
+    # 查找sp_id但非本账号id
+    users = session.query(UserTable).filter(
+        and_(UserTable.game_sp_id.isnot(None), UserTable.game_sp_id == subq.c.sub_game_sp_id,
+             UserTable.id != subq.c.sub_id)).all()
     session.close()
     return users
 
@@ -206,7 +226,8 @@ def model_get_newest_user() -> UserTable:
 def model_get_login_user_by_sp_code(player_code):
     """获取登录用户信息"""
     session = DBSession()
-    user = session.query(UserTable).filter(UserTable.game_sp_id == player_code).first()
+    user = session.query(UserTable).filter(
+        and_(UserTable.game_sp_id == player_code, UserTable.game_sp_id.isnot(None))).first()
     session.close()
     return user
 
@@ -246,22 +267,44 @@ def model_get_all_top_all(player_code):
 #     session.close()
 #     return _dict
 
-def model_add_report(**kwargs):
+# def model_add_report(**kwargs):
+#     """添加日报数据"""
+#     report_logger = logger.bind(report=True)
+#     report_logger.debug(f"model_add_report: {kwargs}")
+#     _dict = kwargs
+#     user_id_sp = _dict.get("user_id_sp")
+#     if not user_id_sp:
+#         report_logger.warning(f"no user_id_sp: {_dict}")
+#         return
+#     session = DBSession()
+#     _res = session.query(Report).filter(Report.user_id_sp == user_id_sp).order_by(Report.create_time.desc()).first()
+#     if _res and _res.create_time.date() >= datetime.datetime.utcnow().date():
+#         report_logger.debug(f'already saved report: {_dict.get("user_id")}, {user_id_sp}, {_dict.get("nickname")}')
+#         session.close()
+#         return
+#
+#     new_report = Report(**_dict)
+#     session.add(new_report)
+#     session.commit()
+#     session.close()
+
+
+def model_add_report(new_report: Report):
     """添加日报数据"""
-    logger.debug(f'model_add_report: {kwargs}')
-    _dict = kwargs
-    user_id_sp = _dict.get('user_id_sp')
+    report_logger = logger.bind(report=True)
+    report_logger.debug(f"model_add_report: {new_report}")
+    user_id_sp = new_report.user_id_sp
     if not user_id_sp:
-        logger.warning(f'no user_id_sp: {_dict}')
+        report_logger.warning(f"no user_id_sp: {new_report}")
         return
     session = DBSession()
     _res = session.query(Report).filter(Report.user_id_sp == user_id_sp).order_by(Report.create_time.desc()).first()
+    # 避免一天内多次写入
     if _res and _res.create_time.date() >= datetime.datetime.utcnow().date():
-        logger.debug(f'already saved report: {_dict.get("user_id")}, {user_id_sp}, {_dict.get("nickname")}')
+        report_logger.debug(f'already saved report: db_id: {new_report.user_id}, {user_id_sp}, {new_report.nickname}')
         session.close()
         return
 
-    new_report = Report(**_dict)
     session.add(new_report)
     session.commit()
     session.close()
@@ -274,12 +317,12 @@ def model_get_today_report(user_id_sp):
     session = DBSession()
     report = session.query(Report).filter(
         and_(Report.user_id_sp == user_id_sp,
-             Report.create_time > datetime.datetime.utcnow() - datetime.timedelta(hours=20))).first()
+             Report.create_time > datetime.datetime.utcnow() - datetime.timedelta(hours=4))).first()
     session.close()
     return report
 
 
-def model_get_report(user_id_sp):
+def model_get_report(user_id_sp, create_time=""):
     """获取日报"""
     if not user_id_sp:
         return None
@@ -288,16 +331,27 @@ def model_get_report(user_id_sp):
     #     query = [Report.user_id_sp == user_id_sp]
     #     report = session.query(Report).filter(*query).order_by(Report.create_time.desc()).all()
 
-    report = session.query(Report).from_statement(text("""
-SELECT *
-FROM report WHERE (user_id_sp, last_play_time, create_time) IN
-( SELECT user_id_sp, last_play_time, MAX(create_time)
-  FROM report
-  GROUP BY user_id_sp, last_play_time)
-and user_id_sp=:user_id_sp
-order by create_time desc
-limit 30""")
-                                                  ).params(user_id_sp=user_id_sp).all()
+    if not create_time:
+        report = session.query(Report).from_statement(text("""
+    SELECT *
+    FROM report WHERE (user_id_sp, last_play_time, create_time) IN
+    ( SELECT user_id_sp, last_play_time, MAX(create_time)
+      FROM report
+      GROUP BY user_id_sp, last_play_time)
+    and user_id_sp=:user_id_sp
+    order by create_time desc
+    limit 30""")
+                                                      ).params(user_id_sp=user_id_sp).all()
+    else:
+        report = session.query(Report).from_statement(text("""
+        SELECT *
+        FROM report WHERE (user_id_sp, last_play_time, create_time) IN
+        ( SELECT user_id_sp, last_play_time, MAX(create_time)
+          FROM report
+          GROUP BY user_id_sp, last_play_time)
+        and user_id_sp=:user_id_sp and create_time>=:create_time
+        order by create_time desc""")
+                                                      ).params(user_id_sp=user_id_sp, create_time=create_time).all()
     session.close()
     return report
 
@@ -307,27 +361,27 @@ def model_get_report_all(user_id_sp):
     if not user_id_sp:
         return None
     session = DBSession()
-
-    reports = session.query(Report).from_statement(text("""
-SELECT id, DATETIME(last_play_time, '+8 hours') last_play_time,
+    data = session.execute(text(f"""
+SELECT id, DATETIME(last_play_time, '+8 hours') as last_play_time,
 total_cnt,
-total_cnt - LAG(total_cnt) OVER (ORDER BY last_play_time) AS user_id_sp,
+total_cnt - LAG(total_cnt) OVER (ORDER BY last_play_time) AS total_inc_cnt,
 win_cnt, win_rate,
-round(win_rate - LAG(win_rate) OVER (ORDER BY last_play_time), 2) AS nickname,
+round(win_rate - LAG(win_rate) OVER (ORDER BY last_play_time), 2) AS win_rate_change,
 coop_cnt,
-coop_cnt - LAG(coop_cnt) OVER (ORDER BY last_play_time) AS name_id,
+coop_cnt - LAG(coop_cnt) OVER (ORDER BY last_play_time) AS coop_inc_cnt,
 coop_boss_cnt,
-coop_boss_cnt - LAG(coop_boss_cnt) OVER (ORDER BY last_play_time) AS by_name,
-total_cnt - LAG(total_cnt) OVER (ORDER BY last_play_time) + coop_cnt - LAG(coop_cnt) OVER (ORDER BY last_play_time) badges,
+coop_boss_cnt - LAG(coop_boss_cnt) OVER (ORDER BY last_play_time) AS coop_boss_change,
 rank, udemae
 FROM report WHERE (user_id_sp, last_play_time, create_time) IN
 ( SELECT user_id_sp, last_play_time, MAX(create_time)
   FROM report
   GROUP BY user_id_sp, last_play_time)
-and user_id_sp=:user_id_sp
-order by create_time
-limit 50""")).params(user_id_sp=user_id_sp).all()
+and user_id_sp='{user_id_sp}'
+order by create_time desc
+limit 60
+""")).all()
 
+    reports = [row._mapping for row in data]
     session.close()
     return reports
 
@@ -455,6 +509,7 @@ def model_get_top_all_count_by_top_type(top_type):
     session.close()
     return top_count
 
+
 # def model_get_newest_event_top_all():
 #     """获取最新的event比赛排行榜数据"""
 #     """
@@ -475,3 +530,18 @@ def model_get_top_all_count_by_top_type(top_type):
 #         .order_by(TopAll.create_time.desc()).first()
 #     session.close()
 #     return top
+
+
+def model_get_power_rank():
+    session = DBSession()
+    data = session.execute(text(f"""
+select user_id_sp, max(max_power) max_power,
+       row_number() over (order by max_power desc) rank
+from report r
+group by user_id_sp
+order by max_power desc
+""")).all()
+
+    res = [row._mapping for row in data]
+    session.close()
+    return dict((str(i.user_id_sp), i.rank) for i in res)

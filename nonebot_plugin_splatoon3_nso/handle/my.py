@@ -2,11 +2,15 @@ from collections import defaultdict
 from datetime import datetime as dt, timedelta
 
 import unicodedata
+from nonebot import on_keyword
 
 from .send_msg import bot_send
-from .utils import _check_session_handler, get_game_sp_id_and_name
-from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path
+from .utils import _check_session_handler
+from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
+    model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict
+from ..data.utils import GlobalUserInfo
 from ..s3s.splatoon import Splatoon
+from ..utils import get_msg_id
 from ..utils.bot import *
 
 
@@ -16,7 +20,7 @@ async def me(bot: Bot, event: Event):
     await bot_send(bot, event, message="请求个人数据中，请稍等...")
 
     from_group = False
-    if 'group' in event.get_event_name() or isinstance(bot, QQ_Bot):
+    if isinstance(event, All_Group_Message):
         from_group = True
 
     msg = await get_me(bot, event, from_group)
@@ -30,21 +34,27 @@ async def get_me(bot, event, from_group):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     history_summary = await splatoon.get_history_summary()
-    total_query = await splatoon.get_total_query(try_again=True)
-    coop = await splatoon.get_coops(try_again=True)
+    if not history_summary:
+        history_summary = await splatoon.get_history_summary(multiple=True)
+    total_query = await splatoon.get_total_query(multiple=True)
+    if not total_query:
+        total_query = await splatoon.get_total_query(multiple=True)
+    coop = await splatoon.get_coops(multiple=True)
+    if not coop:
+        coop = await splatoon.get_coops(multiple=True)
 
     try:
         msg = await get_me_md(user, history_summary, total_query, coop, from_group)
     except Exception as e:
         logger.exception(e)
-        msg = f'获取数据失败，请稍后再试'
+        msg = f"获取数据失败，请稍后再试"
     finally:
         # 关闭连接池
         await splatoon.req_client.close()
     return msg
 
 
-async def get_me_md(user, summary, total, coops, from_group=False):
+async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=False):
     """获取 我的 md文本"""
     player = summary['data']['currentPlayer']
     history = summary['data']['playHistory']
@@ -101,6 +111,11 @@ async def get_me_md(user, summary, total, coops, from_group=False):
     x_msg = '||'
     if any([ar, lf, gl, cl]) and not from_group:
         x_msg = f"X赛最高战力 | 区域:{ar:>7.2f}, 塔楼:{lf:>7.2f}<br> 鱼虎:{gl:>7.2f}, 蛤蜊:{cl:>7.2f}\n||"
+    if any([ar, lf, gl, cl]):
+        _dict_rank = model_get_power_rank()
+        _rank = _dict_rank.get(user.game_sp_id)
+        if _rank:
+            x_msg = x_msg.replace('||', f'X赛最高战力</br>bot排名 | {_rank}\n||')
 
     _league = ''
     _open = ''
@@ -161,7 +176,8 @@ async def get_me_md(user, summary, total, coops, from_group=False):
     return msg
 
 
-@on_command("friends", aliases={'friend', 'fr'}, priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("friends", aliases={'friend', 'fr'}, priority=10, block=True).handle(
+    parameterless=[Depends(_check_session_handler)])
 async def friends(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -176,7 +192,7 @@ async def friends(bot: Bot, event: Event):
 async def get_friends_md(splatoon, lang='zh-CN'):
     res = await splatoon.get_friends()
     if not res:
-        return '网络错误，请稍后再试.'
+        return 'bot网络错误，请稍后再试.'
 
     msg = f'''#### 在线好友 HKT {dt.now():%Y-%m-%d %H:%M:%S}
 ||||||
@@ -204,6 +220,13 @@ async def get_friends_md(splatoon, lang='zh-CN'):
             n = f'{n}|{img}|'
         msg += f'''|{n}| {_state}|\n'''
 
+        # 写入好友数据库
+        friend_id = f['id']
+        player_name = f.get('playerName') or ''
+        nickname = f.get('nickname') or ''
+        user_icon = f['userIcon']['url']
+        model_set_user_friend([(splatoon.user_id, friend_id, player_name, nickname, user_icon)])
+
     msg += '||\n'
     _dict['TOTAL'] = sum(_dict.values())
     for k, v in _dict.items():
@@ -212,7 +235,7 @@ async def get_friends_md(splatoon, lang='zh-CN'):
     return msg
 
 
-@on_command("ns_friends", aliases={'ns_friend', 'ns_fr'}, priority=10, block=True).handle(
+@on_command("ns_friends", aliases={'ns_friend', 'ns_fr', 'nsfr'}, priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def ns_friends(bot: Bot, event: Event):
     """获取ns好友"""
@@ -228,7 +251,16 @@ async def ns_friends(bot: Bot, event: Event):
 
 async def get_ns_friends_md(splatoon: Splatoon):
     """获取ns好友md"""
-    res = await splatoon.app_ns_friend_list() or {}
+    msg_id = get_msg_id(splatoon.platform, splatoon.user_id)
+    try:
+        res = await splatoon.app_ns_friend_list()
+        if not res:
+            res = await splatoon.app_ns_friend_list()
+    except Exception as e:
+        logger.error(f"{msg_id} get ns_friends error:{e}")
+        msg = "bot网络错误，请稍后再试"
+        return msg
+
     res = res.get('result')
     if not res:
         logger.info(f"get_ns_friends result error,res: {res}")
@@ -318,14 +350,17 @@ async def get_ns_friends_md(splatoon: Splatoon):
     return msg
 
 
-@on_command("friend_code", aliases={'friends_code', 'fc'}, priority=10, block=True).handle(
-    parameterless=[Depends(_check_session_handler)])
+matcher_fc = on_command("friend_code", aliases={'friends_code', 'fc'}, priority=10, block=True)
+
+
+@matcher_fc.handle(parameterless=[Depends(_check_session_handler)])
 async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
     """获取ns 好友码"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)
     force = False  # 强制从接口获取
+    msg_id = get_msg_id(platform, user_id)
 
     if "force" in args.extract_plain_text():
         force = True
@@ -335,7 +370,15 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
         msg += f"\n\n如果ns主机主动更换了ns码导致无法搜索到好友，请发送\n/friend_code force 指令重新缓存新的好友码"
     else:
         splatoon = Splatoon(bot, event, user)
-        res = await splatoon.app_ns_myself() or {}
+        res = {}
+        try:
+            res = await splatoon.app_ns_myself() or {}
+        except Exception as e:
+            logger.error(f"{msg_id} get friend_code error:{e}")
+            msg = "bot网络错误，请稍后再试"
+        finally:
+            # 关闭连接池
+            await splatoon.req_client.close()
 
         name = res.get('name')
         code = res.get('code')
@@ -344,8 +387,6 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
             msg += f"已更新新好友码并缓存\n"
             msg += f"ns用户名: {res.get('name')}\n好友码(sw码): SW-{user.ns_friend_code}"
 
-        # 关闭连接池
-        await splatoon.req_client.close()
     await bot_send(bot, event, msg)
 
 
@@ -387,37 +428,37 @@ def wide_chars(s):
 
 def get_cn_sp3_stat(_st):
     """获取用户状态的中文翻译"""
-    if 'PRIVATE' in _st:
-        _st = '私房'
-    elif 'X_MATCH)' in _st:
-        _st = 'X比赛'
-    elif 'RA)O' in _st:
-        _st = '开放'
-    elif 'RA)C' in _st:
-        _st = '挑战'
-    elif 'MATCHING' in _st:
-        _st = '匹配中'
-    elif 'COOP' in _st:
-        _st = '打工'
-    elif 'REGULAR)' in _st:
-        _st = '涂地'
-    elif _st == 'ONLINE':
-        _st = '在线'
-    elif 'LEAGUE' in _st:
-        _st = '活动'
-    elif 'FEST)O' in _st:
-        _st = '祭典开放'
-    elif 'FEST)C' in _st:
-        _st = '祭典挑战'
-    elif 'FEST)3' in _st:
-        _st = '祭典三色'
+    if "PRIVATE" in _st:
+        _st = "私房"
+    elif "X_MATCH)" in _st:
+        _st = "X比赛"
+    elif "RA)O" in _st:
+        _st = "开放"
+    elif "RA)C" in _st:
+        _st = "挑战"
+    elif "MATCHING" in _st:
+        _st = "匹配中"
+    elif "COOP" in _st:
+        _st = "打工"
+    elif "REGULAR)" in _st:
+        _st = "涂地"
+    elif _st == "ONLINE":
+        _st = "在线"
+    elif "LEAGUE" in _st:
+        _st = "活动"
+    elif "FEST)O" in _st:
+        _st = "祭典开放"
+    elif "FEST)C" in _st:
+        _st = "祭典挑战"
+    elif "FEST)3" in _st:
+        _st = "祭典三色"
     return _st
 
 
 @on_command("report_notify", block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'QQ平台暂不支持本功能')
+        await bot_send(bot, event, "QQ平台暂不支持本功能")
         return
     cmd = args.extract_plain_text().strip()
     platform = bot.adapter.get_name()
@@ -437,7 +478,7 @@ async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
 @on_command("stat_notify", aliases={'api_notify'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'QQ平台暂不支持本功能')
+        await bot_send(bot, event, "QQ平台暂不支持本功能")
         return
     cmd = args.extract_plain_text().strip()
     platform = bot.adapter.get_name()
@@ -452,3 +493,50 @@ async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     msg += f'/stat_notify open 开启stat.ink同步情况推送\n/stat_notify close 关闭stat.ink同步情况推送\n/sync_now 手动发起同步请求\n'
     msg += f'```'
     await bot_send(bot, event, message=msg)
+
+
+@on_command("my_icon", aliases={'myicon'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def my_icon(bot: Bot, event: Event):
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user = model_get_or_set_user(platform, user_id)
+    msg = ""
+    msg_error = "本地未缓存nso头像，请在使用一次/me 命令进行缓存后重试"
+    if user.game_sp_id:
+        my_icon_path = await model_get_temp_image_path('my_icon', user.game_sp_id)
+        if my_icon_path:
+            with open(my_icon_path, "rb") as f:
+                _my_icon = f.read()
+                msg = _my_icon
+        else:
+            msg = msg_error
+    else:
+        msg = msg_error
+
+    await bot_send(bot, event, message=msg)
+
+
+@on_keyword({"我已知晓nso查询可能导致鱿鱼圈被封禁的风险并重新启用nso查询"}, block=True).handle()
+async def re_enable(bot: Bot, event: Event):
+    """同意条款重新启用nso查询"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user = model_get_or_set_user(platform, user_id)
+    if user:
+        # 更新协议状态
+        user = dict_get_or_set_user_info(platform, user_id, user_agreement=1)
+        msg = "nso功能已重新启用，您可以继续使用/last 等nso查询命令"
+        await bot_send(bot, event, message=msg)
+        users = model_get_another_account_user(platform, user_id)
+        if len(users) > 0:
+            for u in users:
+                # 如果存在全局缓存，也更新缓存数据
+                key = get_msg_id(u.platform, u.user_id)
+                user_info = global_user_info_dict.get(key)
+                if user_info:
+                    # 更新缓存数据
+                    dict_get_or_set_user_info(u.platform, u.user_id, user_agreement=1)
+                else:
+                    # 更新数据库数据
+                    model_get_or_set_user(u.platform, u.user_id, user_agreement=1)
+

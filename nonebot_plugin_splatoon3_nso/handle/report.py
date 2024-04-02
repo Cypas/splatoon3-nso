@@ -1,3 +1,4 @@
+import datetime
 from datetime import datetime as dt, timedelta
 
 from .send_msg import bot_send
@@ -9,42 +10,36 @@ from ..utils.bot import *
 @on_command("report", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     """日报统计查询"""
-    cmd_list = args.extract_plain_text().strip().split(' ')
+    cmd_list = args.extract_plain_text().strip()
     report_day = ''
-    if len(cmd_list) > 1:
-        report_day = cmd_list[1].strip()
+    if cmd_list:
+        report_day = cmd_list
         try:
             dt.strptime(report_day, '%Y-%m-%d')
         except:
-            msg = '日期格式错误，正确格式: /report 2023-07-01 或 /report'
+            msg = "日期格式错误，正确格式: /report 2023-07-01 或 /report"
             await bot_send(bot, event, message=msg)
             return
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg = get_report(platform, user_id, report_day=report_day)
-    if isinstance(bot, QQ_Bot):
-        # QQ要单独考虑提示文案
-        if not msg and not report_day:
-            msg = f'```\n数据准备中，请明天再查询\n```'
-        elif not msg and report_day:
-            msg = f'```\n没有查询到所指定日期的日报数据```'
-    else:
-        if not msg and not report_day:
-            msg = f'```\n数据准备中，请明天再查询\n```'
-        elif not msg and report_day:
-            msg = f'```\n没有查询到所指定日期的日报数据```'
+    if not msg:
+        if not report_day:
+            msg = f"```\n数据准备中，请明天再查询\n```"
+        elif report_day:
+            msg = f"```\n没有查询到所指定日期的日报数据```"
 
     await bot_send(bot, event, message=msg)
 
 
 def get_report(platform, user_id, report_day=None, _type="normal"):
     """获取昨天或指定日期的早报数据"""
-    msg = '\n喷喷早报\n'
+    msg = "\n喷喷早报\n"
     if report_day:
-        msg = '\n喷喷小报\n'
+        msg = "\n喷喷小报\n"
 
     u = dict_get_or_set_user_info(platform, user_id, _type=_type)
-    report_list = model_get_report(user_id_sp=u.game_sp_id)
+    report_list = model_get_report(user_id_sp=u.game_sp_id, create_time=report_day)
 
     if not report_list or len(report_list) == 1:
         return
@@ -54,7 +49,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     fst_day = ''
     if report_day:
         fst_day = report_list[-1].create_time.strftime('%Y-%m-%d')
-        for r in report_list[1:]:
+        for r in report_list[::-1]:
             if r.last_play_time.strftime('%Y-%m-%d') < max(report_day, fst_day):
                 old = r
                 break
@@ -64,7 +59,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     if report_day:
         s_date = max(report_day.replace('-', ''), s_date)
     e_date = (new.last_play_time + timedelta(hours=8)).strftime('%Y%m%d %H:%M')
-    msg += f'统计区间HKT: {s_date[2:]} 07:00 ~ {e_date[2:]}\n\n'
+    msg += f'统计区间HKT: {s_date[2:]} 08:00 ~ {e_date[2:]}\n\n'
 
     msg += f'{new.nickname}\n'
     for k in ('nickname', 'name_id', 'byname'):
@@ -134,7 +129,10 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     return msg
 
 
-@on_command("report_all", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+matcher_report_all = on_command("report_all", priority=10, block=True)
+
+
+@matcher_report_all.handle(parameterless=[Depends(_check_session_handler)])
 async def report_all(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -147,18 +145,41 @@ async def report_all(bot: Bot, event: Event):
 def get_report_all_md(player_code):
     res = model_get_report_all(player_code)
     if not res:
-        return '数据准备中'
+        return "数据准备中"
     text = ''
-    for r in res[-30:]:
-        # logger.info(f'rrr {r.__dict__}')
-        _d = r.__dict__
-        text += (f"{_d.get('last_play_time')}|{_d.get('total_cnt')}|{_d.get('user_id_sp')}|{_d.get('win_cnt')}|"
-                 f"{_d.get('win_rate')}|{_d.get('nickname')}|{_d.get('coop_cnt')}|{_d.get('name_id')}|"
-                 f"{_d.get('coop_boss_cnt')}|{_d.get('by_name') or ''}|{_d.get('badges')}|{_d.get('rank')}|"
-                 f"{_d.get('udemae')}\n")
-    msg = f'''####
-||||||||||||||
-|---|---|---:|---|---|---:|---|---|---|---|---:|---|---|
-{text}|||
-    '''
+    for r in res[:30]:
+        _d = r
+        last_time = _d.get('last_play_time')
+        if last_time:
+            last_play_time = datetime.datetime.strptime(last_time, "%Y-%m-%d %H:%M:%S").strftime("%m-%d  %H:%M")
+        else:
+            last_play_time = ""
+
+        win_rate_change = _d.get('win_rate_change')
+        str_win_rate_change = ""
+        # if win_rate_change:
+        #     if win_rate_change > 0:
+        #         str_win_rate_change = f'<span style="color:rgb(255, 148, 157)">+{win_rate_change}</span>'
+        #     elif win_rate_change < 0:
+        #         str_win_rate_change = f'<span style="color:rgb(96, 58, 255)">{win_rate_change}</span>'
+        # else:
+        #     str_win_rate_change = 0
+
+        if win_rate_change:
+            if win_rate_change > 0:
+                str_win_rate_change = f'{win_rate_change}'
+            elif win_rate_change < 0:
+                str_win_rate_change = f'{win_rate_change}'
+        else:
+            str_win_rate_change = 0
+
+        text += (f"|{last_play_time}|{_d.get('total_cnt')}|{_d.get('total_inc_cnt')}|{_d.get('win_cnt')}|"
+                 f"{_d.get('win_rate')}|{str_win_rate_change}|{_d.get('coop_cnt')}|{_d.get('coop_inc_cnt')}|"
+                 f"{_d.get('coop_boss_cnt')}|{_d.get('coop_boss_change')}|"
+                 f"{_d.get('rank')}|{_d.get('udemae')}|\n")
+    msg = f'''#### 最近30份日报数据如下
+|||||||||||||
+|---|---|---:|---|---|---:|---|---|---|---|---|---|
+|最后游玩时间|总对战|增|胜场|胜率|变化|总打工|增|总boss|增|等级|技术|
+{text}'''
     return msg

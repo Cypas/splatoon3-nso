@@ -1,14 +1,23 @@
 from datetime import datetime as dt, timedelta
 
 from .b_or_c_tools import get_b_point_and_process, get_x_power_and_process, get_top_user, get_top_all_name, \
-    PushStatistics, get_user_name_color, get_myself_name_color
+    PushStatistics, get_user_name_color
 from .utils import get_game_sp_id_and_name, dict_b_mode_trans
-from ..data.data_source import global_user_info_dict, model_get_temp_image_path, model_get_user_friend
+from ..data.data_source import model_get_temp_image_path, model_get_user_friend
 from ..data.db_sqlite import UserFriendTable
 from ..s3s.splatoon import Splatoon
 from ..utils import get_time_now_china_date, plugin_release_time, get_time_now_china
 
-from ..utils.bot import *
+DICT_HTML_CODES = {
+    '#': '&#35;',
+    '`': '&#96;',
+    '|': '&#124;',
+    '*': '&#42;',
+    '_': '&#95;',
+    '<': '&#60;',
+    '>': '&#62;',
+    '~': '&#126;',
+}
 
 
 async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splatoon: Splatoon = None, mask=False,
@@ -40,9 +49,9 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
 '''
     else:
         # 战绩
-        body = """|||||||||||
-|-|---|---:|----:|----:|---:|---:|:---:|---:|:----|
-|序|武器|总|杀+助|死亡|kd<td colspan="2">大招</td> |涂地|玩家|
+        body = """||||||||||||
+|-|---|---:|----:|----:|---:|---:|:---|---:|:--------|--|
+|序|武器|总|杀+助|亡|kd||大|涂地|玩家||
 """
 
     text_list = []
@@ -58,14 +67,18 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             else:
                 text_list.append(await get_row_user_stats(k1 * 4 + k, p, mask, is_last_p, team_power))
 
-        ti = '||'
-        if mode == 'FEST':
+        ti = "||"
+        if mode == "FEST":
             _str_team = f"{(team.get('result') or {}).get('paintRatio') or 0:.2%}  {team.get('festTeamName')}"
             _c = team.get('color') or {}
-            if _c and 'r' in _c:
+            if _c and "r" in _c:
                 _str_color = f"rgba({int(_c['r'] * 255)}, {int(_c['g'] * 255)}, {int(_c['b'] * 255)}, {_c['a']})"
                 _str_team = f"<span style='color:{_str_color}'>{_str_team}</span>"
-            ti = f"|||||||||{_str_team}|"
+            # 祭典队伍名
+            ti = f'|||||||||&nbsp;|' \
+                 f'<span style="position:absolute;left:50%;margin-top:-13px">' \
+                 f'{_str_team}</span>||'
+
         text_list.append(f'{ti}\n')
     body += ''.join(text_list)
 
@@ -77,23 +90,23 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             score_list.append(str((t['result']['score'])))
         elif (t.get('result') or {}).get('paintRatio') is not None:
             score_list.append(f"{t['result']['paintRatio']:.2%}"[:-2])
-    score = ' : '.join(score_list)
-    str_open_power = ''
-    str_max_open_power = ''
-    last_power = ''
+    score = " : ".join(score_list)
+    str_open_power = ""
+    str_max_open_power = ""
+    last_power = ""
     if (not mask and
             ((battle_detail.get('bankaraMatch') or {}).get('mode') == 'OPEN' or
              battle_detail.get('leagueMatch') or
-             mode == 'FEST')):
+             mode == "FEST")):
         open_power = ((battle_detail.get('bankaraMatch') or {}).get('bankaraPower') or {}).get('power') or 0
         if battle_detail.get('leagueMatch'):
             open_power = battle_detail['leagueMatch'].get('myLeaguePower') or 0
-        if mode == 'FEST':
+        if mode == "FEST":
             open_power = (battle_detail.get('festMatch') or {}).get('myFestPower') or 0
 
         if open_power:
             # 蛮颓开放
-            str_open_power = f'战力: {open_power:.2f}'
+            str_open_power = f"战力: {open_power:.2f}"
             # push_st = {}
             max_open_power = 0
 
@@ -110,7 +123,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
                 prev_id = (battle_detail.get('previousHistoryDetail') or {}).get('id')
                 if splatoon:
                     # 查询上一局数据
-                    prev_info = await splatoon.get_battle_detail(prev_id)
+                    prev_info = await splatoon.get_battle_detail(prev_id, multiple=True)
                     if prev_info:
                         prev_detail = prev_info.get('data', {}).get('vsHistoryDetail') or {}
                         prev_open_power = ((prev_detail.get('bankaraMatch') or {}).get('bankaraPower') or {}).get(
@@ -147,7 +160,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
         date_play = dt.strptime(battle_detail['playedTime'], '%Y-%m-%dT%H:%M:%SZ') + timedelta(hours=8)
         str_time = date_play.strftime('%y-%m-%d %H:%M:%S')
     except Exception as e:
-        str_time = ''
+        str_time = ""
     footer = f"\n#### 时间: {str_time}  耗时: {duration}s"
     title += f"{sub_title}   比分:{score}  {b_process} {str_open_power_inline} \n"
 
@@ -159,7 +172,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     user_create_dt = splatoon.user_db_info.create_time + timedelta(days=7)
     plugin_release_dt = get_time_now_china_date(plugin_release_time) + timedelta(days=7)
     now_dt = get_time_now_china()
-    if now_dt < plugin_release_dt or now_dt < user_create_dt:
+    if (now_dt < plugin_release_dt or now_dt < user_create_dt) and not push_statistics:
         footer += f'\n###### 本注解说明会在登录7天后不再显示' \
                   f'</br>用户名颜色: <b>粗体黑色</b>:玩家自己，' \
                   f'<span style="color:green">绿色 </span> :已在bot登录的用户，' \
@@ -192,21 +205,20 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             a = b.a
             d = b.d
             if k or a or d:
-                str_static += f' {k}+{a}k/{d}d'
+                str_static += f" {k}+{a}k/{d}d"
 
             succ = b.successive
             if abs(succ) >= 3:
                 if succ > 0:
-                    str_static += f', {succ}连胜'
+                    str_static += f", {succ}连胜"
                 else:
-                    str_static += f', {abs(succ)}连败'
+                    str_static += f", {abs(succ)}连败"
 
             # 2-1 9+2k/8d, 3连胜
             title += f'\n##### {str_static}'
 
     title += "\n"
     msg = f"{title}{body}{footer}"
-
     return msg
 
 
@@ -318,10 +330,11 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     d = re['death']
     sp = re['special']
     # 避免除数和被除数为0的情况
-    if d == 0:
-        d = 1
-    if k != 0 and d != 0:
-        ration = k / d
+    if k != 0:
+        if d == 0:
+            ration = k / 1
+        else:
+            ration = k / d
     else:
         ration = 0
 
@@ -330,21 +343,24 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     weapon_sp_img = await model_get_temp_image_path("battle_weapon_special", sp_name, sp_img)
     sp_img = f'<img height="25" src="{weapon_sp_img}"/>'
 
-    name = p['name'].replace('`', '&#96;').replace('|', '&#124;')
+    name = p['name']
+    for k, v in DICT_HTML_CODES.items():
+        name = name.replace(k, v)
 
     player_code, player_name = get_game_sp_id_and_name(p)
+    icon = ""
     if p.get('isMyself'):
-        name = await get_myself_name_color(name, player_code)
+        name, icon = await get_user_name_color(name, player_code, is_myself=True)
     elif mask:
-        name = f'~~我是马赛克~~'
+        name = f"~~我是马赛克~~"
     if not p.get('isMyself'):
-        name = await get_user_name_color(name, player_code)
+        name, icon = await get_user_name_color(name, player_code)
 
     # X 五百强分数
-    name, power = await get_top_user(name, player_code)
+    name, icon, power = await get_top_user(name, icon, player_code)
     if (not power) and (not p.get('isMyself')):
         # 其他排行榜分数
-        name, power = await get_top_all_name(name, player_code)
+        name, icon, power = await get_top_all_name(name, icon, player_code)
 
     if power and isinstance(team_power, list):
         team_power.append(power)
@@ -353,15 +369,15 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     img_type = "battle_weapon_main"
     weapon_main_img = await model_get_temp_image_path(img_type, p['weapon']['name'], weapon_img)
     w_str = f'<img height="40" src="{weapon_main_img}"/>'
-    name = f'{name}|'
 
     _i = 97  # 97号为a，为top提供索引 abcdefgh
-    t = f"|{chr(_i + k_idx)}|{w_str}|{ak:>2}|{k_str:>5}k | {d:>2}d|{ration:>4.1f}|{sp}|{sp_img}| {p['paint']:>4}p| {name}|\n"
+    t = f"|{chr(_i + k_idx)}|{w_str}|{ak:>2}|{k_str:>5}k | {d:>2}d|{ration:>4.1f}|{sp_img}|{sp}| {p['paint']:>4}p| {name}|{icon}|\n"
     if is_last_player and team_power:
         _power = f'{sum(team_power) / len(team_power):.1f}'
-        t += f'|||||||<td colspan="3"">队伍上榜者均分: ' \
-             f'<span style="color:#1e96d2">{_power}</span>' \
-             f'</td>|\n'
+        t += f'|||||||||&nbsp; |' \
+             f'<span style="position:absolute;left:50%;margin-top:-13px">' \
+             f'队伍成员上榜均分:'\
+             f'<span style="color:#1e96d2">{_power}</span></span>|\n'
     return t
 
 
@@ -386,43 +402,43 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
     str_point = ''
     if point:
         if bankara_match:
-            str_point = f'点数{point}p'
+            str_point = f"点数{point}p"
         elif battle_detail.get('xMatch'):
-            str_point = f'x分变更:{point}'
+            str_point = f"x分变更:{point}"
             point = 0
 
     # 祭典
-    if mode == 'FEST':
+    if mode == "FEST":
 
         mode_id = battle_detail['vsMode']['id']
-        bankara_match = 'CHALLENGE'
-        if mode_id == 'VnNNb2RlLTY=':
-            bankara_match = 'OPEN'
-        elif mode_id == 'VnNNb2RlLTg=':
-            bankara_match = 'TRI_COLOR'
+        bankara_match = "CHALLENGE"
+        if mode_id == "VnNNb2RlLTY=":
+            bankara_match = "OPEN"
+        elif mode_id == "VnNNb2RlLTg=":
+            bankara_match = "TRI_COLOR"
         fest_match = battle_detail.get('festMatch') or {}
         contribution = fest_match.get('contribution')
         if contribution:
             str_point = f'+{contribution}'
         if fest_match.get('dragonMatchType') == 'DECUPLE':
-            rule += ' (x10)'
+            rule += " <span style='color:skyblue'>(x10)</span>"
         elif fest_match.get('dragonMatchType') == 'DRAGON':
-            rule += ' (x100)'
+            rule += " <span style='color:red'>(x100)</span>"
         elif fest_match.get('dragonMatchType') == 'DOUBLE_DRAGON':
-            rule += ' (x333)'
+            rule += " <span style='color:red'>(x333)</span>"
 
-    elif mode == 'LEAGUE':
+    elif mode == "LEAGUE":
         bankara_match = ((battle_detail.get('leagueMatch') or {}).get('leagueMatchEvent') or {}).get('name')
 
     # 取翻译名
     mode = dict_b_mode_trans.get(mode, mode)
     if bankara_match:
         bankara_match = dict_b_mode_trans.get(bankara_match, bankara_match)
-        bankara_match = f'({bankara_match})'
+        bankara_match = f"({bankara_match})"
 
     if mask:
         # 打码
-        str_point = ''
+        str_point = ""
 
     # b_info唯一有用的地方的就只是这里了，对战详查里面确实没有提供段位
     level = b_info.get('udemae', "")

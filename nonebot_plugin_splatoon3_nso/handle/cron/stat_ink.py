@@ -1,40 +1,50 @@
 import asyncio
-import datetime
+import base64
+from datetime import datetime as dt
 import os
 import json
 import subprocess
-import time
 
-from datetime import datetime as dt
 
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
-from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
+from ...s3s.iksm import F_GEN_URL_2
+from ...utils import proxy_address, convert_td
+from ...utils.utils import DIR_RESOURCE, init_path
 from ...data.data_source import model_get_all_stat_user
-from ..send_msg import notify_to_private, notify_to_channel, report_notify_to_channel, cron_notify_to_channel
+from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 
 
 async def sync_stat_ink():
     """同步至stat"""
-    cron_msg = f'sync_stat_ink start'
+    cron_msg = f"sync_stat_ink start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
-    t = datetime.datetime.utcnow()
+    await cron_notify_to_channel("sync_stat_ink", "start")
+    t = dt.utcnow()
+
+    # 更新s3sti脚本
+    await update_s3si_ts()
 
     db_users = model_get_all_stat_user()
     # 去重
     db_users = user_remove_duplicates(db_users)
 
-    _pool = 3
+    sync_count = 0
+    _pool = 4
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks)
-
-    cron_msg = f"sync_stat_ink end: {datetime.datetime.utcnow() - t}"
+        for r in res:
+            if r:
+                sync_count += 1
+    # 耗时
+    str_time = convert_td(dt.utcnow() - t)
+    cron_msg = (f"sync_stat_ink end: {str_time}\n"
+                f"sync_count: {sync_count}")
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("sync_stat_ink", "end", f"耗时:{str_time}\n同步数量: {sync_count}")
 
 
 async def sync_stat_ink_func(db_user: UserTable):
@@ -44,13 +54,17 @@ async def sync_stat_ink_func(db_user: UserTable):
 
     msg = get_post_stat_msg(db_user)
 
-    if msg and db_user.stat_notify:
-        cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
-        # 通知到频道
-        await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type='job')
-        # 通知到私信
-        msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
-        await notify_to_private(db_user.platform, db_user.user_id, msg)
+    if msg:
+        if db_user.stat_notify:
+            cron_logger.debug(f"{db_user.id}, {db_user.user_name}, {msg}")
+            # 通知到频道
+            # await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type="job")
+            # 通知到私信
+            msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
+            await notify_to_private(db_user.platform, db_user.user_id, msg)
+        return True
+    else:
+        return False
 
 
 def get_post_stat_msg(db_user):
@@ -60,53 +74,61 @@ def get_post_stat_msg(db_user):
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
 
-    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key)
+    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, g_token=db_user.g_token,
+                               bullet_token=db_user.bullet_token)
+
     if not res:
         return
 
     battle_cnt, coop_cnt, url = res
-    msg = '```\nExported'
+    msg = "> Exported"
     if battle_cnt:
-        msg += f' {battle_cnt} battles'
+        msg += f" {battle_cnt} battles"
     if coop_cnt:
-        msg += f' {coop_cnt} jobs'
+        msg += f" {coop_cnt} jobs"
 
     if battle_cnt and not coop_cnt:
-        url += '/spl3'
+        url += "/spl3"
     elif coop_cnt and not battle_cnt:
-        url += '/salmon3'
-    msg += f' to\n{url}\n'
+        url += "/salmon3"
+    msg += f" to\n{url}\n\n"
 
-    msg += f'```'
-    cron_logger.debug(f'{db_user.id}, {db_user.user_name}, {msg}')
+    log_msg = msg.replace("\n", "")
+    cron_logger.info(f"{db_user.id}, {db_user.user_name}, {log_msg}")
 
     return msg
 
 
 async def update_s3si_ts():
     # 更新 s3si_ts 上传脚本
-    cron_msg = f'update_s3si_ts start'
+    cron_msg = f"update_s3si_ts start"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
-    t = datetime.datetime.utcnow()
+    await cron_notify_to_channel("update_s3si_ts", "start")
+    t = dt.utcnow()
 
     path_folder = DIR_RESOURCE
     init_path(path_folder)
     os.chdir(path_folder)
 
+    # 取消原有git代理
+    os.system("git config --global --unset http.proxy")
+    if proxy_address:
+        # 设置git代理
+        os.system(f"git config --global http.proxy {proxy_address}")
+
     # get s3s code
-    s3s_folder = f'{path_folder}/s3sits_git'
+    s3s_folder = f"{path_folder}/s3sits_git"
     if not os.path.exists(s3s_folder):
-        cmd = f'git clone https://github.com/spacemeowx2/s3si.ts {s3s_folder}'
+        cmd = f"git clone https://github.com/spacemeowx2/s3si.ts {s3s_folder}"
         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-        cron_logger.debug(f'cli: {rtn}')
+        cron_logger.info(f"cli: {rtn}")
         os.chdir(s3s_folder)
     else:
         os.chdir(s3s_folder)
-        os.system('git restore .')
-        cmd = f'git pull'
+        os.system("git restore .")
+        cmd = f"git pull"
         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-        cron_logger.debug(f'cli: {rtn}')
+        cron_logger.info(f'cli: {rtn}')
 
     # edit agent
     cmd_list = [
@@ -118,15 +140,16 @@ async def update_s3si_ts():
 
     dir_user_configs = f'{s3s_folder}/user_configs'
     init_path(dir_user_configs)
-
-    cron_msg = f"update_s3si_ts end, {(datetime.datetime.utcnow() - t).seconds}s"
+    # 耗时
+    str_time = f"{(dt.utcnow() - t).seconds}s"
+    cron_msg = f"update_s3si_ts end, {str_time}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel(cron_msg)
+    await cron_notify_to_channel("update_s3si_ts", "end", f"耗时:{str_time}")
 
 
-def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN"):
+def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_token="", bullet_token=""):
     """同步战绩文件至stat.ink"""
-    cron_logger.debug(f'exported_to_stat_ink: {user_id}')
+    cron_logger.info(f'start exported_to_stat_ink: user_db_id:{user_id}')
     cron_logger.debug(f'session_token: {session_token}')
     cron_logger.debug(f'api_key: {api_key}')
     user_lang = user_lang or 'zh-CN'
@@ -134,50 +157,106 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN"):
     s3sits_folder = f'{DIR_RESOURCE}/s3sits_git'
     os.chdir(s3sits_folder)
 
+    # 检查deno路径是否配置
+    deno_path = plugin_config.splatoon3_deno_path
+    if not deno_path or not os.path.exists(deno_path):
+        cron_logger.info(f'deno_path not set: {deno_path or ""} '.center(120, '-'))
+        return
+
+    # 新建或修改配置项
     path_config_file = f'{s3sits_folder}/user_configs/config_{user_id}.json'
     if not os.path.exists(path_config_file):
+        # 新建文件
         config_data = {
+            "fGen": F_GEN_URL_2,
             "userLang": user_lang,
             "loginState": {
-                "sessionToken": session_token
+                "sessionToken": session_token,
+                "gToken": g_token,
+                "bulletToken": bullet_token,
             },
             "statInkApiKey": api_key
         }
         with open(path_config_file, 'w') as f:
             f.write(json.dumps(config_data, indent=2, sort_keys=False, separators=(',', ': ')))
     else:
-        for cmd in (
-                f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/g' {path_config_file}""",
-                f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/g' {path_config_file}""",
-                f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/g' {path_config_file}""",
-        ):
-            cron_logger.debug(f'cli: {cmd}')
+        # 写入配置文件
+        # fGen写入过程中 https://含有/ 会和控制符/冲突，此处控制符得改为#
+        cmds = [
+            f"""sed -i 's#fGen[^,]*,#fGen\": \"{F_GEN_URL_2}\",#' {path_config_file}""",
+            f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/' {path_config_file}""",
+            f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/' {path_config_file}""",
+            f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/' {path_config_file}""",
+        ]
+        if g_token and bullet_token:
+            cmds.append(f"""sed -i 's/gToken[^,]*,/gToken\": \"{g_token}\",/' {path_config_file}""")
+            cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
+
+        for cmd in cmds:
+            cron_logger.debug(f'user_db_id:{user_id} cli: {cmd}')
             os.system(cmd)
 
-    deno_path = plugin_config.splatoon3_deno_path
-    if not deno_path or not os.path.exists(deno_path):
-        cron_logger.info(f'deno_path not set: {deno_path or ""} '.center(120, '-'))
-        return
+    env = {}
+    # deno代理配置
+    # http
+    if proxy_address:
+        env.update({"HTTP_PROXY": f"http://{proxy_address}",
+                    "HTTPS_PROXY": f"http://{proxy_address}"
+                    })
+    # no proxy
+    if plugin_config.splatoon3_proxy_list_mode and proxy_address:
+        env.update({"NO_PROXY": f"stat.ink,deno.land,api.lp1.av5ja.srv.nintendo.net"})
 
+    # run deno
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
-    cron_logger.debug(cmd)
-    rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-    cron_logger.debug(f'{user_id} cli: {rtn}')
+    cron_logger.info(cmd)
+    rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 
+    res = rtn.stdout.decode('utf-8')
+    error = rtn.stderr.decode('utf-8')
     battle_cnt = 0
     coop_cnt = 0
     url = ''
-    for line in rtn.split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-        if 'exported to https://stat.ink' in line:
-            if 'salmon3' in line:
-                coop_cnt += 1
-            else:
-                battle_cnt += 1
-            url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
+    error_msg = ""
 
-    cron_logger.debug(f'{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
+    if error:
+        # error里面混有deno debug内容，需要经过过滤
+        for line in error.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            # 输出内容加了供终端显示颜色的ascii码，将其转化为b64 str后再判断前缀
+            if strToBase64(line).startswith('G1swbRtbMzJtRG93bmxvYWQbWzBtIGh0dHBzOi8vZGVuby5sYW5kL3'):
+                continue
+            error_msg += f"{line}\n"
+
+    if error_msg:
+        cron_logger.warning(f'user_db_id:{user_id} cli error,result:\n{error_msg}')
+    elif res:
+        # success
+        cron_logger.info(f'user_db_id:{user_id} cli success,result:\n{res}')
+
+        for line in res.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            if 'exported to https://stat.ink' in line:
+                if 'salmon3' in line:
+                    coop_cnt += 1
+                else:
+                    battle_cnt += 1
+                url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
+
+    cron_logger.info(f'user_db_id:{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
     if battle_cnt or coop_cnt:
         return battle_cnt, coop_cnt, url
+
+
+def strToBase64(s):
+    '''
+    将字符串转换为base64字符串
+    :param s:
+    :return:
+    '''
+    strEncode = base64.b64encode(s.encode('utf8'))
+    return str(strEncode, encoding='utf8')
