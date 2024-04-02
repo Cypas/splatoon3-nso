@@ -82,7 +82,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         'msg_id': msg_id,
         'this_push_cnt': 0,
         'error_push_cnt': 0,
-        '_cnt': 0,
+        'match_push_cnt': 0,
         'game_name': user.game_name or "",
         'job_id': job_id,
         'last_battle_id': "",
@@ -226,7 +226,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
                 # 获取统计数据
                 st_msg, push_time_minute = close_push(platform, user_id)
                 if isinstance(bot, All_BOT):
-                    msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟, {job_data.get("_cnt") or 0}次\n"
+                    msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟, {job_data.get('match_push_cnt') or 0}次对局\n"
                     if not user.stat_key and user.push_cnt <= 10:
                         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
                 msg += st_msg
@@ -260,7 +260,8 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
 
         # 连续error计数置0
         job_data.update({"error_push_cnt": 0})
-        job_data['_cnt'] += 1
+        # 比赛计数+1
+        job_data['match_push_cnt'] += 1
 
     except Exception as e:
         logger.warning(f'push_latest_battle error: {e}')
