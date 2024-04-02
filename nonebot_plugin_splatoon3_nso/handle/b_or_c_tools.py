@@ -133,7 +133,7 @@ async def get_top_user(name, icon, player_code):
     if not top_user:
         return name, icon, 0
 
-    _x = 'x' if ':6:' in top_user.top_type else 'X'
+    _x = 'x' if ':7:' in top_user.top_type else 'X'
     if '-a:' in top_user.top_type:
         color = "#fc0390"
     else:
