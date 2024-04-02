@@ -126,7 +126,7 @@ async def get_group_node_msg(g_node, splatoon, _type):
 
     msg += f'''
 |  |   ||  ||||||||||
-| --: |--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--|
+| --: |--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|:---------|
 |胜负|分数变动{_type_name}|当前分数{_type_name}|武器|总|杀+助|死亡|kd|大招|涂地|耗时|比分|地图|
 '''
 
@@ -217,7 +217,14 @@ def get_my_row(my_team):
     k = re['kill'] - re['assist']
     k_str = f'{k}+{re["assist"]}'
     d = re['death']
-    ration = k / d if d else 99
+    # 避免除数和被除数为0的情况
+    if k != 0:
+        if d == 0:
+            ration = k / 1
+        else:
+            ration = k / d
+    else:
+        ration = 0
 
     t = f"{ak:>2}|{k_str:>5}k| {d:>2}d|{ration:>4.1f}|{re['special']:>3}sp| {p['paint']:>4}p "
     return t
