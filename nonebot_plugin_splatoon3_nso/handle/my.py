@@ -7,7 +7,7 @@ from nonebot import on_keyword
 from .send_msg import bot_send
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
-    model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict
+    model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict, model_get_all_top_all
 from ..data.utils import GlobalUserInfo
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id
@@ -173,6 +173,9 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
 {coop_msg}
 |||
 """
+    top_res = model_get_all_top_all(user.game_sp_id)
+    if top_res:
+        msg += f"上榜记录 | {len(top_res)}次 &nbsp;&nbsp; /top 查询排行榜\n"
     return msg
 
 
