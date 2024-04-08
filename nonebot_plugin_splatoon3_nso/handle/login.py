@@ -79,6 +79,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         if isinstance(bot, Tg_Bot):
             msg = "Navigate to this URL in your browser:\n" \
                   f"{url}"
+            await bot.send(event, message=msg)
 
         elif isinstance(bot, All_BOT):
             msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，此类第三方调用可能会导致nso鱿鱼圈被封禁，目前未观察到游戏连带被禁的情况。(要怪请去怪乌贼研究所)\n" \

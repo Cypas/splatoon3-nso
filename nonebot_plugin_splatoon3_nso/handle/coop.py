@@ -184,8 +184,13 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False):
         p_name, icon = await get_user_name_color(p_name, player_code, is_myself=True)
     else:
         p_name, icon = await get_user_name_color(player_name, player_code)
+    # 辅助投蛋数
+    if p['goldenAssistCount']:
+        golden = f"{p['goldenDeliverCount']}({p['goldenAssistCount']})"
+    else:
+        golden = f"{p['goldenDeliverCount']}"
 
-    t = f"|x{p['defeatEnemyCount']}| {p['goldenDeliverCount']} |{p['rescuedCount']}d |" \
+    t = f"|x{p['defeatEnemyCount']}| {golden} |{p['rescuedCount']}d |" \
         f"{p['rescueCount']}r|{p['deliverCount']} | {uniform} {p_name}|{weapon}|{icon}|"
 
     return t
