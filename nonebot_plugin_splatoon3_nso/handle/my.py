@@ -96,13 +96,13 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
 头目鲑鱼 | {card['defeatBossCount']} {boss_per_cnt}
 救援次数 | {card['rescueCount']} {rpc}
 累计点数 | {card['totalPoint']} {ppc}
-鳞片 | 🥉{p['bronze']} 🥈{p['silver']} 🏅️{p['gold']}"""
+鳞片 | 🏅️{p['gold']} 🥈{p['silver']} 🥉{p['bronze']}"""
 
         if from_group:
             coop_msg = f"""当前打工段位 | {level}
 打工次数 | {card['playCount']}
 头目鲑鱼 | {card['defeatBossCount']} {boss_per_cnt}
-鳞片 | 🥉{p['bronze']} 🥈{p['silver']} 🏅️{p['gold']}"""
+鳞片 | 🏅️{p['gold']} 🥈{p['silver']} 🥉{p['bronze']}"""
 
     ar = (history.get('xMatchMaxAr') or {}).get('power') or 0  # 区域
     lf = (history.get('xMatchMaxLf') or {}).get('power') or 0  # 塔楼
