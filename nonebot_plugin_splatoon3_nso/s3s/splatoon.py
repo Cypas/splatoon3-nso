@@ -193,6 +193,18 @@ class Splatoon:
     async def test_page(self, multiple=False):
         """主页(测试访问页面) 目前只有nso截图功能需要用到这个测试访问函数"""
         data = gen_graphql_body(translate_rid["HomeQuery"])
+
+        msg_id = get_msg_id(self.platform, self.user_id)
+        if not self.bullet_token or not self.g_token:
+            # 首次请求如果为空时
+            self.logger.info(f'{msg_id} tokens is None,start refresh tokens soon')
+            # 更新token提醒一下用户
+            if not multiple and self.bot and self.event:
+                await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
+
+            await self.refresh_gtoken_and_bullettoken()
+            self.logger.debug(f'{msg_id} refresh tokens complete')
+
         # t = time.time()
         headers = self._head_bullet(self.bullet_token)
         cookies = dict(_gtoken=self.g_token)

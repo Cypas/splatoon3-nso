@@ -78,9 +78,11 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
         await page.goto(f"{url}?lang=zh-CN")
     if "武器" in key or "徽章" in key:
         # 武器页面等待更长时间
-        await page.wait_for_timeout(7000)
-    else:
+        await page.wait_for_load_state(state="networkidle")
         await page.wait_for_timeout(5000)
+    else:
+        await page.wait_for_load_state(state="networkidle")
+        await page.wait_for_timeout(2000)
 
     if "问卷" in key or "投票" in key:
         k = "问卷实施中"
@@ -89,7 +91,8 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
             raise ValueError("text not found")
         else:
             await locator.nth(0).click()
-            await page.wait_for_timeout(4000)
+            await page.wait_for_load_state(state="networkidle")
+            await page.wait_for_timeout(3000)
 
     img_raw = await page.screenshot(full_page=True)
     # 关闭上下文
@@ -103,6 +106,9 @@ ss_url_trans = {
     '最近': 'history/latest',
     '涂地': 'history/regular',
     '蛮颓': 'history/bankara',
+    '真格': 'history/bankara',
+    '挑战': 'history/bankara',
+    '开放': 'history/bankara',
     'X赛': 'history/xmatch',
     'x赛': 'history/xmatch',
     'X': 'history/xmatch',
@@ -115,7 +121,9 @@ ss_url_trans = {
     '打工': 'coop',
     '鲑鱼跑': 'coop',
     '击倒数量': 'coop_record/enemies',
+    '击杀数量': 'coop_record/enemies',
     '祭典': 'fest_record',
+    '祭奠': 'fest_record',
     '英雄模式': 'hero_record',
     '英雄': 'hero_record',
     '地图': 'stage_record',

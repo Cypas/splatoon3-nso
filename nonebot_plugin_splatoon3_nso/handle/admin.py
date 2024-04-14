@@ -8,9 +8,12 @@ from .cron import create_get_user_friends_tasks, get_x_player, create_set_report
 from .cron.else_cron import get_dict_status
 from .push import close_push
 from .send_msg import bot_send, notify_to_private
-from ..data.data_source import dict_get_all_global_users, model_clean_db_cache
+from ..data.data_source import dict_get_all_global_users, model_clean_db_cache, model_get_or_set_user, \
+    dict_get_or_set_user_info
 from ..utils import get_msg_id
 from ..utils.bot import *
+
+global_admin_session_token: str = ""
 
 matcher_admin = on_command("admin", block=True, permission=SUPERUSER)
 
@@ -18,7 +21,7 @@ matcher_admin = on_command("admin", block=True, permission=SUPERUSER)
 @matcher_admin.handle()
 async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
     plain_text = args.extract_plain_text().strip()
-
+    global global_admin_session_token
     match plain_text:
 
         case "get_push":
@@ -97,6 +100,17 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await bot_send(bot, event, message=msg)
             await show_dict_status()
 
+        case "restore_cookies":
+            """还原自己cookies"""
+            if not global_admin_session_token:
+                await bot_send(bot, event, message=f"未更改cookies，无需还原")
+            else:
+                platform = bot.adapter.get_name()
+                my_user_id = event.get_user_id()
+                dict_get_or_set_user_info(platform, my_user_id, session_token=global_admin_session_token, access_token="",
+                                          g_token="", bullet_token="")
+                await bot_send(bot, event, message=f"cookies已恢复")
+
     if plain_text.startswith("kook_leave"):
         """kook bot离开某服务器
         kook_leave {guild_id}
@@ -106,3 +120,24 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             guild_id = args[1]
             await bot.guild_leave(guild_id=guild_id)
             await bot_send(bot, event, message=f"已退出服务器{guild_id}")
+        else:
+            await bot_send(bot, event, message=f"无效命令， lens:{len(args)}")
+
+    if plain_text.startswith("copy_cookies"):
+        """复制同平台其他用户cookies到自己账号，方便测试"""
+        args = plain_text.split(" ")
+        if len(args) == 2:
+            platform = bot.adapter.get_name()
+            user_id = args[1]
+            my_user_id = event.get_user_id()
+            user = model_get_or_set_user(platform, user_id)
+            my = model_get_or_set_user(platform, my_user_id)
+            # 备份自己cookies
+            if not global_admin_session_token:
+                global_admin_session_token = my.session_token
+            # 设置别人的值
+            dict_get_or_set_user_info(platform, my_user_id, session_token=user.session_token, access_token="",
+                                      g_token="", bullet_token="")
+            await bot_send(bot, event, message=f"已复制账号 {user.game_name} cookies\n还原:/admin restore_cookies")
+        else:
+            await bot_send(bot, event, message=f"无效命令， lens:{len(args)}")
