@@ -30,10 +30,10 @@ translate_rid = {
     'BankaraBattleHistoriesQuery': '9863ea4744730743268e2940396e21b891104ed40e2286789f05100b45a0b0fd',  # 对战 - 蛮颓
     'PrivateBattleHistoriesQuery': 'fef94f39b9eeac6b2fac4de43bc0442c16a9f2df95f4d367dd8a79d7c5ed5ce7',  # 对战 - 私房
     'XBattleHistoriesQuery': 'eb5996a12705c2e94813a62e05c0dc419aad2811b8d49d53e5732290105559cb',  # 对战 - X比赛
-    'VsHistoryDetailQuery': 'f893e1ddcfb8a4fd645fd75ced173f18b2750e5cfba41d2669b9814f6ceaec46',
+    'VsHistoryDetailQuery': '20f88b10d0b1d264fcb2163b0866de26bbf6f2b362f397a0258a75b7fa900943',
     # 通过比赛id详查  参数2:"vsResultId" 参数3:比赛id
     'CoopHistoryQuery': '0f8c33970a425683bb1bdecca50a0ca4fb3c3641c0b2a1237aedfde9c0cb2b8f',  # 鲑鱼跑
-    'CoopHistoryDetailQuery': '42262d241291d7324649e21413b29da88c0314387d8fdf5f6637a2d9d29954ae',
+    'CoopHistoryDetailQuery': 'f2d55873a9281213ae27edc171e2b19131b3021a2ae263757543cdd3bf015cc8',
     # 通过打工id详查 参数2:"coopHistoryDetailId" 参数3:打工id
     'MyOutfitCommonDataEquipmentsQuery': '45a4c343d973864f7bb9e9efac404182be1d48cf2181619505e9b7cd3b56a6e8',
     # 主页 - 武器  获取全部武器数据
@@ -52,7 +52,6 @@ translate_rid = {
     'PagerLatestVsDetailQuery': '73462e18d464acfdf7ac36bde08a1859aa2872a90ed0baed69c94864c20de046',  # 查询最新一局的对战id
     'CoopStatistics': '56f989a59643642e0799c90d3f6d0457f5f5f72d4444dfae87043c4a23d13043',  # 主页 - 打工  打工统计数据
     'XRanking500Query': '90932ee3357eadab30eb11e9d6b4fe52d6b35fde91b5c6fd92ba4d6159ea1cb7'  # 主页-x排名 - 顶级500强玩家
-
 }
 
 

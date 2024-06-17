@@ -17,12 +17,12 @@ from nonebot import logger as nb_logger
 from .utils import SPLATNET3_URL
 from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 
-A_VERSION = "0.6.3"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
+A_VERSION = "0.6.5"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
 NSOAPP_VERSION = "unknown"
-NSOAPP_VER_FALLBACK = "2.9.0"  # fallback
+NSOAPP_VER_FALLBACK = "2.10.1"  # fallback
 WEB_VIEW_VERSION = "unknown"
-WEB_VIEW_VER_FALLBACK = "6.0.0-eb33aadc"  # fallback
+WEB_VIEW_VER_FALLBACK = "6.0.0-9f87c815"  # fallback
 
 F_GEN_URL = "https://api.imink.app/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
