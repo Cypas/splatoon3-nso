@@ -2,6 +2,8 @@ import os
 
 BOT_VERSION = "2.6.3"
 DIR_RESOURCE = f"{os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))}/resource"
+# 图标文件夹
+icons_folder = os.path.join(DIR_RESOURCE, "icons")
 plugin_release_time = "2024-01-30 02:35:58"  # 预留  2.0.0重构版nso插件发布时间，预计发布时对全部用户先显示一周，之后再判断用户创建时间
 
 
@@ -22,6 +24,14 @@ def get_msg_id(platform, user_id):
     """获取 msg_id 字符串，提供统一格式"""
     msg_id = f"{platform}-{user_id}"
     return msg_id
+
+
+def get_icon_path(name, ext_name="png"):
+    """获取图标文件路径"""
+    path = os.path.join(icons_folder, "{}.{}".format(name, ext_name))
+    if not os.path.exists(path):
+        return ""
+    return path
 
 
 MSG_HELP = f"""

@@ -6,7 +6,7 @@ from .utils import get_game_sp_id_and_name, dict_b_mode_trans
 from ..data.data_source import model_get_temp_image_path, model_get_user_friend
 from ..data.db_sqlite import UserFriendTable
 from ..s3s.splatoon import Splatoon
-from ..utils import get_time_now_china_date, plugin_release_time, get_time_now_china
+from ..utils import get_time_now_china_date, plugin_release_time, get_time_now_china, get_icon_path
 
 DICT_HTML_CODES = {
     '#': '&#35;',
@@ -432,9 +432,18 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
 
     # 取翻译名
     mode = dict_b_mode_trans.get(mode, mode)
+    icon_path = get_icon_path(mode)
+    if icon_path != "":
+        mode = f'<img height="40" src="{icon_path}"/>'
+
     if bankara_match:
         bankara_match = dict_b_mode_trans.get(bankara_match, bankara_match)
         bankara_match = f"({bankara_match})"
+
+    mode_match = f"{mode}{bankara_match}"
+    icon2_path = get_icon_path(mode)
+    if icon2_path != "":
+        mode_match = f'<img height="40" src="{icon2_path}"/>'
 
     if mask:
         # 打码
@@ -448,6 +457,6 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
         level_str = ""
     # BANKARA(OPEN) 真格蛤蜊 WIN S+9 +8p
     # FEST(OPEN) 占地对战 WIN  +2051
-    title = f"{mode}{bankara_match} {rule}({stage}) {judgement}"
+    title = f"{mode_match} {rule}({stage}) {judgement}"
     sub_title = f"{level_str} {str_point}"
     return title, sub_title, point, b_process
