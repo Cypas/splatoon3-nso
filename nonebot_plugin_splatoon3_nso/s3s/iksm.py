@@ -498,7 +498,7 @@ class S3S:
             r_json = json.loads(r.text)
             bullet_token = r_json['bulletToken']
             return bullet_token
-        except json.JSONDecodeError as e:
+        except (json.decoder.JSONDecodeError, json.JSONDecodeError) as e:
             self.logger.exception(f'{user_id} get_bullet error. {r.status_code}')
             if r.status_code == 401:
                 self.logger.exception(
@@ -511,6 +511,8 @@ class S3S:
                 self.logger.exception(f"{user_id} has be banned")
                 raise Exception(f"{user_id} has be banned")
             raise Exception(f"{user_id} get_bullet error. {r.status_code}")
+        except Exception as e:
+            self.logger.warning(f"get_bullet error:{e}")
 
     async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
