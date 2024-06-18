@@ -451,6 +451,8 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
     mode_match_icon_path = get_icon_path(mode_match)
     if mode_match_icon_path != "" and mode_match != mode_match_icon_path:
         mode_match = f'<img height="40" src="{mode_match_icon_path}"/>{bankara_match}'
+    else:
+        mode_match = f'{mode}{bankara_match}'
 
     if mask:
         # 打码
