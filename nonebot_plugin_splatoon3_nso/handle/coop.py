@@ -1,7 +1,7 @@
 from datetime import datetime as dt, timedelta
 
 from .b_or_c_tools import PushStatistics, get_user_name_color
-from .utils import get_game_sp_id_and_name
+from .utils import get_game_sp_id_and_name, get_icon_path
 from ..data.data_source import model_get_temp_image_path
 from ..s3s.splatoon import Splatoon
 from ..utils import get_time_now_china_date, get_time_now_china, plugin_release_time
@@ -26,6 +26,15 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
         wave_cnt = 5
     if detail['resultWave'] == 0:  # 0为胜利(未失败)  -1为掉线
         win = True
+
+    # rule图标
+    rule_icon = ""
+    rule = detail.get('rule')
+    if rule:
+        # 取图标
+        rule_icon_path = get_icon_path(rule)
+        if rule_icon_path != "":
+            rule_icon = f'<img height="40" src="{rule_icon_path}"/>'
     # 全部w的数据
     wave_results = detail['waveResults'][:wave_cnt]
     for w in wave_results:
@@ -75,7 +84,7 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
     result_wave = detail["resultWave"]
     judgement = "🎉Clear!! " if win else f"😭W{result_wave} Failure"
     msg = f"""
-#### {coop_stage} 段位:{lv_grade} {lv_point}  危险度:{detail['dangerRate']:.0%} {judgement}
+#### {rule_icon}{coop_stage} 段位:{lv_grade} {lv_point}  危险度:{detail['dangerRate']:.0%} {judgement}
 ##### 打工点数+{detail['jobPoint']}({c_point}p) boss槽:{king_str}
 {wave_msg}
 

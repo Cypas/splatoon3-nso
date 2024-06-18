@@ -59,6 +59,9 @@ dict_icon_file_map = {
     "真格蛤蜊": "CLAM",
     "占地对战": "TURF_WAR",
 
+    "REGULAR": "coop_regular",
+    "BIG_RUN": "coop_big_run",
+    "TEAM_CONTEST": "coop_team",
 }
 
 
