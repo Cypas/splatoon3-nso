@@ -464,6 +464,10 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
         level_str = ""
     # BANKARA(OPEN) 真格蛤蜊 WIN S+9 +8p
     # FEST(OPEN) 占地对战 WIN  +2051
-    title = f"{mode_match} {rule}({stage}) {judgement}"
+    if mode_name != "一般比赛":
+        title = f"{mode_match} {rule}({stage}) {judgement}"
+    else:
+        title = f"{mode_match} ({stage}) {judgement}"
+
     sub_title = f"{level_str} {str_point}"
     return title, sub_title, point, b_process
