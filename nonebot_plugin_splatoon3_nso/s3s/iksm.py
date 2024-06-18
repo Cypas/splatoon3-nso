@@ -509,8 +509,8 @@ class S3S:
                 self.logger.exception("Cannot access SplatNet 3 without having played online.")
             elif r.status_code == 499:  # 鱿鱼圈封禁
                 self.logger.exception(f"{user_id} has be banned")
-                raise Exception(f"{user_id} has be banned")
-            raise Exception(f"{user_id} get_bullet error. {r.status_code}")
+                raise ValueError(f"{user_id} has be banned")
+            raise ValueError(f"{user_id} get_bullet error. {r.status_code}")
         except Exception as e:
             self.logger.warning(f"get_bullet error:{e}")
 

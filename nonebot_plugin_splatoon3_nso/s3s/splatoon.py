@@ -128,7 +128,7 @@ class Splatoon:
                 user = dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, user_agreement=1)
             except Exception as e:
                 msg_id = get_msg_id(self.platform, self.user_id)
-                if "has be banned" in e:
+                if "has be banned" in str(e):
                     # 鱿鱼圈封禁
                     user = dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, user_agreement=-1)
                     msg = f"喷3账号 {user.game_name or ''} 鱿鱼圈被封禁，无法使用相关查询，一般会在4周，即28天后自动解封"

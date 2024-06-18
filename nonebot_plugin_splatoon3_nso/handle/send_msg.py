@@ -168,7 +168,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
                 try:
                     await bot.send(event, qq_md_msg)
                 except QQ_ActionFailed as e:
-                    if "消息被去重" in e:
+                    if "消息被去重" in str(e):
                         pass
                     else:
                         logger.warning(f"QQ send msg error: {e}")
@@ -182,7 +182,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
                 message = message.replace("```", "").replace("\_", "_").strip().strip("`")
             await send_msg(bot, event, message)
         except QQ_ActionFailed as e:
-            if "消息被去重" in e:
+            if "消息被去重" in str(e):
                 pass
             else:
                 logger.warning(f"QQ send msg error: {e}")
@@ -226,7 +226,7 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
             try:
                 await bot.send(event, message=QQ_MsgSeg.text(msg))
             except QQ_ActionFailed as e:
-                if "消息被去重" in e:
+                if "消息被去重" in str(e):
                     pass
                 else:
                     logger.warning(f"QQ send msg error: {e}")
@@ -265,7 +265,7 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
                     if url:
                         await bot.send(event, message=QQ_MsgSeg.image(url))
             except QQ_ActionFailed as e:
-                if "消息被去重" in e:
+                if "消息被去重" in str(e):
                     pass
                 else:
                     logger.warning(f"QQ send msg error: {e}")
