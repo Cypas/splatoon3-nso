@@ -47,7 +47,7 @@ dict_icon_file_map = {
     "蛮颓比赛": "BANKARA",
     "祭典比赛": "FEST",
     "X比赛": "X_MATCH",
-    "一般比赛": "REGULAR",
+    "一般比赛": "Regular",
     "私房": "PRIVATE",
 
     "蛮颓比赛(挑战)": "BANKARA(CHALLENGE)",
