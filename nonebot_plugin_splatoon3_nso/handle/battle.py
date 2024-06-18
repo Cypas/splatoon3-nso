@@ -437,6 +437,7 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
 
     # 取翻译名
     mode = dict_b_mode_trans.get(mode, mode)
+    mode_name = mode
     # 取图标
     mode_icon_path = get_icon_path(mode)
     if mode_icon_path != "":
@@ -446,10 +447,10 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
         bankara_match = dict_b_mode_trans.get(bankara_match, bankara_match)
         bankara_match = f"({bankara_match})"
 
-    mode_match = f"{mode}{bankara_match}"
+    mode_match = f'{mode_name}{bankara_match}'
     mode_match_icon_path = get_icon_path(mode_match)
-    if mode_match_icon_path != "":
-        mode_match = f'<img height="40" src="{mode_match_icon_path}"/>'
+    if mode_match_icon_path != "" and mode_match != mode_match_icon_path:
+        mode_match = f'<img height="40" src="{mode_match_icon_path}"/>{bankara_match}'
 
     if mask:
         # 打码
