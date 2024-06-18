@@ -8,6 +8,8 @@ from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user,
 from ..utils import DIR_RESOURCE
 from ..utils.bot import *
 
+# 图标文件夹
+icons_folder = os.path.join(DIR_RESOURCE, "icons")
 PUSH_INTERVAL = 15  # push推送循环时间
 
 # 真格入场券点数
@@ -38,6 +40,39 @@ dict_b_mode_trans = {
     "OPEN": "开放",
     "TRI_COLOR": "三色",
 }
+
+# icon图标映射
+dict_icon_file_map = {
+    "活动比赛": "LEAGUE",
+    "蛮颓比赛": "BANKARA",
+    "祭典比赛": "FEST",
+    "X比赛": "X_MATCH",
+    "一般比赛": "REGULAR",
+    "私房": "PRIVATE",
+
+    "蛮颓比赛(挑战)": "BANKARA(CHALLENGE)",
+    "蛮颓比赛(开放)": "BANKARA(OPEN)",
+
+    "真格鱼虎对战": "GOAL",
+    "真格区域": "AREA",
+    "真格塔楼": "LOFT",
+    "真格蛤蜊": "CLAM",
+    "占地对战": "TURF_WAR",
+
+}
+
+
+def get_icon_path(name, ext_name="png"):
+    """获取图标文件路径"""
+    if name in dict_icon_file_map:
+        # 转化为英文图标名
+        name = dict_icon_file_map[name]
+        path = os.path.join(icons_folder, "{}.{}".format(name, ext_name))
+        if not os.path.exists(path):
+            return ""
+        return path
+    else:
+        return name
 
 
 def get_dict_lang(lang):
