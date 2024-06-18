@@ -20,7 +20,7 @@ from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 A_VERSION = "0.6.5"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
 NSOAPP_VERSION = "unknown"
-NSOAPP_VER_FALLBACK = "2.10.1"  # fallback
+NSOAPP_VER_FALLBACK = "2.10.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
 WEB_VIEW_VER_FALLBACK = "6.0.0-9f87c815"  # fallback
 
@@ -498,7 +498,7 @@ class S3S:
             r_json = json.loads(r.text)
             bullet_token = r_json['bulletToken']
             return bullet_token
-        except json.JSONDecodeError as e:
+        except (json.decoder.JSONDecodeError, json.JSONDecodeError) as e:
             self.logger.exception(f'{user_id} get_bullet error. {r.status_code}')
             if r.status_code == 401:
                 self.logger.exception(
@@ -509,8 +509,10 @@ class S3S:
                 self.logger.exception("Cannot access SplatNet 3 without having played online.")
             elif r.status_code == 499:  # 鱿鱼圈封禁
                 self.logger.exception(f"{user_id} has be banned")
-                raise Exception(f"{user_id} has be banned")
-            raise Exception(f"{user_id} get_bullet error. {r.status_code}")
+                raise ValueError(f"{user_id} has be banned")
+            raise ValueError(f"{user_id} get_bullet error. {r.status_code}")
+        except Exception as e:
+            self.logger.warning(f"get_bullet error:{e}")
 
     async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,

@@ -128,10 +128,10 @@ class Splatoon:
                 user = dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, user_agreement=1)
             except Exception as e:
                 msg_id = get_msg_id(self.platform, self.user_id)
-                if "has be banned" in e:
+                if "has be banned" in str(e):
                     # 鱿鱼圈封禁
                     user = dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, user_agreement=-1)
-                    msg = f"喷3账号 {user.game_name or ''} 鱿鱼圈被封禁，无法使用相关查询，一般会在4周，即28天后自动解封"
+                    msg = f"喷3账号 {user.game_name or ''} 鱿鱼圈被封禁，无法使用相关查询，一般会在一个月后自动解封"
                     if self.bot and self.event:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
@@ -193,6 +193,18 @@ class Splatoon:
     async def test_page(self, multiple=False):
         """主页(测试访问页面) 目前只有nso截图功能需要用到这个测试访问函数"""
         data = gen_graphql_body(translate_rid["HomeQuery"])
+
+        msg_id = get_msg_id(self.platform, self.user_id)
+        if not self.bullet_token or not self.g_token:
+            # 首次请求如果为空时
+            self.logger.info(f'{msg_id} tokens is None,start refresh tokens soon')
+            # 更新token提醒一下用户
+            if not multiple and self.bot and self.event:
+                await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
+
+            await self.refresh_gtoken_and_bullettoken()
+            self.logger.debug(f'{msg_id} refresh tokens complete')
+
         # t = time.time()
         headers = self._head_bullet(self.bullet_token)
         cookies = dict(_gtoken=self.g_token)

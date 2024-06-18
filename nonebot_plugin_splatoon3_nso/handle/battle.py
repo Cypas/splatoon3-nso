@@ -2,7 +2,7 @@ from datetime import datetime as dt, timedelta
 
 from .b_or_c_tools import get_b_point_and_process, get_x_power_and_process, get_top_user, get_top_all_name, \
     PushStatistics, get_user_name_color
-from .utils import get_game_sp_id_and_name, dict_b_mode_trans
+from .utils import get_game_sp_id_and_name, dict_b_mode_trans, get_icon_path
 from ..data.data_source import model_get_temp_image_path, model_get_user_friend
 from ..data.db_sqlite import UserFriendTable
 from ..s3s.splatoon import Splatoon
@@ -376,7 +376,7 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
         _power = f'{sum(team_power) / len(team_power):.1f}'
         t += f'|||||||||&nbsp; |' \
              f'<span style="position:absolute;left:50%;margin-top:-13px">' \
-             f'队伍成员上榜均分:'\
+             f'队伍成员上榜均分:' \
              f'<span style="color:#1e96d2">{_power}</span></span>|\n'
     return t
 
@@ -389,6 +389,11 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
     judgement = battle_detail['judgement']
     stage = battle_detail['vsStage']['name']
     bankara_match = (battle_detail.get('bankaraMatch') or {}).get('mode') or ''
+
+    # 取图标
+    rule_icon_path = get_icon_path(rule)
+    if rule_icon_path != "":
+        rule = f'<img height="40" src="{rule_icon_path}"/>'
 
     point = 0
     b_process = ''
@@ -432,9 +437,22 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
 
     # 取翻译名
     mode = dict_b_mode_trans.get(mode, mode)
+    mode_name = mode
+    # 取图标
+    mode_icon_path = get_icon_path(mode)
+    if mode_icon_path != "":
+        mode = f'<img height="40" src="{mode_icon_path}"/>'
+
     if bankara_match:
         bankara_match = dict_b_mode_trans.get(bankara_match, bankara_match)
         bankara_match = f"({bankara_match})"
+
+    mode_match = f'{mode_name}{bankara_match}'
+    mode_match_icon_path = get_icon_path(mode_match)
+    if mode_match_icon_path != "" and mode_match != mode_match_icon_path:
+        mode_match = f'<img height="40" src="{mode_match_icon_path}"/>{bankara_match}'
+    else:
+        mode_match = f'{mode}{bankara_match}'
 
     if mask:
         # 打码
@@ -448,6 +466,10 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
         level_str = ""
     # BANKARA(OPEN) 真格蛤蜊 WIN S+9 +8p
     # FEST(OPEN) 占地对战 WIN  +2051
-    title = f"{mode}{bankara_match} {rule}({stage}) {judgement}"
+    if mode_name != "一般比赛":
+        title = f"{mode_match} {rule}({stage}) {judgement}"
+    else:
+        title = f"{mode_match} ({stage}) {judgement}"
+
     sub_title = f"{level_str} {str_point}"
     return title, sub_title, point, b_process
