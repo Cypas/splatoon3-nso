@@ -205,7 +205,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
                     })
     # no proxy
     if plugin_config.splatoon3_proxy_list_mode and proxy_address:
-        env.update({"NO_PROXY": f"stat.ink,deno.land,api.lp1.av5ja.srv.nintendo.net"})
+        env.update({"NO_PROXY": f"deno.land,api.lp1.av5ja.srv.nintendo.net"})
 
     # run deno
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
