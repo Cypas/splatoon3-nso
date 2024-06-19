@@ -143,7 +143,7 @@ class Splatoon:
                     await notify_to_channel(
                         f"新的鱿鱼圈封禁用户:\n"
                         f"db_id:{self.user_db_info.db_id},msg_id:{msg_id},\n"
-                        f"sp_id:{self.user_db_info.game_sp_id or ""},\n"
+                        f"sp_id:{self.user_db_info.game_sp_id or ''},\n"
                         f"push_cnt:{self.user_db_info.push_cnt},cmd_cnt:{self.user_db_info.cmd_cnt},")
 
                     # 查询其他同绑账号
@@ -164,7 +164,7 @@ class Splatoon:
                             await notify_to_channel(
                                 f"封禁用户:db_id:{self.user_db_info.db_id},msg_id:{msg_id},\n"
                                 f"同绑用户:db_id:{u.id},msg_id:{key},\n"
-                                f"sp_id:{u.game_sp_id or ""},\n"
+                                f"sp_id:{u.game_sp_id or ''},\n"
                                 f"push_cnt:{u.push_cnt},cmd_cnt:{u.cmd_cnt},")
 
                 else:
