@@ -15,13 +15,15 @@ from ..utils import get_msg_id, get_or_init_client
 
 
 class UserDBInfo:
-    def __init__(self, db_id, user_name, game_name, game_sp_id, create_time, report_notify):
+    def __init__(self, db_id, user_name, game_name, game_sp_id, create_time, report_notify, push_cnt, cmd_cnt):
         self.db_id = db_id
         self.user_name = user_name
         self.game_name = game_name
         self.game_sp_id = game_sp_id
         self.create_time = create_time
         self.report_notify = report_notify
+        self.push_cnt = push_cnt
+        self.cmd_cnt = cmd_cnt
 
 
 class Splatoon:
@@ -56,7 +58,9 @@ class Splatoon:
                                            user.game_name or "no game name",
                                            user.game_sp_id or "",
                                            user.create_time,
-                                           user.report_notify)
+                                           user.report_notify,
+                                           user.push_cnt or 0,
+                                           user.cmd_cnt or 0)
 
     def set_user_info(self, **kwargs):
         """修改user信息"""
@@ -130,12 +134,39 @@ class Splatoon:
                 msg_id = get_msg_id(self.platform, self.user_id)
                 if "has be banned" in str(e):
                     # 鱿鱼圈封禁
-                    user = dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, user_agreement=-1)
-                    msg = f"喷3账号 {user.game_name or ''} 鱿鱼圈被封禁，无法使用相关查询，一般会在一个月后自动解封"
+                    user = dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type,
+                                                     user_agreement=-1)
+                    msg = f"喷3账号 {user.game_name or ''} 鱿鱼圈被封禁，无法使用相关查询，一般会在一个月后自动解封,你可以加入q群756026315与其他被封禁用户交流"
                     if self.bot and self.event:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
-                    await notify_to_channel(f"新的鱿鱼圈封禁用户: {e}")
+                    await notify_to_channel(
+                        f"新的鱿鱼圈封禁用户:\n"
+                        f"db_id:{self.user_db_info.db_id},msg_id:{msg_id},\n"
+                        f"sp_id:{self.user_db_info.game_sp_id or ""},\n"
+                        f"push_cnt:{self.user_db_info.push_cnt},cmd_cnt:{self.user_db_info.cmd_cnt},")
+
+                    # 查询其他同绑账号
+                    users = model_get_another_account_user(self.platform, self.user_id)
+                    if len(users) > 0:
+                        for u in users:
+                            # 如果存在全局缓存，也更新缓存数据
+                            key = get_msg_id(u.platform, u.user_id)
+                            user_info = global_user_info_dict.get(key)
+                            if user_info:
+                                # 更新缓存数据
+                                dict_get_or_set_user_info(u.platform, u.user_id, user_agreement=-1)
+                            else:
+                                # 更新数据库数据
+                                model_get_or_set_user(u.platform, u.user_id, user_agreement=-1)
+
+                            # 通知同绑账号调用情况
+                            await notify_to_channel(
+                                f"封禁用户:db_id:{self.user_db_info.db_id},msg_id:{msg_id},\n"
+                                f"同绑用户:db_id:{u.id},msg_id:{key},\n"
+                                f"sp_id:{u.game_sp_id or ""},\n"
+                                f"push_cnt:{u.push_cnt},cmd_cnt:{u.cmd_cnt},")
+
                 else:
                     self.logger.warning(
                         f'{msg_id} get g_token success,get bullet_token error,start try again.reason:{e}')
@@ -168,11 +199,11 @@ class Splatoon:
                     # 更新缓存数据
                     dict_get_or_set_user_info(u.platform, u.user_id, access_token=self.access_token,
                                               g_token=self.g_token,
-                                              bullet_token=self.bullet_token)
+                                              bullet_token=self.bullet_token, user_agreement=1)
                 else:
                     # 更新数据库数据
                     model_get_or_set_user(u.platform, u.user_id, access_token=self.access_token, g_token=self.g_token,
-                                          bullet_token=self.bullet_token)
+                                          bullet_token=self.bullet_token, user_agreement=1)
 
     def _head_bullet(self, bullet_token):
         """为含有bullet_token的请求拼装header"""
