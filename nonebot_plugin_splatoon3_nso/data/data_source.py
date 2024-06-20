@@ -401,10 +401,10 @@ def model_set_user_friend(data_lst):
     report_logger = logger.bind(report=True)
     session = DBSession_Friends()
     for r in data_lst:
-        u = session.query(UserFriendTable).filter(UserFriendTable.friend_id == r[1]).first()
+        user = session.query(UserFriendTable).filter(UserFriendTable.friend_id == r[1]).first()
         game_name = r[2] or r[3]
-        user = copy.deepcopy(u)
-        session.commit()
+        # user = copy.deepcopy(u)
+        # session.commit()
         if user:
             is_change = False
             if r[2] and user.game_name != game_name:
