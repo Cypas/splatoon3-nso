@@ -76,8 +76,8 @@ async def set_user_report_task(p_and_id):
             # 刷新token
             await splatoon.refresh_gtoken_and_bullettoken()
         except ValueError as e:
-            if 'invalid_grant' in str(e) or 'Membership required' in str(e):
-                # 无效登录或会员过期
+            if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
+                # 无效登录或会员过期 或被封禁
                 # 关闭连接池
                 await splatoon.req_client.close()
                 return False

@@ -508,11 +508,11 @@ class S3S:
             elif r.status_code == 204:  # No Content, USER_NOT_REGISTERED
                 self.logger.exception("Cannot access SplatNet 3 without having played online.")
             elif r.status_code == 499:  # 鱿鱼圈封禁
-                self.logger.exception(f"{user_id} has be banned")
-                raise ValueError(f"{user_id} has be banned")
-            raise ValueError(f"{user_id} get_bullet error. {r.status_code}")
+                self.logger.exception(f"user_id:{user_id} has be banned")
+                raise ValueError(f"user_id:{user_id} has be banned")
+            raise ValueError(f"user_id:{user_id} get_bullet error. status_code:{r.status_code}")
         except Exception as e:
-            self.logger.warning(f"get_bullet error:{e}")
+            self.logger.warning(f"user_id:{user_id} get_bullet error:{e}")
 
     async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
