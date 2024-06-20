@@ -162,10 +162,11 @@ class Splatoon:
 
                             # 通知同绑账号调用情况
                             await notify_to_channel(
-                                f"封禁用户:db_id:{self.user_db_info.db_id},msg_id:{msg_id},\n"
-                                f"同绑用户:db_id:{u.id},msg_id:{key},\n"
-                                f"sp_id:{u.game_sp_id or ''},\n"
+                                f"{self.user_db_info.db_id}同绑用户:\n"
+                                f"db_id:{u.id},msg_id:{key},\n"
                                 f"push_cnt:{u.push_cnt},cmd_cnt:{u.cmd_cnt},")
+
+                    raise e
 
                 else:
                     self.logger.warning(
@@ -301,6 +302,8 @@ class Splatoon:
         except httpx.ConnectTimeout:
             self.logger.warning(f'{msg_id} _request error: connectTimeout')
             raise ValueError('NetConnectTimeout')
+        except ValueError as e:
+            raise e
         except Exception as e:
             self.logger.warning(f'{msg_id} _request error: {e}')
             self.logger.warning(f'data:{data}')
@@ -351,6 +354,8 @@ class Splatoon:
         except httpx.ConnectTimeout:
             self.logger.warning(f'{msg_id} _ns_api_request error: connectTimeout')
             raise ValueError('NetConnectTimeout')
+        except ValueError as e:
+            raise e
         except Exception as e:
             self.logger.warning(f'{msg_id} _request error: {e}')
             self.logger.warning(f'data:{url}')

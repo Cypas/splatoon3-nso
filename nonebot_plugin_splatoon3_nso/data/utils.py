@@ -44,7 +44,7 @@ async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageT
                 "friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link) or not row.file_name:
             download_flag = True
         else:
-            temp_image = copy.deepcopy(row)
+            temp_image = row
     else:
         download_flag = True
     if download_flag and link:
@@ -65,7 +65,7 @@ async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageT
                                               link=link,
                                               file_name=file_name)
 
-        # 将复制值传给orm
+        # 将复制值传给orm,session提交后，获取的数据会失效，无法作为值进行返回，这里必须深度复制
         session.add(copy.deepcopy(temp_image))
     session.commit()
     session.close()

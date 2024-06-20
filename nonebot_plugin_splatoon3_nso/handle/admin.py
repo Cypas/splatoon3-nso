@@ -101,16 +101,38 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await bot_send(bot, event, message=msg)
             await show_dict_status()
 
-        case "restore_cookies":
-            """还原自己cookies"""
+        case "restore_token":
+            """还原自己token"""
             if not global_admin_session_token:
-                await bot_send(bot, event, message=f"未更改cookies，无需还原")
+                await bot_send(bot, event, message=f"未更改token，无需还原")
             else:
                 platform = bot.adapter.get_name()
                 my_user_id = event.get_user_id()
                 dict_get_or_set_user_info(platform, my_user_id, session_token=global_admin_session_token, access_token="",
                                           g_token="", bullet_token="")
-                await bot_send(bot, event, message=f"cookies已恢复")
+                await bot_send(bot, event, message=f"token已恢复")
+
+        case "help":
+            """指令目录"""
+            msg = "所有命令都需要加上/admin 前缀\n"\
+                  "get_push 获取当前push统计\n"\
+                   "close_push 关闭当前全部push\n"\
+                   "get_x_player 获取x赛top\n"\
+                   "get_event_top 获取活动top\n"\
+                   "clean_cache 清理数据库缓存\n"\
+                   "set_report 写日报\n"\
+                   "send_report 发送日报\n"\
+                   "get_user_friends 获取全部用户好友列表\n"\
+                   "refresh_token 刷新全部缓存用户token\n"\
+                   "update_s3si_ts 更新s3sti脚本\n"\
+                   "sync_stat_ink 开始全部用户同步stat\n"\
+                   "clean_s3s_cache 清空s3s缓存文件夹\n"\
+                   "clean_user_info_dict 清理用户数据缓存字典以及client\n"\
+                   "status 当前缓存用户状态以及ss截图调用情况\n"\
+                   "kook_leave {guild_id} kook离开服务器\n"\
+                   "copy_token {user_id} 复制同平台某用户token，便于调试\n"\
+                   "restore_token 还原自身本来token\n"
+            await bot_send(bot, event, message=msg)
 
     if plain_text.startswith("kook_leave"):
         """kook bot离开某服务器
@@ -124,8 +146,8 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
         else:
             await bot_send(bot, event, message=f"无效命令， lens:{len(args)}")
 
-    if plain_text.startswith("copy_cookies"):
-        """复制同平台其他用户cookies到自己账号，方便测试"""
+    if plain_text.startswith("copy_token"):
+        """复制同平台其他用户token到自己账号，方便测试"""
         args = plain_text.split(" ")
         if len(args) == 2:
             platform = bot.adapter.get_name()
@@ -136,9 +158,12 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             # 备份自己cookies
             if not global_admin_session_token:
                 global_admin_session_token = my.session_token
+            if not user:
+                await bot_send(bot, event, message=f"{platform}平台用户{user_id} 数据不存在")
+                return False
             # 设置别人的值
             dict_get_or_set_user_info(platform, my_user_id, session_token=user.session_token, access_token="",
                                       g_token="", bullet_token="")
-            await bot_send(bot, event, message=f"已复制账号 {user.game_name} cookies\n还原:/admin restore_cookies")
+            await bot_send(bot, event, message=f"已复制账号 db_id:{user.id},msg_id:{get_msg_id(user.platform, user.user_id)},\ngame_name:{user.game_name}\n还原:/admin restore_token")
         else:
             await bot_send(bot, event, message=f"无效命令， lens:{len(args)}")
