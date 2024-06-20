@@ -73,6 +73,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await send_report_task()
 
         case "get_user_friends":
+            await bot_send(bot, event, message="即将开始get_user_friends")
             await create_get_user_friends_tasks()
 
         case "refresh_token":
