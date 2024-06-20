@@ -162,10 +162,11 @@ class Splatoon:
 
                             # 通知同绑账号调用情况
                             await notify_to_channel(
-                                f"封禁用户:db_id:{self.user_db_info.db_id},msg_id:{msg_id},\n"
+                                f"主封禁用户:msg_id:{msg_id},\n"
                                 f"同绑用户:db_id:{u.id},msg_id:{key},\n"
-                                f"sp_id:{u.game_sp_id or ''},\n"
                                 f"push_cnt:{u.push_cnt},cmd_cnt:{u.cmd_cnt},")
+
+                    raise e
 
                 else:
                     self.logger.warning(
