@@ -111,6 +111,27 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                                           g_token="", bullet_token="")
                 await bot_send(bot, event, message=f"cookies已恢复")
 
+        case "help":
+            """指令目录"""
+            msg = "get_push 获取当前push统计\n"\
+                   "close_push 关闭当前全部push\n"\
+                   "get_x_player 获取x赛top\n"\
+                   "get_event_top 获取活动top\n"\
+                   "clean_cache 清理数据库缓存\n"\
+                   "set_report 写日报\n"\
+                   "send_report 发送日报\n"\
+                   "get_user_friends 获取全部用户好友列表\n"\
+                   "refresh_token 刷新全部缓存用户token\n"\
+                   "update_s3si_ts 更新s3sti脚本\n"\
+                   "sync_stat_ink 开始全部用户同步stat\n"\
+                   "clean_s3s_cache 清空s3s缓存文件夹\n"\
+                   "clean_user_info_dict 清理用户数据缓存字典以及client\n"\
+                   "status 当前缓存用户状态以及ss截图调用情况\n"\
+                   "kook_leave {guild_id} kook离开服务器\n"\
+                   "copy_cookies {user_id} 复制同平台某用户token，便于调试\n"\
+                   "restore_cookies 还原自身本来token\n"
+            await bot_send(bot, event, message=msg)
+
     if plain_text.startswith("kook_leave"):
         """kook bot离开某服务器
         kook_leave {guild_id}
