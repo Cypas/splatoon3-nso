@@ -113,7 +113,8 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
         case "help":
             """指令目录"""
-            msg = "get_push 获取当前push统计\n"\
+            msg = "所有命令都需要加上/admin 前缀\n"\
+                  "get_push 获取当前push统计\n"\
                    "close_push 关闭当前全部push\n"\
                    "get_x_player 获取x赛top\n"\
                    "get_event_top 获取活动top\n"\
@@ -156,9 +157,12 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             # 备份自己cookies
             if not global_admin_session_token:
                 global_admin_session_token = my.session_token
+            if not user:
+                await bot_send(bot, event, message=f"{platform}平台用户{user_id} 数据不存在")
+                return False
             # 设置别人的值
             dict_get_or_set_user_info(platform, my_user_id, session_token=user.session_token, access_token="",
                                       g_token="", bullet_token="")
-            await bot_send(bot, event, message=f"已复制账号 {user.game_name} token\n还原:/admin restore_token")
+            await bot_send(bot, event, message=f"已复制账号 db_id:{user.id},msg_id:{get_msg_id(user.platform, user.user_id)},\ngame_name:{user.game_name}\n还原:/admin restore_token")
         else:
             await bot_send(bot, event, message=f"无效命令， lens:{len(args)}")
