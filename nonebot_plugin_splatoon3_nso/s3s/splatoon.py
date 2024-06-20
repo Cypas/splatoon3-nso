@@ -302,6 +302,8 @@ class Splatoon:
         except httpx.ConnectTimeout:
             self.logger.warning(f'{msg_id} _request error: connectTimeout')
             raise ValueError('NetConnectTimeout')
+        except ValueError as e:
+            raise e
         except Exception as e:
             self.logger.warning(f'{msg_id} _request error: {e}')
             self.logger.warning(f'data:{data}')
@@ -352,6 +354,8 @@ class Splatoon:
         except httpx.ConnectTimeout:
             self.logger.warning(f'{msg_id} _ns_api_request error: connectTimeout')
             raise ValueError('NetConnectTimeout')
+        except ValueError as e:
+            raise e
         except Exception as e:
             self.logger.warning(f'{msg_id} _request error: {e}')
             self.logger.warning(f'data:{url}')
