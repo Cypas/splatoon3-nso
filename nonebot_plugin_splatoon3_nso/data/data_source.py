@@ -166,6 +166,7 @@ def model_get_or_set_user(platform, user_id, **kwargs) -> UserTable:
         else:
             user = get_insert_or_update_obj(UserTable, filter_dict)
         if user:
+            # 这里的session.add本质上执行了create或update的操作，现有user对象所绑定的session已经close，直接用user去commit会报错
             session.add(copy.deepcopy(user))
         session.commit()
         session.close()
