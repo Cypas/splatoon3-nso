@@ -165,10 +165,11 @@ async def get_badge_username(name, icon, area, ranking, max_badge, badge_badge_p
         color = "red"
     name = name.replace('`', '&#96;').replace('|', '&#124;')
     ranking_str = ""
+    badge_badge_point_str = f"{badge_badge_point}↑"
     if ranking != "2000+":
-        ranking_str = f"{ranking}↑"
+        ranking_str = f"{ranking}"
 
-    name = name.strip() + f'</br><span style="color:{color}">{_x}{ranking_str}({badge_badge_point})</span>'
+    name = name.strip() + f'</br><span style="color:{color}">{_x}{ranking_str}({badge_badge_point_str})</span>'
     # 武器图片
     img_type = "badges"
     weapon_main_img = await model_get_temp_image_path(img_type, max_badge)
