@@ -27,6 +27,52 @@ DICT_RANK_POINT = {
     'S+': -180,
 }
 
+# 徽章排名
+dict_badges_ranking = {
+    "QmFkZ2UtMzEwMTAwMA==": "j3000",  # 绿X 3000名  仅按日服计算  Badge-3101000
+    "QmFkZ2UtMzEwMTAwMQ==": "j500",  # 银X 500名 Badge-3101001
+    "QmFkZ2UtMzEwMTAwMg==": "j10",  # 金X 10名 Badge-3101002
+    "QmFkZ2UtMzEwMTEwMA==": "j2000+",  # 日服 2000+章 Badge-3101100
+    "QmFkZ2UtMzEwMTEwMQ==": "e2000+",  # 美服 2000+章 Badge-3101101
+    "QmFkZ2UtMzEwMTIwMA==": "j2000+",  # 日服 x2000+时连赢15局 Badge-3101200
+    "QmFkZ2UtMzEwMTIwMQ==": "e2000+",  # 美服 x2000+时连赢15局 Badge-3101201
+    "QmFkZ2UtMzEwMTIxMA==": "j2000+",  # 日服 x2000+时连赢70局 Badge-3101210
+    "QmFkZ2UtMzEwMTIxMQ==": "e2000+",  # 美服 x2000+时连赢70局 Badge-3101211
+    "QmFkZ2UtMzEwMTIyMA==": "j2000+",  # 日服 x2000+时连赢350局 Badge-3101220
+    "QmFkZ2UtMzEwMTIyMQ==": "e2000+",  # 美服 x2000+时连赢350局 Badge-3101221
+
+    "QmFkZ2UtMzEwMTMwMA==": "j50000",  # 日服 50000 Badge-3101300
+    "QmFkZ2UtMzEwMTMwMQ==": "e50000",  # 美服 50000 Badge-3101301
+    "QmFkZ2UtMzEwMTMxMA==": "j30000",  # 日服 30000 Badge-3101310
+    "QmFkZ2UtMzEwMTMxMQ==": "e30000",  # 美服 30000  Badge-3101311
+    "QmFkZ2UtMzEwMTMyMA==": "j10000",  # 日服 10000  Badge-3101320
+    "QmFkZ2UtMzEwMTMyMQ==": "e10000",  # 美服 10000 Badge-3101321
+    "QmFkZ2UtMzEwMTMzMA==": "j5000",  # 日服 5000 Badge-3101330
+    "QmFkZ2UtMzEwMTMzMQ==": "e5000",  # 美服 5000 Badge-3101331
+    "QmFkZ2UtMzEwMTM0MA==": "j3000",  # 日服 3000 Badge-3101340
+    "QmFkZ2UtMzEwMTM0MQ==": "e3000",  # 美服 3000 Badge-3101341
+    "QmFkZ2UtMzEwMTM1MA==": "j1000",  # 日服 1000 Badge-3101350
+    "QmFkZ2UtMzEwMTM1MQ==": "e1000",  # 美服 1000 Badge-3101351
+    "QmFkZ2UtMzEwMTM2MA==": "j500",  # 日服 500 Badge-3101360
+    "QmFkZ2UtMzEwMTM2MQ==": "e500",  # 美服 500 Badge-3101361
+    "QmFkZ2UtMzEwMTM3MA==": "j10",  # 日服 10 Badge-3101370
+    "QmFkZ2UtMzEwMTM3MQ==": "e10",  # 美服 10 Badge-3101371
+}
+
+# 排名对应分数 2024年6月统计
+dict_ranking_point = {
+    "j50000": 2144.4,  # 日服排名分数估算
+    "j30000": 2255.9,
+    "j10000": 2489.6,
+    "j5000": 2577.7,
+    "j3000": 2641.5,
+    "j1000": 2793.9,
+    "j500": 2910.5,
+    "j10": 3449.8,
+    "j2000+": 2000,
+    "e2000+": 2000,
+}
+
 # 对战模式翻译
 dict_b_mode_trans = {
     "LEAGUE": "活动比赛",
@@ -63,6 +109,25 @@ dict_icon_file_map = {
     "BIG_RUN": "coop_big_run",
     "TEAM_CONTEST": "coop_team",
 }
+
+
+def get_badges_point(badges_list: list[str]) -> tuple:
+    """获取全部徽章内的最高估计x分数"""
+    area = ""
+    ranking = ""
+    max_badge = ""
+    max_badge_point = 0
+    for badge in badges_list:
+        if badge in dict_badges_ranking:
+            ranking = dict_badges_ranking.get(badge)  # 排名
+            if ranking in dict_ranking_point:
+                point = dict_ranking_point.get(ranking)  # 分数
+                if point > max_badge_point:
+                    area = ranking[0]
+                    ranking = ranking[1:]  # 排名
+                    max_badge = badge
+                    max_badge_point = point  # 最大值
+    return area, ranking, max_badge, float(max_badge_point)
 
 
 def get_icon_path(name, ext_name="png"):

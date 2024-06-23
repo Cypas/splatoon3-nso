@@ -106,7 +106,7 @@ def get_battle_group_idx(groups, battle_id) -> int:
     return group_idx
 
 
-async def get_top_all_name(name, icon, player_code):
+async def get_top_all_username(name, icon, player_code):
     """对top all榜单上有名的玩家额外渲染name"""
     top_all = model_get_max_power_top_all(player_code)
     if not top_all:
@@ -127,16 +127,18 @@ async def get_top_all_name(name, icon, player_code):
     return name, icon, float(max_power or 0)
 
 
-async def get_top_user(name, icon, player_code):
-    """获取top玩家md信息"""
+async def get_x_username(name, icon, player_code):
+    """对x榜单上有名的玩家额外渲染name"""
     top_user = model_get_top_player(player_code)
     if not top_user:
         return name, icon, 0
 
     _x = 'x' if ':8:' in top_user.top_type else 'X'
     if '-a:' in top_user.top_type:
+        # 美服
         color = "#fc0390"
     else:
+        # 日服
         color = "red"
     name = name.replace('`', '&#96;').replace('|', '&#124;')
     name = name.strip() + f'</br><span style="color:{color}">{_x}{top_user.rank}({top_user.power})</span>'
@@ -148,6 +150,33 @@ async def get_top_user(name, icon, player_code):
         # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
         icon = f"<img height='36px' src='{weapon_main_img}'/>"
     _power = float(top_user.power or 0)
+
+    return name, icon, _power
+
+
+async def get_badge_username(name, icon, area, ranking, max_badge, badge_badge_point):
+    """根据徽章估算x分对玩家额外渲染name"""
+    _x = 'BX'
+    if area == "e":
+        # 美服
+        color = "#fc0390"
+    else:
+        # 日服
+        color = "red"
+    name = name.replace('`', '&#96;').replace('|', '&#124;')
+    ranking_str = ""
+    badge_badge_point_str = f"{badge_badge_point}↑"
+    if ranking != "2000+":
+        ranking_str = f"{ranking}"
+
+    name = name.strip() + f'</br><span style="color:{color}">{_x}{ranking_str}({badge_badge_point_str})</span>'
+    # 武器图片
+    img_type = "badges"
+    weapon_main_img = await model_get_temp_image_path(img_type, max_badge)
+    if weapon_main_img:
+        # 高优先级显示徽章图片而不是头像
+        icon = f"<img height='36px' src='{weapon_main_img}'/>"
+    _power = badge_badge_point
 
     return name, icon, _power
 
