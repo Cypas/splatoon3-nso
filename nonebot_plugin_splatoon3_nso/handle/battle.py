@@ -184,8 +184,8 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
                   f'<span style="color:red">X12(3000) </span> :日服五百强排名及分数，' \
                   f'<span style="color:#fc0390">X12(3000) </span> :美服五百强排名及分数' \
                   f'</br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&nbsp;' \
-                  f'<span style="color:red">BX50000↑(2144.4) </span> :日服根据其展示徽章对X赛排名，分数的估算，' \
-                  f'<span style="color:#fc0390">BX50000↑(2014) </span> :美服徽章估分' \
+                  f'<span style="color:red">BX50000(2144.4↑) </span> :日服根据其展示徽章对X赛排名，分数的估算，' \
+                  f'<span style="color:#fc0390">BX50000(2014↑) </span> :美服徽章估分' \
                   f'</br>用户名右侧头像或武器: 一般都为<span style="color:skyblue">浅蓝色</span>用户的头像,如果是武器，则是以上榜单用户上榜时所用的武器'
 
         # # b_info唯二有用的地方，显示祭典当前等级，但全是日文
