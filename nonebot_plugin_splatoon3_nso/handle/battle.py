@@ -1,8 +1,8 @@
 from datetime import datetime as dt, timedelta
 
-from .b_or_c_tools import get_b_point_and_process, get_x_power_and_process, get_top_user, get_top_all_name, \
-    PushStatistics, get_user_name_color
-from .utils import get_game_sp_id_and_name, dict_b_mode_trans, get_icon_path
+from .b_or_c_tools import get_b_point_and_process, get_x_power_and_process, get_x_username, get_top_all_username, \
+    PushStatistics, get_user_name_color, get_badge_username
+from .utils import get_game_sp_id_and_name, dict_b_mode_trans, get_icon_path, get_badges_point
 from ..data.data_source import model_get_temp_image_path, model_get_user_friend
 from ..data.db_sqlite import UserFriendTable
 from ..s3s.splatoon import Splatoon
@@ -183,6 +183,9 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
                   f'</br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&nbsp;' \
                   f'<span style="color:red">X12(3000) </span> :日服五百强排名及分数，' \
                   f'<span style="color:#fc0390">X12(3000) </span> :美服五百强排名及分数' \
+                  f'</br>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&nbsp;' \
+                  f'<span style="color:red">BX50000↑(2144.4) </span> :日服根据其展示徽章对X赛排名，分数的估算，' \
+                  f'<span style="color:#fc0390">BX50000↑(2014) </span> :美服徽章估分' \
                   f'</br>用户名右侧头像或武器: 一般都为<span style="color:skyblue">浅蓝色</span>用户的头像,如果是武器，则是以上榜单用户上榜时所用的武器'
 
         # # b_info唯二有用的地方，显示祭典当前等级，但全是日文
@@ -356,11 +359,24 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     if not p.get('isMyself'):
         name, icon = await get_user_name_color(name, player_code)
 
+    origin_name = name
     # X 五百强分数
-    name, icon, power = await get_top_user(name, icon, player_code)
+    name, icon, power = await get_x_username(origin_name, icon, player_code)
     if (not power) and (not p.get('isMyself')):
         # 其他排行榜分数
-        name, icon, power = await get_top_all_name(name, icon, player_code)
+        name, icon, power = await get_top_all_username(origin_name, icon, player_code)
+
+    # 通过徽章算分
+    badges_list = []
+    for b in (p.get('nameplate') or {}).get('badges') or []:
+        if not b:
+            continue
+        badge_name = b.get('id') or ''
+        badges_list.append(badge_name)
+    area, ranking, max_badge, badge_badge_point = get_badges_point(badges_list)
+    if badge_badge_point > power:
+        # 徽章置分
+        name, icon, power = await get_badge_username(origin_name, icon, area, ranking, max_badge, badge_badge_point)
 
     if power and isinstance(team_power, list):
         team_power.append(power)
