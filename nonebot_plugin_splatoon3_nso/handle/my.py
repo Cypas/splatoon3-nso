@@ -149,7 +149,7 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
             _b_id = b.get('id')
             _b_url = (b.get('image') or {}).get('url')
             if _b_url:
-                b_img = await model_get_temp_image_path('badges', _b_id, _b_url)
+                b_img = await model_get_temp_image_path('user_nameplate_badge', _b_id, _b_url)
                 _style = f'position:absolute;margin-top:-4px;margin-left:{_idx * 30}px'
                 badges_str += f'''<img height='30px' style='{_style}' src="{b_img}"/>'''
         _idx += 1
