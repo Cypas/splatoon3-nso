@@ -372,7 +372,11 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
         if not b:
             continue
         badge_name = b.get('id') or ''
-        badges_list.append(badge_name)
+        badge_img = (b.get('image') or {}).get('url') or ''
+        if badge_img != "":
+            img_type = "user_nameplate_badge"
+            await model_get_temp_image_path(img_type, b['id'], badge_img)
+            badges_list.append(badge_name)
     area, ranking, max_badge, badge_badge_point = get_badges_point(badges_list)
     if badge_badge_point > power:
         # 徽章置分

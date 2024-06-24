@@ -171,7 +171,7 @@ async def get_badge_username(name, icon, area, ranking, max_badge, badge_badge_p
 
     name = name.strip() + f'</br><span style="color:{color}">{_x}{ranking_str}({badge_badge_point_str})</span>'
     # 武器图片
-    img_type = "badges"
+    img_type = "user_nameplate_badge"
     weapon_main_img = await model_get_temp_image_path(img_type, max_badge)
     if weapon_main_img:
         # 高优先级显示徽章图片而不是头像
