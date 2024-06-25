@@ -114,7 +114,7 @@ dict_icon_file_map = {
 def get_badges_point(badges_list: list[str]) -> tuple:
     """获取全部徽章内的最高估计x分数"""
     area = ""
-    ranking = ""
+    max_ranking = ""
     max_badge = ""
     max_badge_point = 0
     for badge in badges_list:
@@ -124,10 +124,10 @@ def get_badges_point(badges_list: list[str]) -> tuple:
                 point = dict_ranking_point.get(ranking)  # 分数
                 if point > max_badge_point:
                     area = ranking[0]
-                    ranking = ranking[1:]  # 排名
+                    max_ranking = ranking[1:]  # 排名
                     max_badge = badge
                     max_badge_point = point  # 最大值
-    return area, ranking, max_badge, float(max_badge_point)
+    return area, max_ranking, max_badge, float(max_badge_point)
 
 
 def get_icon_path(name, ext_name="png"):
