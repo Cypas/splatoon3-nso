@@ -45,11 +45,11 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                     continue
                 msg = "push推送被管理员强制关闭，大概率是需要重启bot，请稍等几分钟完成重启后，重新对bot发送/push 命令\n"
                 # 获取统计数据
-                bot, event, st_msg, _ = close_push(u.platform, u.user_id)
+                user_bot, user_event, st_msg, _ = close_push(u.platform, u.user_id)
                 msg += st_msg
-                if bot and event:
+                if user_bot and user_event:
                     try:
-                        await bot_send(bot, event, message=msg)
+                        await bot_send(user_bot, user_event, message=msg)
                     except Exception as e:
                         msg_id = get_msg_id(u.platform, u.user_id)
                         logger.warning(
