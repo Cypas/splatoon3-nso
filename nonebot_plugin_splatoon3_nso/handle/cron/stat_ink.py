@@ -47,7 +47,7 @@ async def sync_stat_ink():
                 complete_cnt += 1
             if is_upload:
                 upload_cnt += 1
-            if error_cnt:
+            if is_error:
                 error_cnt += 1
             if is_notice_error:
                 notice_error_cnt += 1
@@ -60,7 +60,7 @@ async def sync_stat_ink():
                 f"error_cnt: {error_cnt},notice_error_cnt: {notice_error_cnt},else_error_cnt: {else_error_cnt}")
     cron_logger.info(cron_msg)
     notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}\n"
-                  f"错误: {error_cnt},通知错误: {else_error_cnt},配置错误: {else_error_cnt}")
+                  f"错误: {error_cnt},通知错误: {notice_error_cnt},配置错误: {else_error_cnt}")
     await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
 
 
@@ -73,7 +73,7 @@ async def sync_stat_ink_func(db_user: UserTable):
     res = get_post_stat_msg(db_user)
     if not isinstance(res, tuple):
         is_else_error = True
-        return is_complete, is_upload, is_error, is_else_error
+        return is_complete, is_upload, is_error, is_notice_error, is_else_error
 
     msg, error_msg = res
     is_complete = True
@@ -111,7 +111,7 @@ def get_post_stat_msg(db_user):
         return
     msg = ""
     battle_cnt, coop_cnt, url, error_msg = res
-    if battle_cnt and coop_cnt:
+    if battle_cnt or coop_cnt:
         msg = "> Exported"
         if battle_cnt:
             msg += f" {battle_cnt} battles"
@@ -255,9 +255,9 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
         res = rtn.stdout.decode('utf-8')
         error = rtn.stderr.decode('utf-8')
     except subprocess.TimeoutExpired:
-        error_msg = f"deno run timeout"
+        error_msg = f"deno run timeout\n"
     except Exception as e:
-        error_msg = f"deno run err:{e}"
+        error_msg = f"deno run err:\n{e}"
     if error:
         # error里面混有deno debug内容，需要经过过滤
         for line in error.split('\n'):
@@ -270,7 +270,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
             error_msg += f"{line}\n"
 
     if error_msg:
-        cron_logger.warning(f'user_db_id:{user_id} deno cli error,result:\n{error_msg}')
+        cron_logger.error(f'user_db_id:{user_id} deno cli error,result:\n{error_msg}')
     elif res:
         # success
         cron_logger.info(f'user_db_id:{user_id} deno cli success,result:\n{res}')
