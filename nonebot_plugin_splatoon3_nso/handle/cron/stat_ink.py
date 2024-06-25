@@ -1,10 +1,10 @@
 import asyncio
 import base64
+import time
 from datetime import datetime as dt
 import os
 import json
 import subprocess
-
 
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
@@ -14,6 +14,7 @@ from ...utils.utils import DIR_RESOURCE, init_path
 from ...data.data_source import model_get_all_stat_user
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
+from ...utils.bot import Kook_ActionFailed
 
 
 async def sync_stat_ink():
@@ -31,13 +32,13 @@ async def sync_stat_ink():
     db_users = user_remove_duplicates(db_users)
 
     sync_count = 0
-    _pool = 4
+    _pool = 6
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
-        res = await asyncio.gather(*tasks)
+        res = await asyncio.gather(*tasks, return_exceptions=True)
         for r in res:
-            if r:
+            if not isinstance(r, Exception) and r:
                 sync_count += 1
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
@@ -61,7 +62,12 @@ async def sync_stat_ink_func(db_user: UserTable):
             # await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type="job")
             # 通知到私信
             msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
-            await notify_to_private(db_user.platform, db_user.user_id, msg)
+            try:
+                await notify_to_private(db_user.platform, db_user.user_id, msg)
+            except Kook_ActionFailed as e:
+                if e.status_code == 40000:
+                    if e.message.startswith("无法发起私信"):
+                        time.sleep(10)
         return True
     else:
         return False
@@ -210,15 +216,21 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
     # run deno
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
     cron_logger.info(cmd)
-    rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 
-    res = rtn.stdout.decode('utf-8')
-    error = rtn.stderr.decode('utf-8')
+    res = ""
+    error = ""
     battle_cnt = 0
     coop_cnt = 0
     url = ''
     error_msg = ""
 
+    try:
+        rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE,
+                                                                 stderr=subprocess.PIPE, env=env, timeout=300)
+        res = rtn.stdout.decode('utf-8')
+        error = rtn.stderr.decode('utf-8')
+    except Exception as e:
+        error_msg = f"deno run timeout:{e}"
     if error:
         # error里面混有deno debug内容，需要经过过滤
         for line in error.split('\n'):
@@ -231,10 +243,10 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
             error_msg += f"{line}\n"
 
     if error_msg:
-        cron_logger.warning(f'user_db_id:{user_id} cli error,result:\n{error_msg}')
+        cron_logger.warning(f'user_db_id:{user_id} deno cli error,result:\n{error_msg}')
     elif res:
         # success
-        cron_logger.info(f'user_db_id:{user_id} cli success,result:\n{res}')
+        cron_logger.info(f'user_db_id:{user_id} deno cli success,result:\n{res}')
 
         for line in res.split('\n'):
             line = line.strip()
@@ -248,8 +260,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
                 url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
 
     cron_logger.info(f'user_db_id:{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
-    if battle_cnt or coop_cnt:
-        return battle_cnt, coop_cnt, url
+    return battle_cnt, coop_cnt, url
 
 
 def strToBase64(s):
