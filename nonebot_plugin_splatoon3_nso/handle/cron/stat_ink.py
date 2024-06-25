@@ -38,6 +38,7 @@ async def sync_stat_ink():
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks, return_exceptions=True)
         for r in res:
+            cron_logger.warning(f"asyncio.gather result:{r}")
             if not isinstance(r, Exception) and r:
                 sync_count += 1
     # 耗时
@@ -64,10 +65,8 @@ async def sync_stat_ink_func(db_user: UserTable):
             msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
             try:
                 await notify_to_private(db_user.platform, db_user.user_id, msg)
-            except Kook_ActionFailed as e:
-                if e.status_code == 40000:
-                    if e.message.startswith("无法发起私信"):
-                        time.sleep(10)
+            except Exception as e:
+                cron_logger.error(f"db_user_id:{db_user.user_id} private notice error: {e}")
         return True
     else:
         return False

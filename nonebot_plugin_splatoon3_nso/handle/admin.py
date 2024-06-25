@@ -12,6 +12,7 @@ from ..data.data_source import dict_get_all_global_users, model_clean_db_cache, 
     dict_get_or_set_user_info
 from ..utils import get_msg_id
 from ..utils.bot import *
+from nonebot import logger
 
 global_admin_session_token: str = ""
 
@@ -46,7 +47,12 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                 # 获取统计数据
                 st_msg, _ = close_push(u.platform, u.user_id)
                 msg += st_msg
-                await notify_to_private(u.platform, u.user_id, msg)
+                try:
+                    await notify_to_private(u.platform, u.user_id, msg)
+                except Exception as e:
+                    msg_id = get_msg_id(u.platform, u.user_id)
+                    logger.warning(
+                        f'msg_id:{msg_id} private notice error: {e}')
                 push_cnt += 1
                 time.sleep(0.5)
 

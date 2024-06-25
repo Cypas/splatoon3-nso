@@ -97,7 +97,11 @@ class Splatoon:
                     else:
                         # 来自定时任务
                         if user.report_notify:
-                            await notify_to_private(self.platform, self.user_id, msg)
+                            try:
+                                await notify_to_private(self.platform, self.user_id, msg)
+                            except Exception as e:
+                                self.logger.warning(
+                                    f'msg_id:{msg_id} private notice error: {e}')
                         raise ValueError('invalid_grant')
                     return
                 elif "Membership required" in str(e):
