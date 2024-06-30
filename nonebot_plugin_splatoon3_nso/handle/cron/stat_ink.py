@@ -1,10 +1,10 @@
 import asyncio
 import base64
+import time
 from datetime import datetime as dt
 import os
 import json
 import subprocess
-
 
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
@@ -14,6 +14,7 @@ from ...utils.utils import DIR_RESOURCE, init_path
 from ...data.data_source import model_get_all_stat_user
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
+from ...utils.bot import Kook_ActionFailed
 
 
 async def sync_stat_ink():
@@ -30,41 +31,70 @@ async def sync_stat_ink():
     # 去重
     db_users = user_remove_duplicates(db_users)
 
-    sync_count = 0
-    _pool = 4
+    complete_cnt = 0
+    upload_cnt = 0
+    error_cnt = 0
+    else_error_cnt = 0
+    notice_error_cnt = 0
+    _pool = 6
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks)
         for r in res:
-            if r:
-                sync_count += 1
+            is_complete, is_upload, is_error, is_notice_error, is_else_error = r
+            if is_complete:
+                complete_cnt += 1
+            if is_upload:
+                upload_cnt += 1
+            if is_error:
+                error_cnt += 1
+            if is_notice_error:
+                notice_error_cnt += 1
+            if is_else_error:
+                else_error_cnt += 1
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = (f"sync_stat_ink end: {str_time}\n"
-                f"sync_count: {sync_count}")
+                f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}\n"
+                f"error_cnt: {error_cnt},notice_error_cnt: {notice_error_cnt},else_error_cnt: {else_error_cnt}")
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel("sync_stat_ink", "end", f"耗时:{str_time}\n同步数量: {sync_count}")
+    notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}\n"
+                  f"错误: {error_cnt},通知错误: {notice_error_cnt},配置错误: {else_error_cnt}")
+    await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
 
 
 async def sync_stat_ink_func(db_user: UserTable):
     """同步stat.ink"""
+    is_complete, is_upload, is_error, is_else_error, is_notice_error = False, False, False, False, False
 
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
 
-    msg = get_post_stat_msg(db_user)
+    res = get_post_stat_msg(db_user)
+    if not isinstance(res, tuple):
+        is_else_error = True
+        return is_complete, is_upload, is_error, is_notice_error, is_else_error
 
+    msg, error_msg = res
+    is_complete = True
     if msg:
+        is_upload = True
         if db_user.stat_notify:
             cron_logger.debug(f"{db_user.id}, {db_user.user_name}, {msg}")
             # 通知到频道
             # await report_notify_to_channel(db_user.platform, db_user.user_id, msg, _type="job")
             # 通知到私信
             msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
-            await notify_to_private(db_user.platform, db_user.user_id, msg)
-        return True
-    else:
-        return False
+            try:
+                await notify_to_private(db_user.platform, db_user.user_id, msg)
+            except Exception as e:
+                cron_logger.error(f"db_user_id:{db_user.user_id} private notice error: {e}")
+                is_notice_error = True
+
+    if error_msg:
+        is_error = True
+
+    return is_complete, is_upload, is_error, is_notice_error, is_else_error
 
 
 def get_post_stat_msg(db_user):
@@ -77,26 +107,27 @@ def get_post_stat_msg(db_user):
     res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, g_token=db_user.g_token,
                                bullet_token=db_user.bullet_token)
 
-    if not res:
+    if not isinstance(res, tuple):
         return
+    msg = ""
+    battle_cnt, coop_cnt, url, error_msg = res
+    if battle_cnt or coop_cnt:
+        msg = "> Exported"
+        if battle_cnt:
+            msg += f" {battle_cnt} battles"
+        if coop_cnt:
+            msg += f" {coop_cnt} jobs"
 
-    battle_cnt, coop_cnt, url = res
-    msg = "> Exported"
-    if battle_cnt:
-        msg += f" {battle_cnt} battles"
-    if coop_cnt:
-        msg += f" {coop_cnt} jobs"
+        if battle_cnt and not coop_cnt:
+            url += "/spl3"
+        elif coop_cnt and not battle_cnt:
+            url += "/salmon3"
+        msg += f" to\n{url}\n\n"
 
-    if battle_cnt and not coop_cnt:
-        url += "/spl3"
-    elif coop_cnt and not battle_cnt:
-        url += "/salmon3"
-    msg += f" to\n{url}\n\n"
+        log_msg = msg.replace("\n", "")
+        cron_logger.info(f"{db_user.id}, {db_user.user_name}, {log_msg}")
 
-    log_msg = msg.replace("\n", "")
-    cron_logger.info(f"{db_user.id}, {db_user.user_name}, {log_msg}")
-
-    return msg
+    return msg, error_msg
 
 
 async def update_s3si_ts():
@@ -210,15 +241,23 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
     # run deno
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
     cron_logger.info(cmd)
-    rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
 
-    res = rtn.stdout.decode('utf-8')
-    error = rtn.stderr.decode('utf-8')
+    res = ""
+    error = ""
     battle_cnt = 0
     coop_cnt = 0
     url = ''
     error_msg = ""
 
+    try:
+        rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE,
+                                                                 stderr=subprocess.PIPE, env=env, timeout=300)
+        res = rtn.stdout.decode('utf-8')
+        error = rtn.stderr.decode('utf-8')
+    except subprocess.TimeoutExpired:
+        error_msg = f"deno run timeout\n"
+    except Exception as e:
+        error_msg = f"deno run err:\n{e}"
     if error:
         # error里面混有deno debug内容，需要经过过滤
         for line in error.split('\n'):
@@ -231,10 +270,10 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
             error_msg += f"{line}\n"
 
     if error_msg:
-        cron_logger.warning(f'user_db_id:{user_id} cli error,result:\n{error_msg}')
+        cron_logger.error(f'user_db_id:{user_id} deno cli error,result:\n{error_msg}')
     elif res:
         # success
-        cron_logger.info(f'user_db_id:{user_id} cli success,result:\n{res}')
+        cron_logger.info(f'user_db_id:{user_id} deno cli success,result:\n{res}')
 
         for line in res.split('\n'):
             line = line.strip()
@@ -248,8 +287,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
                 url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
 
     cron_logger.info(f'user_db_id:{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
-    if battle_cnt or coop_cnt:
-        return battle_cnt, coop_cnt, url
+    return battle_cnt, coop_cnt, url, error_msg
 
 
 def strToBase64(s):

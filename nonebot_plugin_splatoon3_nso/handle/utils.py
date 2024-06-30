@@ -30,8 +30,8 @@ DICT_RANK_POINT = {
 # 徽章排名
 dict_badges_ranking = {
     "QmFkZ2UtMzEwMTAwMA==": "j3000",  # 绿X 3000名  仅按日服计算  Badge-3101000
-    "QmFkZ2UtMzEwMTAwMQ==": "j500",  # 银X 500名 Badge-3101001
-    "QmFkZ2UtMzEwMTAwMg==": "j10",  # 金X 10名 Badge-3101002
+    # "QmFkZ2UtMzEwMTAwMQ==": "j500",  # 银X 500名 Badge-3101001
+    # "QmFkZ2UtMzEwMTAwMg==": "j10",  # 金X 10名 Badge-3101002
     "QmFkZ2UtMzEwMTEwMA==": "j2000+",  # 日服 2000+章 Badge-3101100
     "QmFkZ2UtMzEwMTEwMQ==": "e2000+",  # 美服 2000+章 Badge-3101101
     "QmFkZ2UtMzEwMTIwMA==": "j2000+",  # 日服 x2000+时连赢15局 Badge-3101200
@@ -53,10 +53,10 @@ dict_badges_ranking = {
     "QmFkZ2UtMzEwMTM0MQ==": "e3000",  # 美服 3000 Badge-3101341
     "QmFkZ2UtMzEwMTM1MA==": "j1000",  # 日服 1000 Badge-3101350
     "QmFkZ2UtMzEwMTM1MQ==": "e1000",  # 美服 1000 Badge-3101351
-    "QmFkZ2UtMzEwMTM2MA==": "j500",  # 日服 500 Badge-3101360
-    "QmFkZ2UtMzEwMTM2MQ==": "e500",  # 美服 500 Badge-3101361
-    "QmFkZ2UtMzEwMTM3MA==": "j10",  # 日服 10 Badge-3101370
-    "QmFkZ2UtMzEwMTM3MQ==": "e10",  # 美服 10 Badge-3101371
+    # "QmFkZ2UtMzEwMTM2MA==": "j500",  # 日服 500 Badge-3101360
+    # "QmFkZ2UtMzEwMTM2MQ==": "e500",  # 美服 500 Badge-3101361
+    # "QmFkZ2UtMzEwMTM3MA==": "j10",  # 日服 10 Badge-3101370
+    # "QmFkZ2UtMzEwMTM3MQ==": "e10",  # 美服 10 Badge-3101371
 }
 
 # 排名对应分数 2024年6月统计
@@ -67,8 +67,8 @@ dict_ranking_point = {
     "j5000": 2577.7,
     "j3000": 2641.5,
     "j1000": 2793.9,
-    "j500": 2910.5,
-    "j10": 3449.8,
+    # "j500": 2910.5,
+    # "j10": 3449.8,
     "j2000+": 2000,
     "e2000+": 2000,
 }
@@ -114,7 +114,7 @@ dict_icon_file_map = {
 def get_badges_point(badges_list: list[str]) -> tuple:
     """获取全部徽章内的最高估计x分数"""
     area = ""
-    ranking = ""
+    max_ranking = ""
     max_badge = ""
     max_badge_point = 0
     for badge in badges_list:
@@ -124,10 +124,10 @@ def get_badges_point(badges_list: list[str]) -> tuple:
                 point = dict_ranking_point.get(ranking)  # 分数
                 if point > max_badge_point:
                     area = ranking[0]
-                    ranking = ranking[1:]  # 排名
+                    max_ranking = ranking[1:]  # 排名
                     max_badge = badge
                     max_badge_point = point  # 最大值
-    return area, ranking, max_badge, float(max_badge_point)
+    return area, max_ranking, max_badge, float(max_badge_point)
 
 
 def get_icon_path(name, ext_name="png"):

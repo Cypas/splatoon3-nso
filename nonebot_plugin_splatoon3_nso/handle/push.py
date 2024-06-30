@@ -77,6 +77,8 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     job_id = f"{msg_id}_push"
     logger.info(f"add push_job {job_id}")
     job_data = {
+        'bot': bot,
+        'event': event,
         'platform': platform,
         'user_id': user_id,
         'msg_id': msg_id,
@@ -143,7 +145,7 @@ async def stop_push(bot: Bot, event: Event):
     msg_id = get_msg_id(platform, user_id)
     user = dict_get_or_set_user_info(platform, user_id, push=0)
 
-    st_msg, push_time_minute = close_push(platform, user_id)
+    _, _, st_msg, push_time_minute = close_push(platform, user_id)
     if isinstance(bot, Tg_Bot):
         msg = f"Stop push!"
     elif isinstance(bot, All_BOT):
@@ -192,7 +194,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
             msg = ""
 
             # 获取统计数据
-            st_msg, push_time_minute = close_push(platform, user_id)
+            _, _, st_msg, push_time_minute = close_push(platform, user_id)
             if isinstance(bot, All_BOT):
                 msg = f"服务器连续多次请求报错，停止推送，bot可能遇到了网络问题，请加 新人导航 频道内的q群联系主人，本次推送持续 {push_time_minute}分钟\n\n"
             msg += st_msg
@@ -224,7 +226,7 @@ async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: di
                 msg = 'No game record for 20 minutes, stop push.'
 
                 # 获取统计数据
-                st_msg, push_time_minute = close_push(platform, user_id)
+                _, _, st_msg, push_time_minute = close_push(platform, user_id)
                 if isinstance(bot, All_BOT):
                     msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟, {job_data.get('match_push_cnt') or 0}次对局\n"
                     if not user.stat_key and user.push_cnt <= 10:
@@ -281,6 +283,8 @@ def close_push(platform, user_id):
     job_data = None
     msg = ""
     push_time_minute = 0
+    bot = None
+    event = None
     try:
         r = scheduler.get_job(job_id)
         job_data = r.args[2] or {}
@@ -291,10 +295,12 @@ def close_push(platform, user_id):
     if job_data:
         push_statistics: PushStatistics = job_data.get("push_statistics")
         push_interval = job_data.get("push_interval")
+        bot = job_data.get("bot")
+        event = job_data.get("event")
         if push_statistics:
             msg += push_statistics.get_battle_st_msg()
             msg += push_statistics.get_coop_st_msg()
         # 计算推送持续时间
         push_cnt = job_data.get('this_push_cnt', 0)
         push_time_minute: float = float(push_cnt * push_interval) / 60
-    return msg, push_time_minute
+    return bot, event, msg, push_time_minute

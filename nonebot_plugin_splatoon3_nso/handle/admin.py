@@ -12,6 +12,7 @@ from ..data.data_source import dict_get_all_global_users, model_clean_db_cache, 
     dict_get_or_set_user_info
 from ..utils import get_msg_id
 from ..utils.bot import *
+from nonebot import logger
 
 global_admin_session_token: str = ""
 
@@ -44,9 +45,15 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                     continue
                 msg = "push推送被管理员强制关闭，大概率是需要重启bot，请稍等几分钟完成重启后，重新对bot发送/push 命令\n"
                 # 获取统计数据
-                st_msg, _ = close_push(u.platform, u.user_id)
+                user_bot, user_event, st_msg, _ = close_push(u.platform, u.user_id)
                 msg += st_msg
-                await notify_to_private(u.platform, u.user_id, msg)
+                if user_bot and user_event:
+                    try:
+                        await bot_send(user_bot, user_event, message=msg)
+                    except Exception as e:
+                        msg_id = get_msg_id(u.platform, u.user_id)
+                        logger.warning(
+                            f'msg_id:{msg_id} private notice error: {e}')
                 push_cnt += 1
                 time.sleep(0.5)
 
@@ -108,30 +115,31 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             else:
                 platform = bot.adapter.get_name()
                 my_user_id = event.get_user_id()
-                dict_get_or_set_user_info(platform, my_user_id, session_token=global_admin_session_token, access_token="",
+                dict_get_or_set_user_info(platform, my_user_id, session_token=global_admin_session_token,
+                                          access_token="",
                                           g_token="", bullet_token="")
                 await bot_send(bot, event, message=f"token已恢复")
 
         case "help":
             """指令目录"""
-            msg = "所有命令都需要加上/admin 前缀\n"\
-                  "get_push 获取当前push统计\n"\
-                   "close_push 关闭当前全部push\n"\
-                   "get_x_player 获取x赛top\n"\
-                   "get_event_top 获取活动top\n"\
-                   "clean_cache 清理数据库缓存\n"\
-                   "set_report 写日报\n"\
-                   "send_report 发送日报\n"\
-                   "get_user_friends 获取全部用户好友列表\n"\
-                   "refresh_token 刷新全部缓存用户token\n"\
-                   "update_s3si_ts 更新s3sti脚本\n"\
-                   "sync_stat_ink 开始全部用户同步stat\n"\
-                   "clean_s3s_cache 清空s3s缓存文件夹\n"\
-                   "clean_user_info_dict 清理用户数据缓存字典以及client\n"\
-                   "status 当前缓存用户状态以及ss截图调用情况\n"\
-                   "kook_leave {guild_id} kook离开服务器\n"\
-                   "copy_token {user_id} 复制同平台某用户token，便于调试\n"\
-                   "restore_token 还原自身本来token\n"
+            msg = "所有命令都需要加上/admin 前缀\n" \
+                  "get_push 获取当前push统计\n" \
+                  "close_push 关闭当前全部push\n" \
+                  "get_x_player 获取x赛top\n" \
+                  "get_event_top 获取活动top\n" \
+                  "clean_cache 清理数据库缓存\n" \
+                  "set_report 写日报\n" \
+                  "send_report 发送日报\n" \
+                  "get_user_friends 获取全部用户好友列表\n" \
+                  "refresh_token 刷新全部缓存用户token\n" \
+                  "update_s3si_ts 更新s3sti脚本\n" \
+                  "sync_stat_ink 开始全部用户同步stat\n" \
+                  "clean_s3s_cache 清空s3s缓存文件夹\n" \
+                  "clean_user_info_dict 清理用户数据缓存字典以及client\n" \
+                  "status 当前缓存用户状态以及ss截图调用情况\n" \
+                  "kook_leave {guild_id} kook离开服务器\n" \
+                  "copy_token {user_id} 复制同平台某用户token，便于调试\n" \
+                  "restore_token 还原自身本来token\n"
             await bot_send(bot, event, message=msg)
 
     if plain_text.startswith("kook_leave"):
@@ -164,6 +172,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             # 设置别人的值
             dict_get_or_set_user_info(platform, my_user_id, session_token=user.session_token, access_token="",
                                       g_token="", bullet_token="")
-            await bot_send(bot, event, message=f"已复制账号 db_id:{user.id},msg_id:{get_msg_id(user.platform, user.user_id)},\ngame_name:{user.game_name}\n还原:/admin restore_token")
+            await bot_send(bot, event,
+                           message=f"已复制账号 db_id:{user.id},msg_id:{get_msg_id(user.platform, user.user_id)},\ngame_name:{user.game_name}\n还原:/admin restore_token")
         else:
             await bot_send(bot, event, message=f"无效命令， lens:{len(args)}")
