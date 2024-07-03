@@ -11,7 +11,6 @@ from .s3s.splatnet_image import global_browser
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
 from .utils.bot import *
 
-
 __plugin_meta__ = PluginMetadata(
     name="splatoon3游戏nso查询",
     description="一个基于nonebot2框架的splatoon3游戏nso数据查询插件",
@@ -34,7 +33,17 @@ async def unknown_command(bot: Bot, event: Event):
             msg = "Sorry, I didn't understand that command. /help"
         elif isinstance(bot, All_BOT):
             msg = "无效指令，发送 /help 查看帮助"
-        await bot.send(event, message=msg)
+        kook_black_list = plugin_config.splatoon3_unknown_command_fallback_reply_kook_black_list
+        if len(kook_black_list) > 0:
+            if isinstance(bot, Kook_Bot):
+                server_id = 0
+                if 'group' in event.get_event_name():
+                    server_id = event.get('event', {}).get('guild_id')
+                if server_id in kook_black_list:
+                    msg = ""
+                    logger.info("kook指定兜底黑名单服务器，不进行兜底消息提示")
+        if msg:
+            await bot.send(event, message=msg)
 
 
 @on_command("help", aliases={"h", "帮助", "说明", "文档"}, priority=10).handle()
@@ -101,7 +110,6 @@ async def _(bot: Bot):
         except Exception as e:
             logger.warning(f"{text}")
             logger.warning(f"日志通知失败: {e}")
-
 
 # @event_preprocessor
 # async def tg_private_msg(bot: Tg_Bot, event: Event):
