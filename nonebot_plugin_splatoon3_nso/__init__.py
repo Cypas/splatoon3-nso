@@ -37,8 +37,8 @@ async def unknown_command(bot: Bot, event: Event):
         if len(kook_black_list) > 0:
             if isinstance(bot, Kook_Bot):
                 server_id = 0
-                if 'group' in event.get_event_name():
-                    server_id = event.get('event', {}).get('guild_id')
+                if isinstance(event, Kook_CME):
+                    server_id = event.extra.guild_id
                 if server_id in kook_black_list:
                     msg = ""
                     logger.info("kook指定兜底黑名单服务器，不进行兜底消息提示")

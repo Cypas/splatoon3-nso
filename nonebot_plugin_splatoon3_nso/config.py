@@ -42,7 +42,7 @@ class Config(BaseModel):
     splatoon3_qq_md_mode: bool = False
     # 没有匹配命令时是否兜底回复
     splatoon3_unknown_command_fallback_reply: bool = True
-    # 兜底回复kook服务器黑名单列表   如'4498783094960820'
+    # 兜底回复kook服务器黑名单列表   如["4498783094960820"]
     splatoon3_unknown_command_fallback_reply_kook_black_list: list = []
 
 
