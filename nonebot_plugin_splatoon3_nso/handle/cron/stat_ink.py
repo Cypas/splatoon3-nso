@@ -175,7 +175,7 @@ async def update_s3si_ts():
     # get s3s code
     s3s_folder = f"{path_folder}/s3sits_git"
     if not os.path.exists(s3s_folder):
-        cmd = f"git clone https://github.com/spacemeowx2/s3si.ts {s3s_folder}"
+        cmd = f"git clone https://github.com/Cypas/s3si.ts {s3s_folder}"
         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
         cron_logger.info(f"cli: {rtn}")
         os.chdir(s3s_folder)
