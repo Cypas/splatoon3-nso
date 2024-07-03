@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import random
 import time
 from datetime import datetime as dt
 import os
@@ -8,7 +9,7 @@ import subprocess
 
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
-from ...s3s.iksm import F_GEN_URL_2
+from ...s3s.iksm import F_GEN_URL_2, F_GEN_URL
 from ...utils import proxy_address, convert_td
 from ...utils.utils import DIR_RESOURCE, init_path
 from ...data.data_source import model_get_all_stat_user
@@ -36,7 +37,7 @@ async def sync_stat_ink():
     error_cnt = 0
     else_error_cnt = 0
     notice_error_cnt = 0
-    _pool = 6
+    _pool = 10
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
@@ -104,13 +105,37 @@ def get_post_stat_msg(db_user):
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
 
-    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, g_token=db_user.g_token,
+    # 两个f_api 负载均衡
+    f_url_lst = [F_GEN_URL, F_GEN_URL_2]
+    random.shuffle(f_url_lst)
+    f_gen_url = f_url_lst[0]
+    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, f_gen_url, g_token=db_user.g_token,
                                bullet_token=db_user.bullet_token)
 
     if not isinstance(res, tuple):
         return
-    msg = ""
     battle_cnt, coop_cnt, url, error_msg = res
+    # f-api重试
+    if error_msg:
+        # 判断重试时的对象名称以及f地址
+        if f_gen_url == F_GEN_URL:
+            now_f_str = "F_URL"
+            next_f_str = "F_URL_2"
+            next_f_url = F_GEN_URL_2
+        else:
+            now_f_str = "F_URL_2"
+            next_f_str = "F_URL"
+            next_f_url = F_GEN_URL
+        cron_logger.warning(f"{db_user.id}, {db_user.user_name}, {now_f_str} Error，try {next_f_str} again")
+        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, next_f_url,
+                                   g_token=db_user.g_token,
+                                   bullet_token=db_user.bullet_token)
+
+        if not isinstance(res, tuple):
+            return
+        battle_cnt, coop_cnt, url, error_msg = res
+
+    msg = ""
     if battle_cnt or coop_cnt:
         msg = "> Exported"
         if battle_cnt:
@@ -178,7 +203,7 @@ async def update_s3si_ts():
     await cron_notify_to_channel("update_s3si_ts", "end", f"耗时:{str_time}")
 
 
-def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_token="", bullet_token=""):
+def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="zh-CN", g_token="", bullet_token=""):
     """同步战绩文件至stat.ink"""
     cron_logger.info(f'start exported_to_stat_ink: user_db_id:{user_id}')
     cron_logger.debug(f'session_token: {session_token}')
@@ -199,7 +224,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
     if not os.path.exists(path_config_file):
         # 新建文件
         config_data = {
-            "fGen": F_GEN_URL_2,
+            "fGen": f_gen_url,
             "userLang": user_lang,
             "loginState": {
                 "sessionToken": session_token,
@@ -214,7 +239,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, user_lang="zh-CN", g_t
         # 写入配置文件
         # fGen写入过程中 https://含有/ 会和控制符/冲突，此处控制符得改为#
         cmds = [
-            f"""sed -i 's#fGen[^,]*,#fGen\": \"{F_GEN_URL_2}\",#' {path_config_file}""",
+            f"""sed -i 's#fGen[^,]*,#fGen\": \"{f_gen_url}\",#' {path_config_file}""",
             f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/' {path_config_file}""",
             f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/' {path_config_file}""",
             f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/' {path_config_file}""",
