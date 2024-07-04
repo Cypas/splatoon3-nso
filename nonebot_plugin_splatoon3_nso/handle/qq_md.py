@@ -19,6 +19,9 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     button_show3 = "/last c"
     button_cmd3 = "/last c"
 
+    button_show4 = "bot官方群"
+    button_cmd4 = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=zGefDQ4GQYFPAB-hFkeFLlyQ8qbG5S2w&authKey=j0b9yXmtSzYry6qQQ%2FFXxw7U%2Fp6kXyET0xj%2BRHWxeRa20zvJeN8W91noNrJDmDyO&noverify=0&group_code=827977720"
+
     # 如果kv值为空，那只能不传，空值似乎最多只允许一个
 
     md = MessageMarkdown.model_validate({
@@ -41,9 +44,86 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     #                ]
     # })
 
+    # keyboard = MessageKeyboard.model_validate({
+    #     "id": "102083290_1707209565"
+    # })
+
     keyboard = MessageKeyboard.model_validate({
-        "id": "102083290_1707209565"
+        "content": {
+            "rows": [{"buttons": [
+                {
+                    "id": "1",
+                    "render_data": {
+                        "label": f"{button_show}",
+                        "visited_label": f"{button_show}",
+                        "style": 0
+                    },
+                    "action": {
+                        "type": 2,
+                        "permission": {
+                            "type": 2,
+                        },
+                        "unsupport_tips": "客户端不支持",
+                        "data": f"{button_cmd}",
+                    }
+                }
+
+            ]},
+                {"buttons": [
+                    {
+                        "id": "1",
+                        "render_data": {
+                            "label": f"{button_show2}",
+                            "visited_label": f"{button_show2}",
+                            "style": 0
+                        },
+                        "action": {
+                            "type": 2,
+                            "permission": {
+                                "type": 2,
+                            },
+                            "unsupport_tips": "客户端不支持",
+                            "data": f"{button_cmd2}",
+                        }
+                    },
+                    {
+                        "id": "1",
+                        "render_data": {
+                            "label": f"{button_show3}",
+                            "visited_label": f"{button_show3}",
+                            "style": 0
+                        },
+                        "action": {
+                            "type": 2,
+                            "permission": {
+                                "type": 2,
+                            },
+                            "unsupport_tips": "客户端不支持",
+                            "data": f"{button_cmd3}",
+                        }
+                    },
+                    {
+                        "id": "1",
+                        "render_data": {
+                            "label": f"{button_show4}",
+                            "visited_label": f"{button_show4}",
+                            "style": 0
+                        },
+                        "action": {
+                            "type": 0,
+                            "permission": {
+                                "type": 2,
+                            },
+                            "unsupport_tips": "客户端不支持",
+                            "data": f"{button_cmd4}",
+                        }
+                    }
+
+                ]}
+            ]
+        }
     })
+
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
     return qq_msg
 
