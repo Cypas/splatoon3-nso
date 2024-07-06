@@ -25,7 +25,7 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     msg = get_report(platform, user_id, report_day=report_day)
     if not msg:
         if not report_day:
-            msg = f"```\n数据准备中，请明天再查询\n```"
+            msg = f"```\n数据准备中，在登陆bot两天后才可获取日报对比数据\n```"
         elif report_day:
             msg = f"```\n没有查询到所指定日期的日报数据```"
 
@@ -144,8 +144,8 @@ async def report_all(bot: Bot, event: Event):
 
 def get_report_all_md(player_code):
     res = model_get_report_all(player_code)
-    if not res:
-        return "数据准备中"
+    if not res or len(res) == 1:
+        return "数据准备中，在登陆bot两天后才可获取全部日报对比数据"
     text = ''
     for r in res[:30]:
         _d = r
