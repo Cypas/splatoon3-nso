@@ -1,6 +1,9 @@
+import re
+
 from nonebot.adapters.qq.models import MessageKeyboard, MessageMarkdown
 
 from ..config import plugin_config
+from ..data.utils import plugin_data
 from ..utils.bot import *
 
 
@@ -9,14 +12,15 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     template_id = "102083290_1705920931"
     image_width, image_height = image_size
     text_start = "发送/nso帮助查看详细用法"
-    text_end = "自己手动/last也算是一种push推送吧"
-    button_show = "/last"
+    # text_end作为公告消息
+    text_end = plugin_data.get("splatoon3_bot_notice")
+    button_show = "查对战或打工"
     button_cmd = "/last"
 
-    button_show2 = "/last b"
+    button_show2 = "查对战"
     button_cmd2 = "/last b"
 
-    button_show3 = "/last c"
+    button_show3 = "查打工"
     button_cmd3 = "/last c"
 
     button_show4 = "bot官方群"
@@ -24,13 +28,16 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
 
     # 如果kv值为空，那只能不传，空值似乎最多只允许一个
 
+    params = [{"key": "at_user_id", "values": [f"<@{user_id}>"]},
+              {"key": "text_start", "values": [f"{text_start}"]},
+              {"key": "img_size", "values": [f"img#{image_width}px #{image_height}px"]},
+              {"key": "img_url", "values": [f"{url}"]}]
+    if text_end:
+        text_end = text_end.replace("\\n", "\r").replace("\\r", "\r")
+        params.append({"key": "text_end", "values": [f"{text_end}"]})
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
-        "params": [{"key": "at_user_id", "values": [f"<@{user_id}>"]},
-                   {"key": "text_start", "values": [f"{text_start}"]},
-                   {"key": "img_size", "values": [f"img#{image_width}px #{image_height}px"]},
-                   {"key": "img_url", "values": [f"{url}"]},
-                   ]
+        "params": params
     })
 
     # 完整kv对

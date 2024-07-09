@@ -6,6 +6,7 @@ from .send_msg import bot_send, bot_send_last_md
 from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time, get_event_info
 from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
+from ..data.utils import get_or_set_plugin_data
 from ..s3s.splatnet_image import get_app_screenshot
 from ..s3s.splatoon import Splatoon
 from ..s3s.utils import SPLATNET3_URL
@@ -19,6 +20,8 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     """获取上一局对战或打工数据图"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
+    # 重载插件配置项
+    await get_or_set_plugin_data("splatoon3_bot_notice")
 
     get_battle = False
     get_coop = False
