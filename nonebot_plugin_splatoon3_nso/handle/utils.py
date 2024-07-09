@@ -29,7 +29,7 @@ DICT_RANK_POINT = {
 
 # 徽章排名
 dict_badges_ranking = {
-    "QmFkZ2UtMzEwMTAwMA==": "j3000",  # 绿X 3000名  仅按日服计算  Badge-3101000
+    # "QmFkZ2UtMzEwMTAwMA==": "j3000",  # 绿X 3000名  仅按日服计算  Badge-3101000
     # "QmFkZ2UtMzEwMTAwMQ==": "j500",  # 银X 500名 Badge-3101001
     # "QmFkZ2UtMzEwMTAwMg==": "j10",  # 金X 10名 Badge-3101002
     "QmFkZ2UtMzEwMTEwMA==": "j2000+",  # 日服 2000+章 Badge-3101100
