@@ -22,7 +22,7 @@ S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-a
 NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "2.10.1"  # fallback
 WEB_VIEW_VERSION = "unknown"
-WEB_VIEW_VER_FALLBACK = "6.0.0-9f87c815"  # fallback
+WEB_VIEW_VER_FALLBACK = "6.0.0-f734f04c"  # fallback
 
 F_GEN_URL = "https://api.imink.app/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
@@ -200,18 +200,21 @@ class S3S:
             try:
                 if use_account_url == "skip":
                     return "skip"
-                session_token_code = re.search('de=(.*)&st', use_account_url).group(1)
-                session_token = await self.get_session_token(session_token_code, auth_code_verifier)
+                match = re.search("de=(.*)&st", use_account_url)
+                session_token_code = match.group(1)
+                resp = await self.get_session_token(session_token_code, auth_code_verifier)
+                session_token = resp["session_token"]
                 return session_token
             except KeyboardInterrupt:
                 print("\nBye!")
                 return "skip"
             except AttributeError:
                 print("Malformed URL. Please try again, or press Ctrl+C to exit.")
-                print("URL:", end=' ')
                 return "skip"
             except KeyError:  # session_token not found
                 print("\nThe URL has expired. Please log out and back into your Nintendo Account and try again.")
+                print(f"get_session_token error,resp:{resp}")
+                print(f"get_session_token error,\nsession_token_code:{session_token_code},\nauth_code_verifier:{auth_code_verifier.replace(b'=', b'').decode('utf-8')},\nresp:{resp}")
                 return "skip"
             except Exception as ex:
                 print(f'ex: {ex}')
@@ -240,10 +243,10 @@ class S3S:
         }
 
         url = 'https://accounts.nintendo.com/connect/1.0.0/api/session_token'
-
         r = await self.req_client.post(url, headers=app_head, data=body)
+        session_token = json.loads(r.text)
 
-        return json.loads(r.text)["session_token"]
+        return session_token
 
     async def _get_id_token_and_user_info(self, session_token):
         """get_gtoken第一步"""

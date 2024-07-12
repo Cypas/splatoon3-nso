@@ -37,7 +37,7 @@ async def sync_stat_ink():
     error_cnt = 0
     else_error_cnt = 0
     notice_error_cnt = 0
-    _pool = 10
+    _pool = 20
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]

@@ -277,7 +277,7 @@ async def get_event_info(bot, event):
         elif isinstance(event, QQ_C2CME):
             # c2c私信
             data.update({
-                'user_name': 'C2C',
+                'user_name': 'QQ私信',
             })
         # if 'group' in event.get_event_name():
         # qq 都在群里使用

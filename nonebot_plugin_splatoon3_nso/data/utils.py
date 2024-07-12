@@ -55,8 +55,7 @@ async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageT
         image_data = await get_file_url(link)
         file_name = ""
         # 1024 bytes长度 = 1k
-        lens = len(image_data)
-        if lens > 200:
+        if image_data and len(image_data) > 200:
             # 创建文件夹
             init_path(f"{DIR_TEMP_IMAGE}")
             init_path(f"{DIR_TEMP_IMAGE}/{_type}")
