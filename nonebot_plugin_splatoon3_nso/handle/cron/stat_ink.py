@@ -10,9 +10,11 @@ import subprocess
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
 from ...s3s.iksm import F_GEN_URL_2, F_GEN_URL
+from ...s3s.splatoon import Splatoon
 from ...utils import proxy_address, convert_td
-from ...utils.utils import DIR_RESOURCE, init_path
-from ...data.data_source import model_get_all_stat_user
+from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
+from ...data.data_source import model_get_all_stat_user, dict_clear_user_info_dict, global_user_info_dict, \
+    dict_get_or_set_user_info
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 from ...utils.bot import Kook_ActionFailed
@@ -56,12 +58,16 @@ async def sync_stat_ink():
                 else_error_cnt += 1
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
+    # 清理任务字典
+    cron_logger.info(f'clear cron user_info_dict...')
+    clear_count = await dict_clear_user_info_dict(_type="cron")
     cron_msg = (f"sync_stat_ink end: {str_time}\n"
-                f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}\n"
-                f"error_cnt: {error_cnt},notice_error_cnt: {notice_error_cnt},else_error_cnt: {else_error_cnt}")
+                f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}, clean_cnt: {clear_count}\n"
+                f"error_cnt: {error_cnt},notice_error_cnt: {notice_error_cnt}")
     cron_logger.info(cron_msg)
-    notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}\n"
-                  f"错误: {error_cnt},通知错误: {notice_error_cnt},配置错误: {else_error_cnt}")
+    notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}, 清理临时对象数量: {clear_count}\n"
+                  f"错误: {error_cnt},通知错误: {notice_error_cnt}")
+
     await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
 
 
@@ -71,7 +77,7 @@ async def sync_stat_ink_func(db_user: UserTable):
 
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
 
-    res = get_post_stat_msg(db_user)
+    res = await get_post_stat_msg(db_user)
     if not isinstance(res, tuple):
         is_else_error = True
         return is_complete, is_upload, is_error, is_notice_error, is_else_error
@@ -98,19 +104,46 @@ async def sync_stat_ink_func(db_user: UserTable):
     return is_complete, is_upload, is_error, is_notice_error, is_else_error
 
 
-def get_post_stat_msg(db_user):
+async def get_post_stat_msg(db_user):
     """获取同步消息文本"""
-
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
+    # User复用以及定时任务用user对象
+    platform = db_user.platform
+    user_id = db_user.user_id
+    msg_id = get_msg_id(platform, user_id)
+    global_user_info = global_user_info_dict.get(msg_id)
+    if global_user_info:
+        u = global_user_info
+    else:
+        # 新建cron任务对象
+        u = dict_get_or_set_user_info(platform, user_id, _type="cron")
+        if not u or not u.session_token:
+            return
+        splatoon = Splatoon(None, None, u, _type="cron")
+        try:
+            # 刷新token
+            await splatoon.refresh_gtoken_and_bullettoken()
+        except ValueError as e:
+            if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
+                # 无效登录或会员过期 或被封禁
+                # 关闭连接池
+                await splatoon.req_client.close()
+                return "", str(e)
+        except Exception as e:
+            cron_logger.error(f'stat_ink_task error: {msg_id},refresh_gtoken_and_bullettoken error:{e}')
+            return "", str(e)
+        finally:
+            # 关闭连接池
+            await splatoon.req_client.close()
 
     # 两个f_api 负载均衡
     f_url_lst = [F_GEN_URL, F_GEN_URL_2]
     random.shuffle(f_url_lst)
     f_gen_url = f_url_lst[0]
-    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, f_gen_url, g_token=db_user.g_token,
-                               bullet_token=db_user.bullet_token)
+    res = exported_to_stat_ink(db_user.id, u.session_token, db_user.stat_key, f_gen_url, g_token=u.g_token,
+                               bullet_token=u.bullet_token)
 
     if not isinstance(res, tuple):
         return
@@ -127,9 +160,9 @@ def get_post_stat_msg(db_user):
             next_f_str = "F_URL"
             next_f_url = F_GEN_URL
         cron_logger.warning(f"{db_user.id}, {db_user.user_name}, {now_f_str} Error，try {next_f_str} again")
-        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, next_f_url,
-                                   g_token=db_user.g_token,
-                                   bullet_token=db_user.bullet_token)
+        res = exported_to_stat_ink(db_user.id, u.session_token, db_user.stat_key, next_f_url,
+                                   g_token=u.g_token,
+                                   bullet_token=u.bullet_token)
 
         if not isinstance(res, tuple):
             return
