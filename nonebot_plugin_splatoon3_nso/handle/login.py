@@ -8,7 +8,7 @@ from datetime import datetime as dt
 from .cron import update_s3si_ts
 from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, get_event_info, get_game_sp_id
-from .send_msg import bot_send, notify_to_channel, bot_send_login_md, bot_send_url_md
+from .send_msg import bot_send, notify_to_channel, bot_send_login_md, bot_send_login_url_md
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict, \
     model_get_or_set_user
@@ -95,7 +95,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             await bot.send(event, message=msg)
             await bot.send(event, message='我是分割线'.center(20, '-'))
             if isinstance(event, QQ_C2CME):
-                await bot_send_url_md(bot, event, "点我打开nso登录网页", url)
+                await bot_send_login_url_md(bot, event, url)
             else:
                 await bot.send(event, message=url)
 
@@ -367,7 +367,7 @@ async def get_set_api_key(bot: Bot, event: Event):
     threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
 
 
-@on_command("sync_now", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("sync_now", aliases={'sync', 'syncnow', 'syncstat'}, priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def sync_now(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()

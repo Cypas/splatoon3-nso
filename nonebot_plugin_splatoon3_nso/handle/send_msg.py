@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from .qq_md import last_md, login_md, url_md
+from .qq_md import last_md, login_md, url_md, c2c_login_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china
 from ..utils.bot import *
 from ..config import plugin_config
@@ -204,19 +204,9 @@ async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=
     await bot.send(event, qq_msg)
 
 
-async def bot_send_url_md(bot: Bot, event: Event, url_title, url):
+async def bot_send_login_url_md(bot: Bot, event: Event, url):
     """发送url md消息"""
-    title = "nso登录"
-    content = "详细nso登录步骤可点击bot头像，查看文档内的教程"
-    qq_msg = url_md(title, content, url_title, url)
-    await bot.send(event, qq_msg)
-
-
-async def bot_send_login_url_md(bot: Bot, event: Event, url_title, url):
-    """发送url md消息"""
-    title = ""
-    content = ""
-    qq_msg = url_md(title, content, url_title, url)
+    qq_msg = c2c_login_md(url)
     await bot.send(event, qq_msg)
 
 

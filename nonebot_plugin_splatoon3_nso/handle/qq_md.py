@@ -189,6 +189,69 @@ def login_md(user_id, check_session=False) -> QQ_Msg:
     return qq_msg
 
 
+def c2c_login_md(login_url) -> QQ_Msg:
+    """c2c login卡片"""
+    template_id = "102083290_1705923685"
+    docs_url = "https://docs.qq.com/doc/DSVlLSnloTGZqTmNz"
+
+    title = "nso登录"
+    content = "详细nso登录步骤可查询下面文档教程\r！！！\r打开nso登录地址后不要用QQ内置浏览器，点右上角三个点，然后用系统浏览器打开\r！！！"
+    docs_url_title = "小鱿鱿使用文档及教程"
+    login_url_title = "点我打开nso登录网页"
+    params = [{"key": "title", "values": [f"{title}"]}]
+    params.extend([{"key": "data1", "values": [f"{content}"]}])
+
+    md = MessageMarkdown.model_validate({
+        "custom_template_id": f"{template_id}",
+        "params": params
+    })
+    keyboard = MessageKeyboard.model_validate({
+        "content": {
+            "rows": [{"buttons": [
+                {
+                    "id": "1",
+                    "render_data": {
+                        "label": f"{docs_url_title}",
+                        "visited_label": f"{docs_url_title}",
+                        "style": 0
+                    },
+                    "action": {
+                        "type": 0,
+                        "permission": {
+                            "type": 2,
+                        },
+                        "unsupport_tips": "客户端不支持",
+                        "data": f"{docs_url}",
+                    }
+                }
+
+            ]},
+                {"buttons": [
+                    {
+                        "id": "1",
+                        "render_data": {
+                            "label": f"{login_url_title}",
+                            "visited_label": f"{login_url_title}",
+                            "style": 0
+                        },
+                        "action": {
+                            "type": 0,
+                            "permission": {
+                                "type": 2,
+                            },
+                            "unsupport_tips": "客户端不支持",
+                            "data": f"{login_url}",
+                        }
+                    }
+
+                ]},
+            ]
+        }
+    })
+    qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
+    return qq_msg
+
+
 def url_md(title, content, url_title, url) -> QQ_Msg:
     """仅发一个url的按钮卡片"""
     template_id = "102083290_1705923685"
