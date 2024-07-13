@@ -58,14 +58,11 @@ async def sync_stat_ink():
                 else_error_cnt += 1
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
-    # 清理任务字典
-    cron_logger.info(f'clear cron user_info_dict...')
-    clear_count = await dict_clear_user_info_dict(_type="cron")
     cron_msg = (f"sync_stat_ink end: {str_time}\n"
-                f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}, clean_cnt: {clear_count}\n"
+                f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}\n"
                 f"error_cnt: {error_cnt},notice_error_cnt: {notice_error_cnt}")
     cron_logger.info(cron_msg)
-    notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}, 清理临时对象数量: {clear_count}\n"
+    notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}\n"
                   f"错误: {error_cnt},通知错误: {notice_error_cnt}")
 
     await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
@@ -118,10 +115,10 @@ async def get_post_stat_msg(db_user):
         u = global_user_info
     else:
         # 新建cron任务对象
-        u = dict_get_or_set_user_info(platform, user_id, _type="cron")
+        u = dict_get_or_set_user_info(platform, user_id)
         if not u or not u.session_token:
             return
-        splatoon = Splatoon(None, None, u, _type="cron")
+        splatoon = Splatoon(None, None, u)
         try:
             # 刷新token
             await splatoon.refresh_gtoken_and_bullettoken()
