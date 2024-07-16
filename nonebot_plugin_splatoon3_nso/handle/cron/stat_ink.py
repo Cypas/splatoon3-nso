@@ -39,7 +39,7 @@ async def sync_stat_ink():
     error_cnt = 0
     else_error_cnt = 0
     notice_error_cnt = 0
-    _pool = 20
+    _pool = 15
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
@@ -92,7 +92,7 @@ async def sync_stat_ink_func(db_user: UserTable):
             try:
                 await notify_to_private(db_user.platform, db_user.user_id, msg)
             except Exception as e:
-                cron_logger.error(f"db_user_id:{db_user.user_id} private notice error: {e}")
+                cron_logger.error(f"db_user_id:{db_user.id} private notice error: {e}")
                 is_notice_error = True
 
     if error_msg:
