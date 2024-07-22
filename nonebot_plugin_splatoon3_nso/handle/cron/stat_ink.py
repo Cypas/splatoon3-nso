@@ -14,7 +14,7 @@ from ...s3s.splatoon import Splatoon
 from ...utils import proxy_address, convert_td
 from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
 from ...data.data_source import model_get_all_stat_user, dict_clear_user_info_dict, global_user_info_dict, \
-    dict_get_or_set_user_info
+    dict_get_or_set_user_info, model_get_or_set_user
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 from ...utils.bot import Kook_ActionFailed
@@ -39,7 +39,7 @@ async def sync_stat_ink():
     error_cnt = 0
     else_error_cnt = 0
     notice_error_cnt = 0
-    _pool = 15
+    _pool = 40
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
@@ -80,6 +80,10 @@ async def sync_stat_ink_func(db_user: UserTable):
         return is_complete, is_upload, is_error, is_notice_error, is_else_error
 
     msg, error_msg = res
+
+    platform = db_user.platform
+    user_id = db_user.user_id
+    msg_id = get_msg_id(platform, user_id)
     is_complete = True
     if msg:
         is_upload = True
@@ -91,8 +95,15 @@ async def sync_stat_ink_func(db_user: UserTable):
             msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
             try:
                 await notify_to_private(db_user.platform, db_user.user_id, msg)
+            except Kook_ActionFailed as e:
+                if e.status_code == 40000:
+                    if e.message.startswith("你已被对方屏蔽"):
+                        model_get_or_set_user(platform, user_id, stat_notify=0, report_notify=0)
+                        cron_logger.warning(
+                            f'sync_stat_ink send private error:db_user_id:{db_user.id}，mgs_id:{msg_id},error:用户已屏蔽发信bot，已关闭其通知权限')
+                is_notice_error = True
             except Exception as e:
-                cron_logger.error(f"db_user_id:{db_user.id} private notice error: {e}")
+                cron_logger.error(f"sync_stat_ink send private error:db_user_id:{db_user.id}，mgs_id:{msg_id},error: {e}")
                 is_notice_error = True
 
     if error_msg:
