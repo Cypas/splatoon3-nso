@@ -1,6 +1,7 @@
 import re
 
 from nonebot.adapters.qq.models import MessageKeyboard, MessageMarkdown
+from nonebot.adapters.telegram.model import InlineKeyboardMarkup
 
 from ..config import plugin_config
 from ..data.utils import plugin_data
@@ -10,6 +11,7 @@ from ..utils.bot import *
 def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     """为/last查询拼装md结构"""
     template_id = "102083290_1705920931"
+    keyboard_template_id = "102083290_1720695986"
     image_width, image_height = image_size
     text_start = "发送/nso帮助查看详细用法"
     # text_end作为公告消息
@@ -57,80 +59,83 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     # })
 
     keyboard = MessageKeyboard.model_validate({
-        "content": {
-            "rows": [{"buttons": [
-                {
-                    "id": "1",
-                    "render_data": {
-                        "label": f"{button_show}",
-                        "visited_label": f"{button_show}",
-                        "style": 0
-                    },
-                    "action": {
-                        "type": 2,
-                        "permission": {
-                            "type": 2,
-                        },
-                        "unsupport_tips": "客户端不支持",
-                        "data": f"{button_cmd}",
-                    }
-                }
-
-            ]},
-                {"buttons": [
-                    {
-                        "id": "1",
-                        "render_data": {
-                            "label": f"{button_show2}",
-                            "visited_label": f"{button_show2}",
-                            "style": 0
-                        },
-                        "action": {
-                            "type": 2,
-                            "permission": {
-                                "type": 2,
-                            },
-                            "unsupport_tips": "客户端不支持",
-                            "data": f"{button_cmd2}",
-                        }
-                    },
-                    {
-                        "id": "1",
-                        "render_data": {
-                            "label": f"{button_show3}",
-                            "visited_label": f"{button_show3}",
-                            "style": 0
-                        },
-                        "action": {
-                            "type": 2,
-                            "permission": {
-                                "type": 2,
-                            },
-                            "unsupport_tips": "客户端不支持",
-                            "data": f"{button_cmd3}",
-                        }
-                    },
-                    {
-                        "id": "1",
-                        "render_data": {
-                            "label": f"{button_show4}",
-                            "visited_label": f"{button_show4}",
-                            "style": 0
-                        },
-                        "action": {
-                            "type": 0,
-                            "permission": {
-                                "type": 2,
-                            },
-                            "unsupport_tips": "客户端不支持",
-                            "data": f"{button_cmd4}",
-                        }
-                    }
-
-                ]}
-            ]
-        }
+        "id": f"{keyboard_template_id}"
     })
+    # keyboard = MessageKeyboard.model_validate({
+    #     "content": {
+    #         "rows": [{"buttons": [
+    #             {
+    #                 "id": "1",
+    #                 "render_data": {
+    #                     "label": f"{button_show}",
+    #                     "visited_label": f"{button_show}",
+    #                     "style": 0
+    #                 },
+    #                 "action": {
+    #                     "type": 2,
+    #                     "permission": {
+    #                         "type": 2,
+    #                     },
+    #                     "unsupport_tips": "客户端不支持",
+    #                     "data": f"{button_cmd}",
+    #                 }
+    #             }
+    #
+    #         ]},
+    #             {"buttons": [
+    #                 {
+    #                     "id": "1",
+    #                     "render_data": {
+    #                         "label": f"{button_show2}",
+    #                         "visited_label": f"{button_show2}",
+    #                         "style": 0
+    #                     },
+    #                     "action": {
+    #                         "type": 2,
+    #                         "permission": {
+    #                             "type": 2,
+    #                         },
+    #                         "unsupport_tips": "客户端不支持",
+    #                         "data": f"{button_cmd2}",
+    #                     }
+    #                 },
+    #                 {
+    #                     "id": "1",
+    #                     "render_data": {
+    #                         "label": f"{button_show3}",
+    #                         "visited_label": f"{button_show3}",
+    #                         "style": 0
+    #                     },
+    #                     "action": {
+    #                         "type": 2,
+    #                         "permission": {
+    #                             "type": 2,
+    #                         },
+    #                         "unsupport_tips": "客户端不支持",
+    #                         "data": f"{button_cmd3}",
+    #                     }
+    #                 },
+    #                 {
+    #                     "id": "1",
+    #                     "render_data": {
+    #                         "label": f"{button_show4}",
+    #                         "visited_label": f"{button_show4}",
+    #                         "style": 0
+    #                     },
+    #                     "action": {
+    #                         "type": 0,
+    #                         "permission": {
+    #                             "type": 2,
+    #                         },
+    #                         "unsupport_tips": "客户端不支持",
+    #                         "data": f"{button_cmd4}",
+    #                     }
+    #                 }
+    #
+    #             ]}
+    #         ]
+    #     }
+    # })
 
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
     return qq_msg

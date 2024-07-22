@@ -32,15 +32,15 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
 
     # 只有q平台 且 q群才发md
     if isinstance(bot, QQ_Bot):
-        if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
+        if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
             if isinstance(event, QQ_C2CME):
                 user_id = ""
             # 发送md
             await bot_send_login_md(bot, event, user_id)
             await matcher.finish()
-        elif isinstance(event, QQ_C2CME):
-            pass
-        elif not isinstance(event, (QQ_GME, QQ_C2CME)):
+        # elif isinstance(event, QQ_C2CME):
+        #     pass
+        else:
             msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
                   f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
             await bot_send(bot, event, msg)
