@@ -196,7 +196,7 @@ class Splatoon:
         if len(users) > 0:
             for u in users:
                 msg_id = get_msg_id(u.platform, u.user_id)
-                self.logger.info(f'another_account {u.id},{msg_id} tokens updated.')
+                self.logger.debug(f'another_account {u.id},{msg_id} tokens updated.')
                 # 如果存在全局缓存，也更新缓存数据
                 key = get_msg_id(u.platform, u.user_id)
                 user_info = global_user_info_dict.get(key)

@@ -425,7 +425,7 @@ class S3S:
             web_service_token = web_service_resp["result"]["accessToken"]
         except:
             # retry once if code 9403/9599 error from nintendo
-            self.logger.warning(f"retry once if code 9403/9599 error from nintendo")
+            self.logger.debug(f"retry once if code 9403/9599 error from nintendo")
             try:
                 f, uuid, timestamp = await self.f_api(access_token, 2, self.f_gen_url, self.r_user_id,
                                                       coral_user_id=coral_user_id)

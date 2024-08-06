@@ -85,12 +85,10 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     if not isinstance(bot, QQ_Bot):
         user = dict_get_or_set_user_info(platform, user_id)
         if user.push_cnt < 3:
-            logger.info(f'is_playing: {is_playing}')
-            if is_playing:
-                msg = ''
-                if user.push_cnt < 5:
-                    msg = "正在游玩时可以 /push 开启推送模式~"
-                    await bot_send(bot, event, msg)
+            logger.debug(f'is_playing: {is_playing}')
+            if is_playing and user.push_cnt < 5:
+                msg = "正在游玩时可以 /push 开启推送模式~"
+                await bot_send(bot, event, msg)
 
 
 async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, get_coop=False,
