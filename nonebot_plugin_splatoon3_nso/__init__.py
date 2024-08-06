@@ -1,6 +1,6 @@
 from nonebot.message import event_preprocessor
 from nonebot.plugin import PluginMetadata
-from nonebot.rule import is_type
+from nonebot.rule import is_type, to_me
 
 from .config import driver, plugin_config, Config
 from .data.db_sqlite import init_db
@@ -25,7 +25,8 @@ __plugin_meta__ = PluginMetadata(
 )
 
 
-@on_startswith(("/", "、", " "), priority=99, block=True).handle()
+@on_message(rule=to_me(), priority=97, block=True).handle()
+@on_startswith(("/", "、"), priority=99, block=True).handle()
 async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
     logger.info(f'unknown_command from {event.get_event_name()}')
     msg = ""
