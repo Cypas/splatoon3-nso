@@ -35,7 +35,7 @@ async def create_get_user_friends_tasks():
                 continue
             model_set_user_friend(f_list)
             friends_count += len(f_list)
-    cron_logger.info(f"get friends: {friends_count}")
+    cron_logger.info(f"get all friends count: {friends_count}")
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = f"create_get_user_friends_tasks end: {str_time}\nget friends: {friends_count}"
@@ -67,7 +67,7 @@ async def get_friends_task(p_and_id):
             friend_id = f['id']
             player_name = f.get('playerName') or ''
             nickname = f.get('nickname') or ''
-            cron_logger.info(f'get_friend: {msg_id},{u.game_name}--sp:{player_name} ,ns:{nickname}')
+            cron_logger.debug(f'get_friend: {msg_id},{u.game_name}--sp:{player_name} ,ns:{nickname}')
             user_icon = f['userIcon']['url']
             f_list.append((user_id, friend_id, player_name, nickname, user_icon))
 

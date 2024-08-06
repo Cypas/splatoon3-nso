@@ -19,7 +19,7 @@ async def get_event_top():
 
     db_user = model_get_newest_user()
     if not db_user:
-        cron_logger.info(f"no user login.")
+        cron_logger.error(f"no user login.")
         return
     user = dict_get_or_set_user_info(db_user.platform, db_user.user_id)
     splatoon = Splatoon(None, None, user)
@@ -47,13 +47,13 @@ async def get_event_top_player_task(splatoon):
     for n in edges[::-1]:
         in_ed = n['node']['leagueMatchRankingTimePeriodGroups']['edges']
         for nn in in_ed[::-1]:
-            cron_logger.info(nn['node']['leagueMatchSetting']['leagueMatchEvent']['name'])
+            cron_logger.debug(nn['node']['leagueMatchSetting']['leagueMatchEvent']['name'])
             for t in nn['node']['timePeriods']:
                 top_id = t['id']
                 top_type = base64.b64decode(top_id).decode('utf-8')
                 _, search_type = top_type.split('TimePeriod-')
                 count = model_get_top_all_count_by_top_type(search_type)
-                cron_logger.info(f'top_all.type search {search_type}, {count or 0}')
+                cron_logger.debug(f'top_all.type search {search_type}, {count or 0}')
                 if count:
                     continue
                 res = await splatoon.get_event_items(top_id, multiple=True)
@@ -63,16 +63,16 @@ async def get_event_top_player_task(splatoon):
 def parse_league(league):
     """解析活动榜单并写入数据"""
     if not league:
-        cron_logger.info('no league')
+        cron_logger.debug('no league')
         return
 
     play_time = league['data']['rankingPeriod']['endTime'].replace('T', ' ').replace('Z', '')
     play_time = dt.strptime(play_time, '%Y-%m-%d %H:%M:%S')
     league_name = league['data']['rankingPeriod']['leagueMatchSetting']['leagueMatchEvent']['name']
-    cron_logger.info(f'{play_time}, {league_name}')
+    cron_logger.debug(f'{play_time}, {league_name}')
     for team in league['data']['rankingPeriod']['teams']:
         top_id = team['id']
-        cron_logger.info(f'saving top_id: {top_id}')
+        cron_logger.debug(f'saving top_id: {top_id}')
         model_delete_top_all(top_id)
         top_type = base64.b64decode(top_id).decode('utf-8')
         for n in team['details']['nodes']:

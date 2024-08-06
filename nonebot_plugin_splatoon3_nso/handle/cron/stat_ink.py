@@ -19,6 +19,9 @@ from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_
 from .utils import user_remove_duplicates, cron_logger
 from ...utils.bot import Kook_ActionFailed
 
+# 错误对局，没有会员，nso被ban，无效登录凭证
+expected_str_list = ["status: 500", "Membership required", "has be banned", "invalid_grant"]
+
 
 async def sync_stat_ink():
     """同步至stat"""
@@ -34,18 +37,14 @@ async def sync_stat_ink():
     # 去重
     db_users = user_remove_duplicates(db_users)
 
-    complete_cnt = 0
-    upload_cnt = 0
-    error_cnt = 0
-    else_error_cnt = 0
-    notice_error_cnt = 0
+    complete_cnt, upload_cnt, error_cnt, else_error_cnt, notice_error_cnt, battle_error_cnt, membership_error_cnt = 0, 0, 0, 0, 0, 0, 0
     _pool = 40
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks)
         for r in res:
-            is_complete, is_upload, is_error, is_notice_error, is_else_error = r
+            is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error = r
             if is_complete:
                 complete_cnt += 1
             if is_upload:
@@ -56,28 +55,32 @@ async def sync_stat_ink():
                 notice_error_cnt += 1
             if is_else_error:
                 else_error_cnt += 1
+            if is_battle_error:
+                battle_error_cnt += 1
+            if is_membership_error:
+                membership_error_cnt += 1
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = (f"sync_stat_ink end: {str_time}\n"
                 f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}\n"
-                f"error_cnt: {error_cnt},notice_error_cnt: {notice_error_cnt}")
+                f"error_cnt: {error_cnt},battle_error_cnt: {battle_error_cnt},membership_error_cnt: {membership_error_cnt},notice_error_cnt: {notice_error_cnt}")
     cron_logger.info(cron_msg)
     notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}\n"
-                  f"错误: {error_cnt},通知错误: {notice_error_cnt}")
+                  f"错误: {error_cnt},对战错误: {battle_error_cnt},缺少会员: {membership_error_cnt},通知错误: {notice_error_cnt}")
 
     await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
 
 
 async def sync_stat_ink_func(db_user: UserTable):
     """同步stat.ink"""
-    is_complete, is_upload, is_error, is_else_error, is_notice_error = False, False, False, False, False
+    is_complete, is_upload, is_error, is_else_error, is_notice_error, is_battle_error, is_membership_error = False, False, False, False, False, False, False
 
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
 
     res = await get_post_stat_msg(db_user)
     if not isinstance(res, tuple):
         is_else_error = True
-        return is_complete, is_upload, is_error, is_notice_error, is_else_error
+        return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error
 
     msg, error_msg = res
 
@@ -98,18 +101,23 @@ async def sync_stat_ink_func(db_user: UserTable):
             except Kook_ActionFailed as e:
                 if e.status_code == 40000:
                     if e.message.startswith("你已被对方屏蔽"):
-                        model_get_or_set_user(platform, user_id, stat_notify=0, report_notify=0)
+                        dict_get_or_set_user_info(platform, user_id, stat_notify=0, report_notify=0)
                         cron_logger.warning(
                             f'sync_stat_ink send private error:db_user_id:{db_user.id}，mgs_id:{msg_id},error:用户已屏蔽发信bot，已关闭其通知权限')
                 is_notice_error = True
             except Exception as e:
-                cron_logger.error(f"sync_stat_ink send private error:db_user_id:{db_user.id}，mgs_id:{msg_id},error: {e}")
+                cron_logger.error(
+                    f"sync_stat_ink send private error:db_user_id:{db_user.id}，mgs_id:{msg_id},error: {e}")
                 is_notice_error = True
 
     if error_msg:
         is_error = True
+        if "status: 500" in error_msg:
+            is_battle_error = True
+        if "Membership required" in error_msg:
+            is_membership_error = True
 
-    return is_complete, is_upload, is_error, is_notice_error, is_else_error
+    return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error
 
 
 async def get_post_stat_msg(db_user):
@@ -156,25 +164,32 @@ async def get_post_stat_msg(db_user):
     if not isinstance(res, tuple):
         return
     battle_cnt, coop_cnt, url, error_msg = res
+
+    flag_need_retry = True
     # f-api重试
     if error_msg:
-        # 判断重试时的对象名称以及f地址
-        if f_gen_url == F_GEN_URL:
-            now_f_str = "F_URL"
-            next_f_str = "F_URL_2"
-            next_f_url = F_GEN_URL_2
-        else:
-            now_f_str = "F_URL_2"
-            next_f_str = "F_URL"
-            next_f_url = F_GEN_URL
-        cron_logger.warning(f"{db_user.id}, {db_user.user_name}, {now_f_str} Error，try {next_f_str} again")
-        res = exported_to_stat_ink(db_user.id, u.session_token, db_user.stat_key, next_f_url,
-                                   g_token=u.g_token,
-                                   bullet_token=u.bullet_token)
+        # 排除预期错误
+        for expected_str in expected_str_list:
+            if expected_str in error_msg:
+                flag_need_retry = False
+        if flag_need_retry:
+            # 判断重试时的对象名称以及f地址
+            if f_gen_url == F_GEN_URL:
+                now_f_str = "F_URL"
+                next_f_str = "F_URL_2"
+                next_f_url = F_GEN_URL_2
+            else:
+                now_f_str = "F_URL_2"
+                next_f_str = "F_URL"
+                next_f_url = F_GEN_URL
+            cron_logger.warning(f"{db_user.id}, {db_user.user_name}, {now_f_str} Error，try {next_f_str} again")
+            res = exported_to_stat_ink(db_user.id, u.session_token, db_user.stat_key, next_f_url,
+                                       g_token=u.g_token,
+                                       bullet_token=u.bullet_token)
 
-        if not isinstance(res, tuple):
-            return
-        battle_cnt, coop_cnt, url, error_msg = res
+            if not isinstance(res, tuple):
+                return
+            battle_cnt, coop_cnt, url, error_msg = res
 
     msg = ""
     if battle_cnt or coop_cnt:
@@ -289,10 +304,6 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
             cmds.append(f"""sed -i 's/gToken[^,]*,/gToken\": \"{g_token}\",/' {path_config_file}""")
             cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
 
-        for cmd in cmds:
-            cron_logger.debug(f'user_db_id:{user_id} cli: {cmd}')
-            os.system(cmd)
-
     env = {}
     # deno代理配置
     # http
@@ -306,7 +317,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
 
     # run deno
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
-    cron_logger.info(cmd)
+    cron_logger.debug(cmd)
 
     res = ""
     error = ""
@@ -323,6 +334,8 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
     except subprocess.TimeoutExpired:
         error_msg = f"deno run timeout\n"
     except Exception as e:
+        if "html" in e:
+            e = "html error"
         error_msg = f"deno run err:\n{e}"
     if error:
         # error里面混有deno debug内容，需要经过过滤
@@ -336,10 +349,18 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
             error_msg += f"{line}\n"
 
     if error_msg:
-        cron_logger.error(f'user_db_id:{user_id} deno cli error,result:\n{error_msg}')
+        expect = ""
+        for expected_str in expected_str_list:
+            if expected_str in error_msg:
+                expect = expected_str
+                break
+        if expect:
+            cron_logger.error(f'user_db_id:{user_id} deno cli error,result: {expect}')
+        else:
+            cron_logger.error(f'user_db_id:{user_id} deno cli unexpected error,result:\n{error_msg}')
     elif res:
         # success
-        cron_logger.info(f'user_db_id:{user_id} deno cli success,result:\n{res}')
+        cron_logger.debug(f'user_db_id:{user_id} deno cli success,result:\n{res}')
 
         for line in res.split('\n'):
             line = line.strip()
