@@ -29,6 +29,15 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
     """登录"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
+    msg_id = get_msg_id(platform, user_id)
+    user = dict_get_or_set_user_info(platform, user_id)
+    if user and user.session_token:
+        msg = "您已经登录nso\n" \
+              "如需重新登录或绑定账号请继续下面操作\n" \
+              "/clear_db_info 登出并清空账号数据\n" \
+              "/get_login_code 获取绑定码以绑定其他平台bot账号"
+        await bot_send(bot, event, msg)
+        await matcher.finish()
 
     # 只有q平台 且 q群才发md
     if isinstance(bot, QQ_Bot):
@@ -43,21 +52,9 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         else:
             msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
                   f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
-            await bot_send(bot, event, msg)
-            await matcher.finish()
-
-    if isinstance(event, All_Group_Message):
+            await matcher.finish(msg)
+    elif isinstance(event, All_Group_Message):
         await matcher.finish(MSG_PRIVATE)
-
-    msg_id = get_msg_id(platform, user_id)
-    user = dict_get_or_set_user_info(platform, user_id)
-    if user and user.session_token:
-        msg = "用户已经登录nso\n" \
-              "如需重新登录或绑定账号请继续下面操作\n" \
-              "/clear_db_info 登出并清空账号数据\n" \
-              "/get_login_code 获取绑定码以绑定其他平台bot账号"
-        await bot_send(bot, event, msg)
-        await matcher.finish()
 
     img_path = f'{DIR_RESOURCE}/sp3bot-login.gif'
     if isinstance(bot, Tg_Bot):
