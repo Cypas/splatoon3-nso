@@ -25,15 +25,17 @@ __plugin_meta__ = PluginMetadata(
 )
 
 
-@on_startswith(("/", "、"), priority=99, block=True).handle()
+@on_startswith(("/", "、", " "), priority=99, block=True).handle()
 async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
     logger.info(f'unknown_command from {event.get_event_name()}')
     msg = ""
     if plugin_config.splatoon3_unknown_command_fallback_reply:
         if isinstance(bot, Tg_Bot):
             msg = "Sorry, I didn't understand that command. /help"
+        elif isinstance(bot, QQ_Bot):
+            msg = "无效指令，请发送 /help 查看帮助\n或在消息框输入/后，手动选择bot命令"
         elif isinstance(bot, All_BOT):
-            msg = "无效指令，发送 /help 查看帮助"
+            msg = "无效指令，请发送 /help 查看帮助"
         kook_black_list = plugin_config.splatoon3_unknown_command_fallback_reply_kook_black_list
         if len(kook_black_list) > 0:
             if isinstance(bot, Kook_Bot):
@@ -52,7 +54,7 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
 async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
     """为qq c2c任何未匹配文本进行兜底"""
     logger.info(f'unknown_command from {event.get_event_name()}')
-    msg = "无效指令，发送 /help 查看帮助"
+    msg = "无效指令，请发送/help 查看帮助\n或在消息框输入/后，手动选择bot命令"
     await matcher.finish(msg)
 
 
