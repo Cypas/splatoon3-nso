@@ -144,6 +144,7 @@ def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
 def login_md(user_id, check_session=False) -> QQ_Msg:
     """无法使用login时转kook登录的md卡片提示"""
     template_id = "102083290_1705923685"
+    keyboard_template_id = "102083290_1721647351"
     data1 = ""
     if check_session:
         data1 += "nso未登录，无法使用相关查询，"
@@ -167,29 +168,33 @@ def login_md(user_id, check_session=False) -> QQ_Msg:
     })
 
     keyboard = MessageKeyboard.model_validate({
-        "content": {
-            "rows": [{"buttons": [
-                {
-                    "id": "1",
-                    "render_data": {
-                        "label": f"{button_show}",
-                        "visited_label": f"{button_show}",
-                        "style": 0
-                    },
-                    "action": {
-                        "type": 0,
-                        "permission": {
-                            "type": 2,
-                        },
-                        "unsupport_tips": "客户端不支持",
-                        "data": f"{kook_jump_link}",
-                    }
-                }
-
-            ]},
-            ]
-        }
+        "id": f"{keyboard_template_id}"
     })
+
+    # keyboard = MessageKeyboard.model_validate({
+    #     "content": {
+    #         "rows": [{"buttons": [
+    #             {
+    #                 "id": "1",
+    #                 "render_data": {
+    #                     "label": f"{button_show}",
+    #                     "visited_label": f"{button_show}",
+    #                     "style": 0
+    #                 },
+    #                 "action": {
+    #                     "type": 0,
+    #                     "permission": {
+    #                         "type": 2,
+    #                     },
+    #                     "unsupport_tips": "客户端不支持",
+    #                     "data": f"{kook_jump_link}",
+    #                 }
+    #             }
+    #
+    #         ]},
+    #         ]
+    #     }
+    # })
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
     return qq_msg
 
