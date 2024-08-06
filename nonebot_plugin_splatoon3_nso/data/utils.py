@@ -5,6 +5,9 @@ from sqlalchemy import text
 from .db_sqlite import DBSession, TempImageTable, DIR_TEMP_IMAGE
 from ..utils import init_path, get_file_url
 
+# 插件数据全部变量提供静态读写
+plugin_data = {}
+
 
 class GlobalUserInfo:
     """全局公用用户类"""
@@ -52,8 +55,7 @@ async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageT
         image_data = await get_file_url(link)
         file_name = ""
         # 1024 bytes长度 = 1k
-        lens = len(image_data)
-        if lens > 200:
+        if image_data and len(image_data) > 200:
             # 创建文件夹
             init_path(f"{DIR_TEMP_IMAGE}")
             init_path(f"{DIR_TEMP_IMAGE}/{_type}")
@@ -100,3 +102,21 @@ def get_insert_or_update_obj(cls, filter_dict, **kw):
             setattr(res, k, v)
     session.close()
     return res
+
+
+async def get_or_set_plugin_data(key, value=None):
+    """获取或设置插件数据"""
+    from nonebot import require
+    require("nonebot_plugin_datastore")
+    from nonebot_plugin_datastore import get_plugin_data
+
+    global plugin_data
+    if not value:
+        # 读取配置
+        value = await get_plugin_data().config.get(key)
+        plugin_data[key] = value
+    else:
+        # 存储配置
+        await get_plugin_data().config.set(key, value)
+        plugin_data[key] = value
+    return value

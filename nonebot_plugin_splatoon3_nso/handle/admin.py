@@ -10,6 +10,7 @@ from .push import close_push
 from .send_msg import bot_send, notify_to_private
 from ..data.data_source import dict_get_all_global_users, model_clean_db_cache, model_get_or_set_user, \
     dict_get_or_set_user_info
+from ..data.utils import get_or_set_plugin_data
 from ..utils import get_msg_id
 from ..utils.bot import *
 from nonebot import logger
@@ -125,6 +126,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             msg = "所有命令都需要加上/admin 前缀\n" \
                   "get_push 获取当前push统计\n" \
                   "close_push 关闭当前全部push\n" \
+                  "set_bot_notice {公告消息} 设置公告消息\n" \
                   "get_x_player 获取x赛top\n" \
                   "get_event_top 获取活动top\n" \
                   "clean_cache 清理数据库缓存\n" \
@@ -153,6 +155,20 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await bot_send(bot, event, message=f"已退出服务器{guild_id}")
         else:
             await bot_send(bot, event, message=f"无效命令， lens:{len(args)}")
+
+    if plain_text.startswith("set_bot_notice"):
+        """设置公告消息
+        set_bot_notice {notice}
+        """
+        notice = plain_text.replace("set_bot_notice", "").strip().replace("\n", "\r")
+        old_notice = await get_or_set_plugin_data("splatoon3_bot_notice")
+        await get_or_set_plugin_data("splatoon3_bot_notice", notice)
+        if not old_notice:
+            old_notice = "None"
+        if not notice:
+            notice = "None"
+        msg = "旧公告消息为:\n" + old_notice + "\n" + "新的公告消息为:\n" + notice
+        await bot_send(bot, event, message=msg)
 
     if plain_text.startswith("copy_token"):
         """复制同平台其他用户token到自己账号，方便测试"""

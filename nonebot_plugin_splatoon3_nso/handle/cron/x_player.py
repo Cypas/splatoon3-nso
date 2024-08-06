@@ -67,7 +67,7 @@ async def parse_x_data(top_id, splatoon):
         try:
             await get_top_x(first_rows, top_id, x_type, hash_mode, splatoon)
         except Exception as ex:
-            cron_logger.exception(f'get_top_x error: {top_id}, {x_type}, error:{ex}')
+            cron_logger.error(f'get_top_x error: {top_id}, {x_type}, error:{ex}')
             continue
         time.sleep(5)
 
@@ -100,7 +100,7 @@ async def get_top_x(data_row, top_id, x_type, mode_hash, splatoon=None):
 
         cursor = _res['data']['node'][f'xRanking{x_type}']['pageInfo']['endCursor']
         has_next_page = _res['data']['node'][f'xRanking{x_type}']['pageInfo']['hasNextPage']
-        cron_logger.info(f'get page:  {cursor}, {has_next_page}')
+        cron_logger.debug(f'get page:  {cursor}, {has_next_page}')
         if not has_next_page:
             break
 
@@ -132,7 +132,7 @@ async def get_top_x(data_row, top_id, x_type, mode_hash, splatoon=None):
             cursor = _res['data']['node'][f'xRanking{x_type}']['pageInfo']['endCursor']
             has_next_page = _res['data']['node'][f'xRanking{x_type}']['pageInfo']['hasNextPage']
 
-            cron_logger.info(f'get page:  {cursor}, {has_next_page}')
+            cron_logger.debug(f'get page:  {cursor}, {has_next_page}')
             if not has_next_page:
                 break
 

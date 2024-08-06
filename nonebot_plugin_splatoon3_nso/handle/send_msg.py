@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from .qq_md import last_md, login_md
+from .qq_md import last_md, login_md, url_md, c2c_login_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china
 from ..utils.bot import *
 from ..config import plugin_config
@@ -204,6 +204,12 @@ async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=
     await bot.send(event, qq_msg)
 
 
+async def bot_send_login_url_md(bot: Bot, event: Event, url):
+    """发送url md消息"""
+    qq_msg = c2c_login_md(url)
+    await bot.send(event, qq_msg)
+
+
 async def send_msg(bot: Bot, event: Event, msg: str | bytes):
     """公用send_msg"""
     # 指定回复模式
@@ -258,12 +264,12 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
             await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
             try:
-                if not isinstance(event, GroupAtMessageCreateEvent):
-                    await bot.send(event, message=QQ_MsgSeg.file_image(img))
-                else:
+                if isinstance(event, (QQ_GME, QQ_C2CME)):
                     url = await get_image_url(img)
                     if url:
                         await bot.send(event, message=QQ_MsgSeg.image(url))
+                else:
+                    await bot.send(event, message=QQ_MsgSeg.file_image(img))
             except QQ_ActionFailed as e:
                 if "消息被去重" in str(e):
                     pass

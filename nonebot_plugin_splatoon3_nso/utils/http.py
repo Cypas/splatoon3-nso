@@ -2,6 +2,7 @@ import urllib.parse
 
 import httpx
 from httpx import Response
+from nonebot import logger
 
 from .utils import get_msg_id
 from ..config import plugin_config
@@ -19,10 +20,14 @@ proxy_host_list = plugin_config.splatoon3_proxy_list
 
 async def get_file_url(url):
     """从网页读获取图片"""
-    resp = await AsHttpReq.get(url)
-    resp.read()
-    data = resp.content
-    return data
+    try:
+        resp = await AsHttpReq.get(url)
+        resp.read()
+        data = resp.content
+        return data
+    except Exception as e:
+        logger.warning(f"http get file_data error,{e}")
+        return None
 
 
 def get_or_init_client(platform, user_id, _type="normal", with_proxy=False):

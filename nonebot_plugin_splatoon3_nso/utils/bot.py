@@ -7,7 +7,7 @@ from nonebot.matcher import Matcher
 from nonebot.internal.params import Depends
 from nonebot.internal.adapter import Message
 from nonebot.params import CommandArg
-from nonebot import get_bots, logger, on_regex, on_command, on_startswith, require
+from nonebot import get_bots, logger, on_regex, on_command, on_startswith, require, on_message
 
 # onebot11 协议
 from nonebot.adapters.onebot.v11 import Bot as V11_Bot

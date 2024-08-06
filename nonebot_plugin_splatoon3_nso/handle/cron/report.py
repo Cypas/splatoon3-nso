@@ -234,7 +234,7 @@ async def send_report_task():
             if msg:
                 # 写日志
                 log_msg = msg.replace('\n', '')
-                report_logger.info(f"get {msg_id} report：{log_msg}")
+                report_logger.debug(f"get {msg_id} report：{log_msg}")
                 # # 通知到频道
                 # await report_notify_to_channel(user.platform, user.user_id, msg, _type='job')
                 # 通知到私信

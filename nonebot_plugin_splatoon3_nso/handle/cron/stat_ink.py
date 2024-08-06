@@ -10,12 +10,17 @@ import subprocess
 from ...data.db_sqlite import UserTable
 from ...config import plugin_config
 from ...s3s.iksm import F_GEN_URL_2, F_GEN_URL
+from ...s3s.splatoon import Splatoon
 from ...utils import proxy_address, convert_td
-from ...utils.utils import DIR_RESOURCE, init_path
-from ...data.data_source import model_get_all_stat_user
+from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
+from ...data.data_source import model_get_all_stat_user, dict_clear_user_info_dict, global_user_info_dict, \
+    dict_get_or_set_user_info, model_get_or_set_user
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 from ...utils.bot import Kook_ActionFailed
+
+# 错误对局，没有会员，nso被ban，无效登录凭证
+expected_str_list = ["status: 500", "Membership required", "has be banned", "invalid_grant"]
 
 
 async def sync_stat_ink():
@@ -32,18 +37,14 @@ async def sync_stat_ink():
     # 去重
     db_users = user_remove_duplicates(db_users)
 
-    complete_cnt = 0
-    upload_cnt = 0
-    error_cnt = 0
-    else_error_cnt = 0
-    notice_error_cnt = 0
-    _pool = 10
+    complete_cnt, upload_cnt, error_cnt, else_error_cnt, notice_error_cnt, battle_error_cnt, membership_error_cnt = 0, 0, 0, 0, 0, 0, 0
+    _pool = 40
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks)
         for r in res:
-            is_complete, is_upload, is_error, is_notice_error, is_else_error = r
+            is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error = r
             if is_complete:
                 complete_cnt += 1
             if is_upload:
@@ -54,29 +55,38 @@ async def sync_stat_ink():
                 notice_error_cnt += 1
             if is_else_error:
                 else_error_cnt += 1
+            if is_battle_error:
+                battle_error_cnt += 1
+            if is_membership_error:
+                membership_error_cnt += 1
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = (f"sync_stat_ink end: {str_time}\n"
                 f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}\n"
-                f"error_cnt: {error_cnt},notice_error_cnt: {notice_error_cnt},else_error_cnt: {else_error_cnt}")
+                f"error_cnt: {error_cnt},battle_error_cnt: {battle_error_cnt},membership_error_cnt: {membership_error_cnt},notice_error_cnt: {notice_error_cnt}")
     cron_logger.info(cron_msg)
     notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}\n"
-                  f"错误: {error_cnt},通知错误: {notice_error_cnt},配置错误: {else_error_cnt}")
+                  f"错误: {error_cnt},对战错误: {battle_error_cnt},缺少会员: {membership_error_cnt},通知错误: {notice_error_cnt}")
+
     await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
 
 
 async def sync_stat_ink_func(db_user: UserTable):
     """同步stat.ink"""
-    is_complete, is_upload, is_error, is_else_error, is_notice_error = False, False, False, False, False
+    is_complete, is_upload, is_error, is_else_error, is_notice_error, is_battle_error, is_membership_error = False, False, False, False, False, False, False
 
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
 
-    res = get_post_stat_msg(db_user)
+    res = await get_post_stat_msg(db_user)
     if not isinstance(res, tuple):
         is_else_error = True
-        return is_complete, is_upload, is_error, is_notice_error, is_else_error
+        return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error
 
     msg, error_msg = res
+
+    platform = db_user.platform
+    user_id = db_user.user_id
+    msg_id = get_msg_id(platform, user_id)
     is_complete = True
     if msg:
         is_upload = True
@@ -88,52 +98,98 @@ async def sync_stat_ink_func(db_user: UserTable):
             msg += "\n/stat_notify close 关闭stat.ink同步情况推送"
             try:
                 await notify_to_private(db_user.platform, db_user.user_id, msg)
+            except Kook_ActionFailed as e:
+                if e.status_code == 40000:
+                    if e.message.startswith("你已被对方屏蔽"):
+                        dict_get_or_set_user_info(platform, user_id, stat_notify=0, report_notify=0)
+                        cron_logger.warning(
+                            f'sync_stat_ink send private error:db_user_id:{db_user.id}，mgs_id:{msg_id},error:用户已屏蔽发信bot，已关闭其通知权限')
+                is_notice_error = True
             except Exception as e:
-                cron_logger.error(f"db_user_id:{db_user.user_id} private notice error: {e}")
+                cron_logger.error(
+                    f"sync_stat_ink send private error:db_user_id:{db_user.id}，mgs_id:{msg_id},error: {e}")
                 is_notice_error = True
 
     if error_msg:
         is_error = True
+        if "status: 500" in error_msg:
+            is_battle_error = True
+        if "Membership required" in error_msg:
+            is_membership_error = True
 
-    return is_complete, is_upload, is_error, is_notice_error, is_else_error
+    return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error
 
 
-def get_post_stat_msg(db_user):
+async def get_post_stat_msg(db_user):
     """获取同步消息文本"""
-
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
+    # User复用以及定时任务用user对象
+    platform = db_user.platform
+    user_id = db_user.user_id
+    msg_id = get_msg_id(platform, user_id)
+    global_user_info = global_user_info_dict.get(msg_id)
+    if global_user_info:
+        u = global_user_info
+    else:
+        # 新建cron任务对象
+        u = dict_get_or_set_user_info(platform, user_id)
+        if not u or not u.session_token:
+            return
+        splatoon = Splatoon(None, None, u)
+        try:
+            # 刷新token
+            await splatoon.refresh_gtoken_and_bullettoken()
+        except ValueError as e:
+            if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
+                # 无效登录或会员过期 或被封禁
+                # 关闭连接池
+                await splatoon.req_client.close()
+                return "", str(e)
+        except Exception as e:
+            cron_logger.error(f'stat_ink_task error: {msg_id},refresh_gtoken_and_bullettoken error:{e}')
+            return "", str(e)
+        finally:
+            # 关闭连接池
+            await splatoon.req_client.close()
 
     # 两个f_api 负载均衡
     f_url_lst = [F_GEN_URL, F_GEN_URL_2]
     random.shuffle(f_url_lst)
     f_gen_url = f_url_lst[0]
-    res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, f_gen_url, g_token=db_user.g_token,
-                               bullet_token=db_user.bullet_token)
+    res = exported_to_stat_ink(db_user.id, u.session_token, db_user.stat_key, f_gen_url, g_token=u.g_token,
+                               bullet_token=u.bullet_token)
 
     if not isinstance(res, tuple):
         return
     battle_cnt, coop_cnt, url, error_msg = res
+
+    flag_need_retry = True
     # f-api重试
     if error_msg:
-        # 判断重试时的对象名称以及f地址
-        if f_gen_url == F_GEN_URL:
-            now_f_str = "F_URL"
-            next_f_str = "F_URL_2"
-            next_f_url = F_GEN_URL_2
-        else:
-            now_f_str = "F_URL_2"
-            next_f_str = "F_URL"
-            next_f_url = F_GEN_URL
-        cron_logger.warning(f"{db_user.id}, {db_user.user_name}, {now_f_str} Error，try {next_f_str} again")
-        res = exported_to_stat_ink(db_user.id, db_user.session_token, db_user.stat_key, next_f_url,
-                                   g_token=db_user.g_token,
-                                   bullet_token=db_user.bullet_token)
+        # 排除预期错误
+        for expected_str in expected_str_list:
+            if expected_str in error_msg:
+                flag_need_retry = False
+        if flag_need_retry:
+            # 判断重试时的对象名称以及f地址
+            if f_gen_url == F_GEN_URL:
+                now_f_str = "F_URL"
+                next_f_str = "F_URL_2"
+                next_f_url = F_GEN_URL_2
+            else:
+                now_f_str = "F_URL_2"
+                next_f_str = "F_URL"
+                next_f_url = F_GEN_URL
+            cron_logger.warning(f"{db_user.id}, {db_user.user_name}, {now_f_str} Error，try {next_f_str} again")
+            res = exported_to_stat_ink(db_user.id, u.session_token, db_user.stat_key, next_f_url,
+                                       g_token=u.g_token,
+                                       bullet_token=u.bullet_token)
 
-        if not isinstance(res, tuple):
-            return
-        battle_cnt, coop_cnt, url, error_msg = res
+            if not isinstance(res, tuple):
+                return
+            battle_cnt, coop_cnt, url, error_msg = res
 
     msg = ""
     if battle_cnt or coop_cnt:
@@ -248,10 +304,6 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
             cmds.append(f"""sed -i 's/gToken[^,]*,/gToken\": \"{g_token}\",/' {path_config_file}""")
             cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
 
-        for cmd in cmds:
-            cron_logger.debug(f'user_db_id:{user_id} cli: {cmd}')
-            os.system(cmd)
-
     env = {}
     # deno代理配置
     # http
@@ -265,7 +317,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
 
     # run deno
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
-    cron_logger.info(cmd)
+    cron_logger.debug(cmd)
 
     res = ""
     error = ""
@@ -282,6 +334,8 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
     except subprocess.TimeoutExpired:
         error_msg = f"deno run timeout\n"
     except Exception as e:
+        if "html" in e:
+            e = "html error"
         error_msg = f"deno run err:\n{e}"
     if error:
         # error里面混有deno debug内容，需要经过过滤
@@ -295,10 +349,18 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
             error_msg += f"{line}\n"
 
     if error_msg:
-        cron_logger.error(f'user_db_id:{user_id} deno cli error,result:\n{error_msg}')
+        expect = ""
+        for expected_str in expected_str_list:
+            if expected_str in error_msg:
+                expect = expected_str
+                break
+        if expect:
+            cron_logger.error(f'user_db_id:{user_id} deno cli error,result: {expect}')
+        else:
+            cron_logger.error(f'user_db_id:{user_id} deno cli unexpected error,result:\n{error_msg}')
     elif res:
         # success
-        cron_logger.info(f'user_db_id:{user_id} deno cli success,result:\n{res}')
+        cron_logger.debug(f'user_db_id:{user_id} deno cli success,result:\n{res}')
 
         for line in res.split('\n'):
             line = line.strip()
