@@ -90,7 +90,7 @@ class Splatoon:
                         f'invalid_grant_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
                     self.set_user_info(session_token=None)
                     # 待发送文本
-                    msg = f"喷3账号 {user.game_name or ''} 登录过期，请重新登录 /login"
+                    msg = f"喷3账号 {user.game_name or ''} 登录过期，一般是修改密码后登录才会过期，请发送/login 重新登录"
                     if self.bot and self.event:
                         # 来自用户主动请求
                         await bot_send(self.bot, self.event, msg)
