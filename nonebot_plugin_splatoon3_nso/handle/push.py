@@ -77,7 +77,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     job_id = f"{msg_id}_push"
     logger.info(f"add push_job {job_id}")
     job_data = {
-        'bot': bot,
+        'bot_id': bot.self_id,
         'event': event,
         'platform': platform,
         'user_id': user_id,
@@ -109,7 +109,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """
     scheduler.add_job(
         push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
-        id=job_id, args=[bot, event, job_data, filters],
+        id=job_id, args=[bot.self_id, event, job_data, filters],
         misfire_grace_time=push_interval - 1, coalesce=True, max_instances=1
     )
     if isinstance(bot, Tg_Bot):
@@ -158,8 +158,12 @@ async def stop_push(bot: Bot, event: Event):
     await bot_send(bot, event, msg)
 
 
-async def push_latest_battle(bot: Bot, event: Event, job_data: dict, filters: dict):
+async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters: dict):
     """定时推送函数"""
+    bots = nonebot.get_bots()
+    bot: Bot = bots.get(bot_id)
+    if bot is None:
+        return
     job_id = job_data.get('job_id')
     logger.debug(f'push_latest_battle {job_id}, {job_data}')
     # job_data
@@ -295,7 +299,11 @@ def close_push(platform, user_id):
     if job_data:
         push_statistics: PushStatistics = job_data.get("push_statistics")
         push_interval = job_data.get("push_interval")
-        bot = job_data.get("bot")
+        bot_id = job_data.get("bot_id")
+        bots = nonebot.get_bots()
+        bot: Bot = bots.get(bot_id)
+        if bot is None:
+            return None, None, None, None
         event = job_data.get("event")
         if push_statistics:
             msg += push_statistics.get_battle_st_msg()
