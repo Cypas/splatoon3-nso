@@ -37,14 +37,14 @@ async def sync_stat_ink():
     # 去重
     db_users = user_remove_duplicates(db_users)
 
-    complete_cnt, upload_cnt, error_cnt, else_error_cnt, notice_error_cnt, battle_error_cnt, membership_error_cnt = 0, 0, 0, 0, 0, 0, 0
+    complete_cnt, upload_cnt, error_cnt, else_error_cnt, notice_error_cnt, battle_error_cnt, membership_error_cnt, invalid_grant_error_cnt = 0, 0, 0, 0, 0, 0, 0, 0
     _pool = 40
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
         res = await asyncio.gather(*tasks)
         for r in res:
-            is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error = r
+            is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error, is_invalid_grant = r
             if is_complete:
                 complete_cnt += 1
             if is_upload:
@@ -59,28 +59,31 @@ async def sync_stat_ink():
                 battle_error_cnt += 1
             if is_membership_error:
                 membership_error_cnt += 1
+            if is_invalid_grant:
+                invalid_grant_error_cnt += 1
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = (f"sync_stat_ink end: {str_time}\n"
                 f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}\n"
-                f"error_cnt: {error_cnt},battle_error_cnt: {battle_error_cnt},membership_error_cnt: {membership_error_cnt},notice_error_cnt: {notice_error_cnt}")
+                f"error_cnt: {error_cnt},battle_error_cnt: {battle_error_cnt},membership_error_cnt: {membership_error_cnt},invalid_grant_error_cnt:{invalid_grant_error_cnt},notice_error_cnt: {notice_error_cnt}")
     cron_logger.info(cron_msg)
     notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}\n"
-                  f"错误: {error_cnt},对战错误: {battle_error_cnt},缺少会员: {membership_error_cnt},通知错误: {notice_error_cnt}")
+                  f"错误: {error_cnt},对战错误: {battle_error_cnt},缺少会员: {membership_error_cnt},无效登录吗?: {invalid_grant_error_cnt}\n"
+                  f"通知错误: {notice_error_cnt}")
 
     await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
 
 
 async def sync_stat_ink_func(db_user: UserTable):
     """同步stat.ink"""
-    is_complete, is_upload, is_error, is_else_error, is_notice_error, is_battle_error, is_membership_error = False, False, False, False, False, False, False
+    is_complete, is_upload, is_error, is_else_error, is_notice_error, is_battle_error, is_membership_error, is_invalid_grant = False, False, False, False, False, False, False, False
 
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
 
     res = await get_post_stat_msg(db_user)
     if not isinstance(res, tuple):
         is_else_error = True
-        return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error
+        return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error, is_invalid_grant
 
     msg, error_msg = res
 
@@ -116,8 +119,10 @@ async def sync_stat_ink_func(db_user: UserTable):
             is_battle_error = True
         if "Membership required" in error_msg:
             is_membership_error = True
+        if "invalid_grant" in error_msg:
+            is_invalid_grant = True
 
-    return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error
+    return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error, is_invalid_grant
 
 
 async def get_post_stat_msg(db_user):
@@ -313,7 +318,7 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
                     })
     # no proxy
     if plugin_config.splatoon3_proxy_list_mode and proxy_address:
-        env.update({"NO_PROXY": f"deno.land,api.lp1.av5ja.srv.nintendo.net"})
+        env.update({"NO_PROXY": f"api.lp1.av5ja.srv.nintendo.net"})
 
     # run deno
     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
