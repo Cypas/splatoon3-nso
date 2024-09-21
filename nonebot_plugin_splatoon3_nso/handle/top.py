@@ -76,7 +76,7 @@ async def get_top(bot: Bot, event: Event, battle_idx=None, player_idx=None):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
-    logger.info(f'get_top: {msg_id}, {battle_idx}, {player_idx}')
+    # logger.info(f'get_top: {msg_id}, {battle_idx}, {player_idx}')
 
     user = dict_get_or_set_user_info(platform, user_id)
     player_code = user.game_sp_id
@@ -85,6 +85,7 @@ async def get_top(bot: Bot, event: Event, battle_idx=None, player_idx=None):
         if isinstance(res, tuple):
             # 筛选单一玩家
             player_code, player_name = res
+            logger.info(f'get_top: {msg_id}, {battle_idx}, {player_idx};filter: {player_code}, {player_name}')
         else:
             # all 全部玩家
             p_lst = []
@@ -94,6 +95,7 @@ async def get_top(bot: Bot, event: Event, battle_idx=None, player_idx=None):
                 if p[0] != player_code:
                     p_lst.append(f"{p[0]}_{chr(_i)}")
             player_code = p_lst
+            logger.info(f'get_top: {msg_id}, {battle_idx}, {player_idx}')
 
     top_md = await get_top_md(player_code, player_name)
     # 单一玩家且无记录时 返回player_name
@@ -128,7 +130,7 @@ async def get_top_md(player_code: str | list, player_name=""):
         return
 
     # 6列
-    msg = f'''#### 全部排行榜数据 (玩家:{player_name}) HKT {dt.now():%Y-%m-%d %H:%M:%S}
+    msg = f'''#### 全部排行榜数据 (玩家:{player_name},code:{player_code}) HKT {dt.now():%Y-%m-%d %H:%M:%S}
 |||||||
 |---|---:|:---|---|---|---|
 |排行榜名称|排名|最高分|武器|玩家|时间|
