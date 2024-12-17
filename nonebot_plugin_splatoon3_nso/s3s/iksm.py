@@ -60,12 +60,11 @@ class S3S:
             return NSOAPP_VERSION
         else:
             try:  # try to get NSO version from f API
-                f_conf_url = os.path.dirname(f_gen_url) + "/config"  # default endpoint for imink API
+                f_conf_url = f_gen_url.replace("/f", "") + "/config"  # default endpoint for imink API
                 f_conf_header = {"User-Agent": F_USER_AGENT}
                 f_conf_rsp = HttpReq.get(f_conf_url, headers=f_conf_header)
                 f_conf_json = json.loads(f_conf_rsp.text)
                 ver = f_conf_json["nso_version"]
-
                 NSOAPP_VERSION = ver
 
                 return NSOAPP_VERSION
@@ -214,7 +213,8 @@ class S3S:
             except KeyError:  # session_token not found
                 print("\nThe URL has expired. Please log out and back into your Nintendo Account and try again.")
                 print(f"get_session_token error,resp:{resp}")
-                print(f"get_session_token error,\nsession_token_code:{session_token_code},\nauth_code_verifier:{auth_code_verifier.replace(b'=', b'').decode('utf-8')},\nresp:{resp}")
+                print(
+                    f"get_session_token error,\nsession_token_code:{session_token_code},\nauth_code_verifier:{auth_code_verifier.replace(b'=', b'').decode('utf-8')},\nresp:{resp}")
                 return "skip"
             except Exception as ex:
                 print(f'ex: {ex}')
