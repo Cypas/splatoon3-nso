@@ -190,6 +190,10 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user_info = dict_get_or_set_user_info(platform, user_id)
+    if plugin_config.splatoon3_maintenance_mode:
+        msg = "因任天堂api改动，nso查询暂时维护中，目前无法提供服务"
+        await matcher.finish(msg)
+
     if not user_info or not user_info.session_token:
         msg = ""
         if isinstance(bot, Tg_Bot):
