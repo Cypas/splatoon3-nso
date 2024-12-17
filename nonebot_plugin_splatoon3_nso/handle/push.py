@@ -241,8 +241,8 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                     f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
                 await bot_send(bot, event, message=msg, skip_log_cmd=True)
-                msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
-                await notify_to_channel(msg)
+                # msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
+                # await notify_to_channel(msg)
                 return
             return
 
