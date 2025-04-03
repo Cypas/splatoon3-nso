@@ -141,5 +141,8 @@ def convert_td(td: timedelta) -> str:
     minutes = RemainingSec // 60
     # 秒
     seconds = RemainingSec % 60
-    str_time = f"{minutes:02}m:{seconds:02}s"
+    if hours == 0:
+        str_time = f"{minutes:02}m:{seconds:02}s"
+    else:
+        str_time = f"{hours}h{minutes:02}m:{seconds:02}s"
     return str_time
