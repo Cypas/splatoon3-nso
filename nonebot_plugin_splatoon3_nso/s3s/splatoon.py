@@ -288,14 +288,18 @@ class Splatoon:
                         await self.refresh_gtoken_and_bullettoken()
                         self.logger.info(f'{msg_id} refresh tokens complete，try again')
                     except Exception as e:
-                        self.logger.info(f'{msg_id} refresh tokens fail,reason:{e}')
-                    t = time.time()
-                    res = await self.req_client.post(GRAPHQL_URL, data=data,
-                                                     headers=self._head_bullet(self.bullet_token),
-                                                     cookies=dict(_gtoken=self.g_token))
-                    t2 = f'{time.time() - t:.3f}'
-                    self.logger.debug(f'_request: {t2}s')
-                    return res.json()
+                        self.logger.error(f'{msg_id} refresh tokens fail,reason:{e}')
+                    try:
+                        t = time.time()
+                        res = await self.req_client.post(GRAPHQL_URL, data=data,
+                                                         headers=self._head_bullet(self.bullet_token),
+                                                         cookies=dict(_gtoken=self.g_token))
+                        t2 = f'{time.time() - t:.3f}'
+                        self.logger.debug(f'_request: {t2}s')
+                        return res.json()
+                    except Exception as e:
+                        self.logger.error(f'{msg_id} _request nintendo fail,reason:{e},res:{res.text}')
+                        return None
                 else:
                     return None
             else:

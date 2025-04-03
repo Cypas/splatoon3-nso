@@ -20,14 +20,14 @@ from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 A_VERSION = "0.6.5"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
 S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
 NSOAPP_VERSION = "unknown"
-NSOAPP_VER_FALLBACK = "2.10.1"  # fallback
+NSOAPP_VER_FALLBACK = "2.12.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
-WEB_VIEW_VER_FALLBACK = "6.0.0-f734f04c"  # fallback
+WEB_VIEW_VER_FALLBACK = "6.0.0-2ba8cb04"  # fallback
 
-F_GEN_URL = "https://api.imink.app/f"
+F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 
-F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
+F_USER_AGENT = f"github.com/Cypas/splatoon3-nso/{BOT_VERSION}"
 APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
@@ -60,12 +60,11 @@ class S3S:
             return NSOAPP_VERSION
         else:
             try:  # try to get NSO version from f API
-                f_conf_url = os.path.dirname(f_gen_url) + "/config"  # default endpoint for imink API
+                f_conf_url = f_gen_url.replace("/f", "") + "/config"  # default endpoint for imink API
                 f_conf_header = {"User-Agent": F_USER_AGENT}
                 f_conf_rsp = HttpReq.get(f_conf_url, headers=f_conf_header)
                 f_conf_json = json.loads(f_conf_rsp.text)
                 ver = f_conf_json["nso_version"]
-
                 NSOAPP_VERSION = ver
 
                 return NSOAPP_VERSION
@@ -214,7 +213,8 @@ class S3S:
             except KeyError:  # session_token not found
                 print("\nThe URL has expired. Please log out and back into your Nintendo Account and try again.")
                 print(f"get_session_token error,resp:{resp}")
-                print(f"get_session_token error,\nsession_token_code:{session_token_code},\nauth_code_verifier:{auth_code_verifier.replace(b'=', b'').decode('utf-8')},\nresp:{resp}")
+                print(
+                    f"get_session_token error,\nsession_token_code:{session_token_code},\nauth_code_verifier:{auth_code_verifier.replace(b'=', b'').decode('utf-8')},\nresp:{resp}")
                 return "skip"
             except Exception as ex:
                 print(f'ex: {ex}')
@@ -525,6 +525,10 @@ class S3S:
             f, uuid, timestamp = res
             return f, uuid, timestamp
         else:
+            # # 4.3日 只有nxapi可用，暂时禁用重试机制 return None
+            # raise ValueError(res)
+            # return None
+
             # 判断重试时的对象名称以及f地址
             if self.f_gen_url == F_GEN_URL:
                 now_f_str = "F_URL"
@@ -568,7 +572,9 @@ class S3S:
                 'User-Agent': F_USER_AGENT,
                 'Content-Type': 'application/json; charset=utf-8',
                 'X-znca-Platform': 'Android',
-                'X-znca-Version': NSOAPP_VERSION
+                'X-znca-Version': NSOAPP_VERSION,
+                'X-znca-Client-Version': NSOAPP_VERSION,
+
             }
             api_body = {  # 'timestamp' & 'request_id' (uuid v4) set automatically
                 'token': access_token,
@@ -578,12 +584,18 @@ class S3S:
             if step == 2 and coral_user_id is not None:
                 api_body["coral_user_id"] = str(coral_user_id)
 
+            # self.logger.info(f"f body:{json.dumps(api_body)}")
             api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
-            resp = json.loads(api_response.text)
-            self.logger.debug(f"get f generation: \n{f_gen_url}\n{json.dumps(api_head)}\n{json.dumps(api_body)}")
-            f = resp["f"]
-            uuid = resp["request_id"]
-            timestamp = resp["timestamp"]
+            # self.logger.info(f"f res_text:{api_response.text}")
+
+            resp: dict = json.loads(api_response.text)
+            if "error" in resp and "error_message" in resp:
+                self.logger.error(
+                    f"Error during f generation: \n{f_gen_url}  \nres_text:{api_response.text}")
+                return f"f resp error:{api_response.text}"
+            f = resp.get("f")
+            uuid = resp.get("request_id")
+            timestamp = resp.get("timestamp")
             return f, uuid, timestamp
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             if isinstance(e, httpx.ConnectError):
@@ -592,6 +604,7 @@ class S3S:
                 return "NetConnectTimeout"
 
         except Exception as e:
+            # self.logger.error(f"Error during f generation: Error {e}.")
             try:  # if api_response never gets set
                 if api_response and api_response.text:
                     self.logger.warning(

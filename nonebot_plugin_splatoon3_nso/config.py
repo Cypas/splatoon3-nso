@@ -6,6 +6,8 @@ from pydantic import BaseModel
 class Config(BaseModel):
     # 默认 proxy = "" 表示不使用代理进行连接
     splatoon3_proxy_address: str = ""
+    # nso查询维护模式
+    splatoon3_maintenance_mode: bool = False
     # 局部域名代理模式,具体依据服务器对各个域名访问情况进行设置，默认True，False情况为全部域名请求代理
     splatoon3_proxy_list_mode: bool = True
     # 局部域名代理列表
