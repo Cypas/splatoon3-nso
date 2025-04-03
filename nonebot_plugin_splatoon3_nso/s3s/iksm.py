@@ -27,7 +27,7 @@ WEB_VIEW_VER_FALLBACK = "6.0.0-2ba8cb04"  # fallback
 F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 
-F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
+F_USER_AGENT = f"github.com/Cypas/splatoon3-nso/{BOT_VERSION}"
 APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
