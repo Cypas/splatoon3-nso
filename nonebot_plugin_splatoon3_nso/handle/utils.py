@@ -95,6 +95,7 @@ dict_icon_file_map = {
     "X比赛": "X_MATCH",
     "一般比赛": "Regular",
     "私房": "private",
+    "三色夺宝对战": "Splatfest",
 
     "蛮颓比赛(挑战)": "BANKARA(CHALLENGE)",
     "蛮颓比赛(开放)": "BANKARA(OPEN)",
