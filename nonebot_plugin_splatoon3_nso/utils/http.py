@@ -7,7 +7,7 @@ from nonebot import logger
 from .utils import get_msg_id
 from ..config import plugin_config
 
-HTTP_TIME_OUT = 20.0  # 请求超时，秒
+HTTP_TIME_OUT = 60.0  # 请求超时，秒
 proxy_address = plugin_config.splatoon3_proxy_address
 if proxy_address:
     global_proxies = f"http://{proxy_address}"

@@ -10,7 +10,8 @@ from ..send_msg import notify_to_private, cron_notify_to_channel
 from ...data.db_sqlite import Report
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
-    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict
+    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict, \
+    dict_get_all_global_users
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id, convert_td
 from ...utils.bot import *
@@ -23,15 +24,26 @@ async def create_set_report_tasks():
     await cron_notify_to_channel("set_report", "start")
 
     t = dt.utcnow()
-    users = model_get_all_user()
+    db_users = model_get_all_user()
     # 去重
-    users = user_remove_duplicates(users)
+    db_users = user_remove_duplicates(db_users)
+
+    # 与缓存用户取交集，只为缓存用户提供更新
+    global_users = dict_get_all_global_users()
+    # 构建字典 {session_token: user}
+    db_users_dict = {user.session_token: user for user in db_users}
+    global_users_dict = {user.session_token: user for user in global_users}
+    # 取 token 交集
+    common_tokens = set(db_users_dict.keys()) & set(global_users_dict.keys())
+    # 仅为近期使用的用户更新report
+    db_users = [db_users_dict[token] for token in common_tokens]
+
 
     list_user: list[tuple] = []  # 简要记录平台和user_id信息，等到具体任务内再获取user数据
-    for user in users:
+    for user in db_users:
         list_user.append((user.platform, user.user_id))
 
-    _pool = 10
+    _pool = 5
     set_report_count = 0
     for i in range(0, len(list_user), _pool):
         p_and_id_list = list_user[i:i + _pool]

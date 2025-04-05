@@ -14,7 +14,7 @@ from ...s3s.splatoon import Splatoon
 from ...utils import proxy_address, convert_td
 from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
 from ...data.data_source import model_get_all_stat_user, dict_clear_user_info_dict, global_user_info_dict, \
-    dict_get_or_set_user_info, model_get_or_set_user
+    dict_get_or_set_user_info, model_get_or_set_user, dict_get_all_global_users
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 from ...utils.bot import Kook_ActionFailed
@@ -37,8 +37,19 @@ async def sync_stat_ink():
     # 去重
     db_users = user_remove_duplicates(db_users)
 
+    # 与缓存用户取交集，只为缓存用户提供更新
+    global_users = dict_get_all_global_users()
+
+    # 构建字典 {session_token: user}
+    db_users_dict = {user.session_token: user for user in db_users}
+    global_users_dict = {user.session_token: user for user in global_users}
+    # 取 token 交集
+    common_tokens = set(db_users_dict.keys()) & set(global_users_dict.keys())
+    # 获取在线的stat.ink的用户
+    db_users = [db_users_dict[token] for token in common_tokens]
+
     complete_cnt, upload_cnt, error_cnt, else_error_cnt, notice_error_cnt, battle_error_cnt, membership_error_cnt, invalid_grant_error_cnt = 0, 0, 0, 0, 0, 0, 0, 0
-    _pool = 40
+    _pool = 1
     for i in range(0, len(db_users), _pool):
         pool_users_list = db_users[i:i + _pool]
         tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
