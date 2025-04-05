@@ -10,10 +10,10 @@ class RedisManagerGToken(object):
 
     def __init__(
             self,
-            host: str = plugin_config.redis_ip,
-            port: int = plugin_config.redis_port,
+            host: str = plugin_config.splatoon3_redis_ip,
+            port: int = plugin_config.splatoon3_redis_port,
             db: int = 3,
-            password: str = plugin_config.redis_psw,
+            password: str = plugin_config.splatoon3_redis_psw,
             decode_responses: bool = True,
             max_connections: int = 50
     ) -> None:
@@ -41,8 +41,6 @@ class RedisManagerGToken(object):
 
     def get(self, key: str) -> str:
         value = self.get_redis().get(key)
-        if value:
-            value = value.decode('utf-8')
         return value
 
     def set(self, key: str, value: str, expire: int) -> None:
@@ -57,10 +55,10 @@ class RedisManagerGetlc(object):
 
     def __init__(
             self,
-            host: str = plugin_config.redis_ip,
-            port: int = plugin_config.redis_port,
+            host: str = plugin_config.splatoon3_redis_ip,
+            port: int = plugin_config.splatoon3_redis_port,
             db: int = 2,
-            password: str = plugin_config.redis_psw,
+            password: str = plugin_config.splatoon3_redis_psw,
             decode_responses: bool = True,
             max_connections: int = 50
     ) -> None:
@@ -88,8 +86,6 @@ class RedisManagerGetlc(object):
 
     def get(self, key: str) -> str:
         value = self.get_redis().get(key)
-        if value:
-            value = value.decode('utf-8')
         return value
 
     def set(self, key: str, value: str, expire: int) -> None:

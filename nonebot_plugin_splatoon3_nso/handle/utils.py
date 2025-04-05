@@ -222,10 +222,10 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
         # 检查是否同意用户协议
         if not user_info.user_agreement:
             if isinstance(bot, QQ_Bot):
-                msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi-znca-api的过程，可能存在一定的风险，具体说明可查看该频道信息https://www.kookapp.cn/app/channels/7545457877013311/7021701150930949\n\n" \
+                msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi-znca-api的过程，可能存在一定的风险\n" \
                       "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
             else:
-                msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi-znca-api的过程，可能存在一定的风险\n" \
+                msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi-znca-api的过程，可能存在一定的风险，具体说明可查看该频道信息https://www.kookapp.cn/app/channels/7545457877013311/7021701150930949\n\n" \
                       "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
             await bot.send(event, msg)
             msg = "/我已知晓nso查询使用了第三方接口的风险并重新启用nso查询"

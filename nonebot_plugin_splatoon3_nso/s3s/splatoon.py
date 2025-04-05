@@ -81,7 +81,7 @@ class Splatoon:
         new_g_token = ""
         if skip_access and game_sp_id:
             # 默认跳过access请求看redis是否有数据
-            new_g_token = rget_gtoken(game_sp_id)
+            new_g_token = await rget_gtoken(game_sp_id)
         if not new_g_token:
             msg_id = get_msg_id(self.platform, self.user_id)
             new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
@@ -543,7 +543,9 @@ class Splatoon:
 
         name = res['result']['name']
         my_sw_code = res['result']['links']['friendCode']['id']
+        icon = res['result']['imageUri']
         return {
             'name': name,
-            'code': my_sw_code
+            'code': my_sw_code,
+            'icon': icon
         }

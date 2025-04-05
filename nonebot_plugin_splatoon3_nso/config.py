@@ -36,7 +36,7 @@ class Config(BaseModel):
     # redis_ip
     splatoon3_redis_ip: str = ""
     # redis_port
-    splatoon3_redis_port: str = ""
+    splatoon3_redis_port: str|int = ""
     # redis_psw
     splatoon3_redis_psw: str = ""
 

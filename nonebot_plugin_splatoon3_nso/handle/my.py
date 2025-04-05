@@ -133,10 +133,14 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
     name_id = player['nameId']
     user_name = f'{player_name} #{name_id}'
 
-    # 我的头像，优先使用sp_id进行储存，没有就用play_name-code
-    icon_img = (await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id, player['userIcon']['url']) or
-                await model_get_temp_image_path('my_icon', user.game_sp_id or f'{player_name}_{name_id}',
-                                                player['userIcon']['url']))
+    icon_img = ""
+    if user.nsa_id:
+        icon_img = await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id, player['userIcon']['url'])
+    else:
+        # 我的头像，优先使用sp_id进行储存，没有就用play_name-code
+        icon_img = await model_get_temp_image_path('my_icon', user.game_sp_id or f'{player_name}_{name_id}',
+                                                player['userIcon']['url'])
+
     img = f'''<img height='30px' style='position:absolute;margin-left:-30px;margin-top:-15px' src="{icon_img}"/>'''
 
     weapon_img = await model_get_temp_image_path('battle_weapon_main',
@@ -367,10 +371,13 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)
+    force = False  # 强制从接口获取
     msg_id = get_msg_id(platform, user_id)
 
+    if "force" in args.extract_plain_text():
+        force = True
     msg = ""
-    if user and user.ns_friend_code:
+    if user and user.ns_friend_code and not force:
         msg += f"ns用户名: {user.ns_name}\n好友码(sw码): SW-{user.ns_friend_code}"
     else:
         splatoon = Splatoon(bot, event, user)
@@ -386,6 +393,11 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
 
         name = res.get('name')
         code = res.get('code')
+        icon = res.get('icon')
+        if user.nsa_id:
+            my_icon = await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id, icon)
+        elif user.game_sp_id:
+            my_icon = await model_get_temp_image_path('my_icon', user.game_sp_id, icon)
         if code:
             dict_get_or_set_user_info(platform, user_id, ns_name=name, ns_friend_code=code)
             msg += f"已更新新好友码并缓存\n"
@@ -500,22 +512,44 @@ async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
 
 
 @on_command("my_icon", aliases={'myicon'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
-async def my_icon(bot: Bot, event: Event):
+async def my_icon(bot: Bot, event: Event, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
-    user = model_get_or_set_user(platform, user_id)
+    user = dict_get_or_set_user_info(platform, user_id)
+    force = False  # 强制从接口获取
+    msg_id = get_msg_id(platform, user_id)
+
+    if "force" in args.extract_plain_text():
+        force = True
     msg = ""
     msg_error = "本地未缓存nso头像，请在使用一次/last 命令进行缓存后重试"
+    my_icon_path = ""
 
-    if user.nsa_id or user.game_sp_id:
+    if (user.nsa_id or user.game_sp_id) and not force:
         my_icon_path = (await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id) or
                         await model_get_temp_image_path('my_icon', user.game_sp_id))
-        if my_icon_path:
-            with open(my_icon_path, "rb") as f:
-                _my_icon = f.read()
-                msg = _my_icon
-        else:
-            msg = msg_error
+    else:
+        splatoon = Splatoon(bot, event, user)
+        res = {}
+        try:
+            res = await splatoon.app_ns_myself() or {}
+        except Exception as e:
+            logger.error(f"{msg_id} get my_icon error:{e}")
+            msg = "bot网络错误，请稍后再试"
+        finally:
+            # 关闭连接池
+            await splatoon.req_client.close()
+
+        icon = res.get('icon')
+        if user.nsa_id:
+            my_icon_path = await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id, icon)
+        elif user.game_sp_id:
+            my_icon_path = await model_get_temp_image_path('my_icon', user.game_sp_id, icon)
+
+    if my_icon_path:
+        with open(my_icon_path, "rb") as f:
+            _my_icon = f.read()
+            msg = _my_icon
     else:
         msg = msg_error
 
