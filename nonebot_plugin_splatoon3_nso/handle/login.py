@@ -50,7 +50,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         # elif isinstance(event, QQ_C2CME):
         #     pass
         else:
-            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
+            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码,支持跨机器人(如漆bot)\n" \
                   f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
             await matcher.finish(msg)
     elif isinstance(event, All_Group_Message):
@@ -84,7 +84,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             await bot.send(event, message=msg)
 
         elif isinstance(bot, All_BOT):
-            msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，此类第三方调用可能会导致nso鱿鱼圈被封禁一个月，目前未观察到游戏连带被禁的情况。(要怪请去怪乌贼研究所)\n" \
+            msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi的过程，可能存在一定的风险，具体说明可查看该频道信息https://www.kookapp.cn/app/channels/7545457877013311/7021701150930949\n" \
                   "若继续完成以下登录流程，则视为您已知晓此风险并继续使用nso查询\n\n"
             msg += "登录流程: 在浏览器中打开下面链接（移动端复制链接至其他浏览器,\n" \
                    "登陆后，在显示红色的选择此人按钮时，右键红色按钮(手机端长按复制)\n" \

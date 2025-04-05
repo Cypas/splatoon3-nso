@@ -170,6 +170,12 @@ def get_game_sp_id(battle_id):
     return game_sp_id
 
 
+def get_friend_nsa_id(friend_id):
+    """通过friend_id获取该用户nsa_id"""
+    nsa_id = (base64.b64decode(friend_id).decode('utf-8') or '').split('Friend-')[-1]
+    return nsa_id
+
+
 def get_battle_time_or_coop_time(_id):
     """通过对战的比赛id获取对战或打工开始的时间"""
     start_time = base64.b64decode(_id).decode('utf-8').split('_')[0].split(':')[-1]
@@ -215,10 +221,14 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
         # 已登录用户
         # 检查是否同意用户协议
         if not user_info.user_agreement:
-            msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，此类第三方调用可能会导致nso鱿鱼圈被封禁，目前未观察到游戏连带被禁的情况。(要怪请去怪乌贼研究所)\n" \
-                  "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
+            if isinstance(bot, QQ_Bot):
+                msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi-znca-api的过程，可能存在一定的风险，具体说明可查看该频道信息https://www.kookapp.cn/app/channels/7545457877013311/7021701150930949\n\n" \
+                      "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
+            else:
+                msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi-znca-api的过程，可能存在一定的风险\n" \
+                      "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
             await bot.send(event, msg)
-            msg = "/我已知晓nso查询可能导致鱿鱼圈被封禁的风险并重新启用nso查询"
+            msg = "/我已知晓nso查询使用了第三方接口的风险并重新启用nso查询"
             # await dict_clear_one_user_info_dict(platform, user_id)
             await matcher.finish(msg)
         # cmd_cnt+1
