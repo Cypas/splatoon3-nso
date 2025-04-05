@@ -14,8 +14,9 @@ from ..data.data_source import dict_get_or_set_user_info, model_delete_user, glo
     model_get_or_set_user
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
-from ..utils import get_msg_id, DIR_RESOURCE
+from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str
 from ..utils.bot import *
+from ..utils.redis import rset_lc, rget_lc, rdel_lc
 
 MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
@@ -243,12 +244,28 @@ async def get_login_code(bot: Bot, event: Event):
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
+    user = dict_get_or_set_user_info(platform, user_id)
 
     # 生成一次性 code
     login_code = secrets.token_urlsafe(20)
-    login_code_info = {"platform": platform, "user_id": user_id, "create_time": int(time.time())}
-    global_login_code_dict.update({login_code: login_code_info})
-    msg = f"请在其他平台艾特机器人并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用"
+    # 缓存进redis
+    mapping = {
+        "platform": user.platform,
+        "user_id": user.user_id,
+        "user_name": user.user_name,
+        "session_token": user.session_token,
+        "g_token": user.g_token,
+        "bullet_token": user.bullet_token,
+        "game_sp_id": user.game_sp_id,
+        "game_name": user.game_name,
+        "stat_key": user.stat_key,
+        "time": get_time_now_china_str(),
+    }
+    await rset_lc(login_code, mapping)
+
+    # login_code_info = {"platform": platform, "user_id": user_id, "create_time": int(time.time())}
+    # global_login_code_dict.update({login_code: login_code_info})
+    msg = f"请在其他平台艾特小鱿鱿(也支持跨机器人，如漆bot)并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用"
     await bot_send(bot, event, message=msg)
     await bot.send(event, message="我是分割线".center(20, "-"))
     await bot_send(bot, event, message=f"/set_login {login_code}")
@@ -263,37 +280,47 @@ async def set_login_code(bot: Bot, event: Event):
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
 
-    login_code_info = global_login_code_dict.get(login_code)
+    # login_code_info = global_login_code_dict.get(login_code)
+    lc_info = await rget_lc(login_code)
 
-    if not login_code_info:
+    if not lc_info:
         await bot_send(bot, event, "code错误，账号绑定失败")
         return
-    create_time = login_code_info.get("create_time")
-    if int(time.time()) - create_time > 600:
-        await bot_send(bot, event, "code已过期，请重新生成")
-        global_login_code_dict.pop(login_code)
-        return
+    # create_time = login_code_info.get("create_time")
+    # if int(time.time()) - create_time > 600:
+    #     await bot_send(bot, event, "code已过期，请重新生成")
+    #     global_login_code_dict.pop(login_code)
+    #     return
 
-    # 查找旧账号信息
-    old_platform = login_code_info.get("platform")
-    old_user_id = login_code_info.get("user_id")
+    # # 查找旧账号信息
+    old_platform = lc_info.get("platform")
+    old_user_id = lc_info.get("user_id")
+    old_user_name = lc_info.get("user_name")
     old_msg_id = get_msg_id(old_platform, old_user_id)
-    if old_platform and old_user_id:
-        old_user = dict_get_or_set_user_info(old_platform, old_user_id)
-    else:
-        old_user = None
-    if not old_user:
-        await bot_send(bot, event, "旧用户数据不存在，账号绑定失败")
-        return
+
+    # if old_platform and old_user_id:
+    #     old_user = dict_get_or_set_user_info(old_platform, old_user_id)
+    # else:
+    #     old_user = None
+    # if not old_user:
+    #     await bot_send(bot, event, "旧用户数据不存在，账号绑定失败")
+    #     return
 
     # 复制信息至新账号
-    user = dict_get_or_set_user_info(platform, user_id, session_token=old_user.session_token, g_token=old_user.g_token,
-                                     bullet_token=old_user.bullet_token, access_token=old_user.access_token,
-                                     game_name=old_user.game_name, game_sp_id=old_user.game_sp_id,
-                                     stat_key=old_user.stat_key, user_agreement=old_user.user_agreement)
+    # user = dict_get_or_set_user_info(platform, user_id, session_token=old_user.session_token, g_token=old_user.g_token,
+    #                                  bullet_token=old_user.bullet_token, access_token=old_user.access_token,
+    #                                  game_name=old_user.game_name, game_sp_id=old_user.game_sp_id,
+    #                                  stat_key=old_user.stat_key, user_agreement=old_user.user_agreement)
+
+    user = dict_get_or_set_user_info(platform, user_id, session_token=lc_info.get("session_token"), g_token=lc_info.get("g_token"),
+                                     bullet_token=lc_info.get("bullet_token"), access_token=lc_info.get("access_token"),
+                                     game_name=lc_info.get("game_name"), game_sp_id=lc_info.get("game_sp_id"),
+                                     stat_key=lc_info.get("stat_key"), user_agreement=1,
+                                     )
 
     # 清空 code
-    global_login_code_dict.pop(login_code)
+    # global_login_code_dict.pop(login_code)
+    await rdel_lc(login_code)
 
     msg = "登录成功！机器人现在可以从App获取你的数据。\n" \
           "/me - 显示你的信息\n" \
@@ -308,7 +335,7 @@ async def set_login_code(bot: Bot, event: Event):
 
     logger.info(f'set_login success: {msg_id},old user is {old_msg_id}')
 
-    await notify_to_channel(f"绑定账号成功: {msg_id}, 旧用户为{old_msg_id},{old_user.user_name}")
+    await notify_to_channel(f"绑定账号成功: {msg_id}, 旧用户为{old_msg_id},{old_user_name}")
 
 
 matcher_set_api_key = on_command("set_stat_key", aliases={"set_api_key"}, priority=10, block=True)
