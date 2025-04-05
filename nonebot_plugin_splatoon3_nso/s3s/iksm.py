@@ -27,7 +27,7 @@ WEB_VIEW_VER_FALLBACK = "6.0.0-2ba8cb04"  # fallback
 F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 
-F_USER_AGENT = f"github.com/Cypas/splatoon3-nso/{BOT_VERSION}"
+F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
 APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
@@ -362,6 +362,8 @@ class S3S:
             # access_token过期时间7200s 即2h
             access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
             coral_user_id = splatoon_token["result"]["user"]["id"]
+            # res里面含有各种用户信息，将其传输到splatoon层，并储存相关信息
+            current_user = splatoon_token["result"]["user"]
         except:
             # retry once if 9403/9599 error from nintendo
             try:
@@ -376,6 +378,8 @@ class S3S:
                 splatoon_token = json.loads(r.text)
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
                 coral_user_id = splatoon_token["result"]["user"]["id"]
+                # res里面含有各种用户信息，将其传输到splatoon层，并储存相关信息
+                current_user = splatoon_token["result"]["user"]
             except json.JSONDecodeError as e:
                 raise ValueError("JSONDecodeError")
             except Exception:
@@ -386,7 +390,7 @@ class S3S:
             except Exception as e:
                 raise e
 
-        return access_token, f, uuid, timestamp, coral_user_id
+        return access_token, f, uuid, timestamp, coral_user_id, current_user
 
     async def _get_g_token(self, access_token, f, uuid, timestamp, coral_user_id):
         """get_gtoken第三步"""
@@ -457,7 +461,7 @@ class S3S:
             raise e
 
         try:
-            access_token, f, uuid, timestamp, coral_user_id = await self._get_access_token(id_token, user_info)
+            access_token, f, uuid, timestamp, coral_user_id, current_user = await self._get_access_token(id_token, user_info)
             if not access_token:
                 raise ValueError(f"no access_token")
             if not f:
@@ -473,7 +477,7 @@ class S3S:
             self.logger.warning(f"get_g_token error:{e}")
             raise e
 
-        return access_token, g_token, self.user_nickname, self.user_lang, self.user_country
+        return access_token, g_token, self.user_nickname, self.user_lang, self.user_country, current_user
 
     async def get_bullet(self, user_id, g_token):
         """Given a gtoken, returns a bulletToken."""

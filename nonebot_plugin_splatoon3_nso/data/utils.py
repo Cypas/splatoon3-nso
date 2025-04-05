@@ -30,10 +30,11 @@ class GlobalUserInfo:
         self.stat_key = kwargs.get('stat_key', None)
         self.ns_name = kwargs.get('ns_name', None)
         self.ns_friend_code = kwargs.get('ns_friend_code', None)
+        self.nsa_id = kwargs.get('nsa_id', None)
         self.req_client = kwargs.get('req_client', None)
 
 
-async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageTable:
+async def model_get_or_set_temp_image(_type, name: str, link=None, force=False) -> TempImageTable:
     """获取或设置缓存图片"""
     session = DBSession()
     name = name.replace("/", "-")
@@ -49,6 +50,8 @@ async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageT
         else:
             temp_image = row
     else:
+        download_flag = True
+    if force:
         download_flag = True
     if download_flag and link:
         # 通过url下载图片储存至本地

@@ -181,7 +181,7 @@ async def get_badge_username(name, icon, area, ranking, max_badge, badge_badge_p
     return name, icon, _power
 
 
-async def get_user_name_color(player_name, player_code, is_myself=False):
+async def get_user_name_color(player_name, player_code, is_myself=False, nsa_id=None):
     """取用户名颜色"""
     img = ""
     # 自己用户名加粗
@@ -189,7 +189,11 @@ async def get_user_name_color(player_name, player_code, is_myself=False):
         player_name = f"<b>{player_name}</b>"
         u_str = player_name
         # 之前从/me缓存了头像
-        icon = await model_get_temp_image_path('my_icon', player_code)
+        if nsa_id is not None:
+            icon = await model_get_temp_image_path('my_icon_by_nsa_id', nsa_id)
+        else:
+            icon = await model_get_temp_image_path('my_icon', player_code)
+
         if icon:
             img = f"<img height='36px' src='{icon}'/>"
         return u_str, img
@@ -198,7 +202,10 @@ async def get_user_name_color(player_name, player_code, is_myself=False):
     # 登录用户绿色
     if login:
         u_str = f'<span style="color:green">{player_name}</span>'
-        icon = await model_get_temp_image_path('my_icon', player_code)
+        if nsa_id is not None:
+            icon = await model_get_temp_image_path('my_icon_by_nsa_id', nsa_id)
+        else:
+            icon = await model_get_temp_image_path('my_icon', player_code)
         if icon:
             img = f"<img height='36px' src='{icon}'/>"
         return u_str, img

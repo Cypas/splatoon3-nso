@@ -10,7 +10,7 @@ from .iksm import APP_USER_AGENT, SPLATNET3_URL, S3S
 from ..data.utils import GlobalUserInfo
 from ..handle.send_msg import bot_send, notify_to_private, notify_to_channel
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, model_get_another_account_user, \
-    global_user_info_dict, global_cron_user_info_dict
+    global_user_info_dict, global_cron_user_info_dict, model_get_temp_image_path
 from ..utils import get_msg_id, get_or_init_client
 
 
@@ -33,6 +33,9 @@ class Splatoon:
         self.platform = user_info.platform or "no_platform"
         self.user_id = user_info.user_id or "no_user_id"
         self.user_name = user_info.user_name
+        self.nsa_id = user_info.nsa_id
+        self.ns_name = user_info.ns_name
+        self.ns_friend_code = user_info.ns_friend_code
         self.session_token = user_info.session_token
         self.user_lang = "zh-CN"
         self.user_country = "JP"
@@ -78,7 +81,7 @@ class Splatoon:
             "", "", "", self.user_lang, self.user_country
         try:
             # user_nickname为任天堂官网账号用户名，没有参考价值
-            new_access_token, new_g_token, user_nickname, user_lang, user_country = \
+            new_access_token, new_g_token, user_nickname, user_lang, user_country, current_user = \
                 await self.s3s.get_gtoken(self.session_token)
         except Exception as e:
             self.logger.warning(f'{msg_id} refresh_g_and_b_token error. reason:{e}')
@@ -178,7 +181,14 @@ class Splatoon:
                     new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
         # 刷新值
         if new_g_token and new_bullet_token:
-            self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token)
+            nsa_id = current_user.get("nsaId")
+            my_icon_url = current_user['imageUri']
+            my_icon = await model_get_temp_image_path('my_icon_by_nsa_id', nsa_id, my_icon_url)
+            ns_name = current_user['name']
+            ns_friend_code = current_user['links']['friendCode']['id']
+            # 更新token和用户信息
+            self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token,
+                               nsa_id=nsa_id, ns_name=ns_name, ns_friend_code=ns_friend_code)
             # 刷新其他同绑定账号
             self.refresh_another_account()
             self.logger.info(f'{self.user_db_info.db_id},{msg_id} tokens updated.')
@@ -203,12 +213,15 @@ class Splatoon:
                 if user_info:
                     # 更新缓存数据
                     dict_get_or_set_user_info(u.platform, u.user_id, access_token=self.access_token,
-                                              g_token=self.g_token,
-                                              bullet_token=self.bullet_token, user_agreement=1)
+                                              g_token=self.g_token, bullet_token=self.bullet_token, user_agreement=1,
+                                              nsa_id=self.nsa_id, ns_name=self.ns_name,
+                                              ns_friend_code=self.ns_friend_code)
                 else:
                     # 更新数据库数据
-                    model_get_or_set_user(u.platform, u.user_id, access_token=self.access_token, g_token=self.g_token,
-                                          bullet_token=self.bullet_token, user_agreement=1)
+                    model_get_or_set_user(u.platform, u.user_id, access_token=self.access_token,
+                                          g_token=self.g_token, bullet_token=self.bullet_token, user_agreement=1,
+                                          nsa_id=self.nsa_id, ns_name=self.ns_name,
+                                          ns_friend_code=self.ns_friend_code)
 
     def _head_bullet(self, bullet_token):
         """为含有bullet_token的请求拼装header"""
@@ -513,7 +526,7 @@ class Splatoon:
     async def app_ns_myself(self, multiple=False):
         """nso 我的 页面
         返回ns好友码"""
-        url = "https://api-lp1.znc.srv.nintendo.net/v3/User/ShowSelf"
+        url = "https://api-lp1.znc.srv.nintendo.net/v4/User/ShowSelf"
         res = await self._ns_api_request(url, multiple=multiple)
         if not res:
             raise ValueError('NetConnectError')

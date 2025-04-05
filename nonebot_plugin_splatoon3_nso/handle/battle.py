@@ -65,7 +65,7 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
             if get_equip:
                 text_list.append(await get_row_user_equip(k1 * 4 + k, p))
             else:
-                text_list.append(await get_row_user_stats(k1 * 4 + k, p, mask, is_last_p, team_power))
+                text_list.append(await get_row_user_stats(k1 * 4 + k, p, mask, is_last_p, team_power, splatoon.nsa_id))
 
         ti = "||"
         if mode == "FEST":
@@ -320,7 +320,7 @@ async def get_row_user_equip(k_idx, p):
     return t
 
 
-async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_power=None):
+async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_power=None, nsa_id=None):
     """获取一行对战玩家战绩
     p:player的一个遍历对象
     """
@@ -353,7 +353,7 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     player_code, player_name = get_game_sp_id_and_name(p)
     icon = ""
     if p.get('isMyself'):
-        name, icon = await get_user_name_color(name, player_code, is_myself=True)
+        name, icon = await get_user_name_color(name, player_code, is_myself=True, nsa_id=nsa_id)
     elif mask:
         name = f"~~我是马赛克~~"
     if not p.get('isMyself'):

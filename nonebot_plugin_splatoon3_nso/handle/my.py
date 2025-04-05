@@ -7,7 +7,8 @@ from nonebot import on_keyword
 from .send_msg import bot_send
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
-    model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict, model_get_all_top_all
+    model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict, \
+    model_get_all_top_all
 from ..data.utils import GlobalUserInfo
 from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id
@@ -133,8 +134,9 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
     user_name = f'{player_name} #{name_id}'
 
     # 我的头像，优先使用sp_id进行储存，没有就用play_name-code
-    icon_img = await model_get_temp_image_path('my_icon', user.game_sp_id or f'{player_name}_{name_id}',
-                                               player['userIcon']['url'])
+    icon_img = (await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id, player['userIcon']['url']) or
+                await model_get_temp_image_path('my_icon', user.game_sp_id or f'{player_name}_{name_id}',
+                                                player['userIcon']['url']))
     img = f'''<img height='30px' style='position:absolute;margin-left:-30px;margin-top:-15px' src="{icon_img}"/>'''
 
     weapon_img = await model_get_temp_image_path('battle_weapon_main',
@@ -238,7 +240,10 @@ async def get_friends_md(splatoon, lang='zh-CN'):
     return msg
 
 
-@on_command("ns_friends", aliases={'ns_friend', 'ns_fr', 'nsfr'}, priority=10, block=True).handle(
+nsfr = on_command("ns_friends", aliases={'ns_friend', 'ns_fr', 'nsfr'}, priority=10, block=True)
+
+
+@nsfr.handle(
     parameterless=[Depends(_check_session_handler)])
 async def ns_friends(bot: Bot, event: Event):
     """获取ns好友"""
@@ -362,15 +367,11 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)
-    force = False  # 强制从接口获取
     msg_id = get_msg_id(platform, user_id)
 
-    if "force" in args.extract_plain_text():
-        force = True
     msg = ""
-    if user and user.ns_friend_code and not force:
+    if user and user.ns_friend_code:
         msg += f"ns用户名: {user.ns_name}\n好友码(sw码): SW-{user.ns_friend_code}"
-        msg += f"\n\n如果ns主机主动更换了ns码导致无法搜索到好友，请发送\n/friend_code force 指令重新缓存新的好友码"
     else:
         splatoon = Splatoon(bot, event, user)
         res = {}
@@ -504,9 +505,11 @@ async def my_icon(bot: Bot, event: Event):
     user_id = event.get_user_id()
     user = model_get_or_set_user(platform, user_id)
     msg = ""
-    msg_error = "本地未缓存nso头像，请在使用一次/me 命令进行缓存后重试"
-    if user.game_sp_id:
-        my_icon_path = await model_get_temp_image_path('my_icon', user.game_sp_id)
+    msg_error = "本地未缓存nso头像，请在使用一次/last 命令进行缓存后重试"
+
+    if user.nsa_id or user.game_sp_id:
+        my_icon_path = (await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id) or
+                        await model_get_temp_image_path('my_icon', user.game_sp_id))
         if my_icon_path:
             with open(my_icon_path, "rb") as f:
                 _my_icon = f.read()
@@ -519,7 +522,7 @@ async def my_icon(bot: Bot, event: Event):
     await bot_send(bot, event, message=msg)
 
 
-@on_keyword({"我已知晓nso查询可能导致鱿鱼圈被封禁的风险并重新启用nso查询"}, block=True).handle()
+@on_keyword({"我已知晓nso查询使用了第三方接口的风险并重新启用nso查询"}, block=True).handle()
 async def re_enable(bot: Bot, event: Event):
     """同意条款重新启用nso查询"""
     platform = bot.adapter.get_name()
@@ -542,4 +545,3 @@ async def re_enable(bot: Bot, event: Event):
                 else:
                     # 更新数据库数据
                     model_get_or_set_user(u.platform, u.user_id, user_agreement=1)
-
