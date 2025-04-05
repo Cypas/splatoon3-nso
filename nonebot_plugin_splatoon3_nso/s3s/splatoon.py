@@ -12,6 +12,7 @@ from ..handle.send_msg import bot_send, notify_to_private, notify_to_channel
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, model_get_another_account_user, \
     global_user_info_dict, global_cron_user_info_dict, model_get_temp_image_path
 from ..utils import get_msg_id, get_or_init_client
+from ..utils.redis import rset_gtoken, rget_gtoken
 
 
 class UserDBInfo:
@@ -74,64 +75,73 @@ class Splatoon:
         # 修改全局字典
         dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, **kwargs)
 
-    async def refresh_gtoken_and_bullettoken(self):
+    async def refresh_gtoken_and_bullettoken(self, skip_access=True):
         """刷新gtoken 和 bullettoken"""
-        msg_id = get_msg_id(self.platform, self.user_id)
-        new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
-            "", "", "", self.user_lang, self.user_country
-        try:
-            # user_nickname为任天堂官网账号用户名，没有参考价值
-            new_access_token, new_g_token, user_nickname, user_lang, user_country, current_user = \
-                await self.s3s.get_gtoken(self.session_token)
-        except Exception as e:
-            self.logger.warning(f'{msg_id} refresh_g_and_b_token error. reason:{e}')
-            if self.user_db_info:
-                user = self.user_db_info
-                if 'invalid_grant' in str(e):
-                    # 无效登录凭证
-                    self.logger.warning(
-                        f'invalid_grant_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
-                    self.set_user_info(session_token=None)
-                    # 待发送文本
-                    msg = f"喷3账号 {user.game_name or ''} 登录过期，一般是修改密码后登录才会过期，请发送/login 重新登录"
-                    if self.bot and self.event:
-                        # 来自用户主动请求
-                        await bot_send(self.bot, self.event, msg)
-                    else:
-                        # 来自定时任务
-                        if user.report_notify:
-                            try:
-                                await notify_to_private(self.platform, self.user_id, msg)
-                            except Exception as e:
-                                self.logger.warning(
-                                    f'msg_id:{msg_id} private notice error: {e}')
-                        raise ValueError('invalid_grant')
-                    return
-                elif "Membership required" in str(e):
-                    # 会员过期
-                    self.logger.warning(
-                        f"membership_required: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}")
-                    # 切割 会员过期 警告信息
-                    nickname = str(e).split('|')[1] or ""
-                    # 待发送文本
-                    msg = f"喷3账号 {nickname} 会员过期"
-                    if self.bot and self.event:
-                        self.logger.warning('membership_required notify')
-                        # 来自用户主动请求
-                        await bot_send(self.bot, self.event, msg)
-                    else:
-                        msg += ",无法更新日报"
-                        # msg += "\n/report_notify close 关闭每日日报推送"
-                        # 来自定时任务
-                        # if user.report_notify:
-                        #     await notify_to_private(self.platform, self.user_id, msg)
+        game_sp_id = self.user_db_info.game_sp_id
+        new_g_token = ""
+        if skip_access and game_sp_id:
+            # 默认跳过access请求看redis是否有数据
+            new_g_token = rget_gtoken(game_sp_id)
+        if not new_g_token:
+            msg_id = get_msg_id(self.platform, self.user_id)
+            new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
+                "", "", "", self.user_lang, self.user_country
+            try:
+                # user_nickname为任天堂官网账号用户名，没有参考价值
+                new_access_token, new_g_token, user_nickname, user_lang, user_country, current_user = \
+                    await self.s3s.get_gtoken(self.session_token)
+            except Exception as e:
+                self.logger.warning(f'{msg_id} refresh_g_and_b_token error. reason:{e}')
+                if self.user_db_info:
+                    user = self.user_db_info
+                    if 'invalid_grant' in str(e):
+                        # 无效登录凭证
+                        self.logger.warning(
+                            f'invalid_grant_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
+                        self.set_user_info(session_token=None)
+                        # 待发送文本
+                        msg = f"喷3账号 {user.game_name or ''} 登录过期，一般是修改密码后登录才会过期，请发送/login 重新登录"
+                        if self.bot and self.event:
+                            # 来自用户主动请求
+                            await bot_send(self.bot, self.event, msg)
+                        else:
+                            # 来自定时任务
+                            if user.report_notify:
+                                try:
+                                    await notify_to_private(self.platform, self.user_id, msg)
+                                except Exception as e:
+                                    self.logger.warning(
+                                        f'msg_id:{msg_id} private notice error: {e}')
+                            raise ValueError('invalid_grant')
+                        return
+                    elif "Membership required" in str(e):
+                        # 会员过期
+                        self.logger.warning(
+                            f"membership_required: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}")
+                        # 切割 会员过期 警告信息
+                        nickname = str(e).split('|')[1] or ""
+                        # 待发送文本
+                        msg = f"喷3账号 {nickname} 会员过期"
+                        if self.bot and self.event:
+                            self.logger.warning('membership_required notify')
+                            # 来自用户主动请求
+                            await bot_send(self.bot, self.event, msg)
+                        else:
+                            msg += ",无法更新日报"
+                            # msg += "\n/report_notify close 关闭每日日报推送"
+                            # 来自定时任务
+                            # if user.report_notify:
+                            #     await notify_to_private(self.platform, self.user_id, msg)
 
-                        raise ValueError('Membership required')
-                    return
-                self.logger.warning(
-                    f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
+                            raise ValueError('Membership required')
+                        return
+                    self.logger.warning(
+                        f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
         if new_g_token:
             try:
+                if game_sp_id:
+                    # redis set g_token
+                    await rset_gtoken(self.user_db_info.game_sp_id, new_g_token)
                 # 获取bullettoken
                 new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
                 if not new_bullet_token:
