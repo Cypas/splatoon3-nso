@@ -359,7 +359,7 @@ class S3S:
             raise ValueError(f"resp error:{json.dumps(splatoon_token)}")
 
         try:
-            # access_token过期时间7200s 即2h
+            # access_token过期时间3600s 即1h
             access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
             coral_user_id = splatoon_token["result"]["user"]["id"]
             # res里面含有各种用户信息，将其传输到splatoon层，并储存相关信息
@@ -499,6 +499,8 @@ class S3S:
         }
         url = f'{SPLATNET3_URL}/api/bullet_tokens'
         r = await self.req_client.post(url, headers=app_head, cookies=app_cookies)
+        # self.logger.error(f'{user_id} get_bullet error. {r.status_code}，res:{str(r.content.decode("utf-8"))}')
+        # self.logger.info(f'url:{url}\nheaders: {json.dumps(app_head)},\ncookies: {json.dumps(app_cookies)}')
 
         try:
             # bullet_token过期时间7200s 即2h
@@ -506,7 +508,7 @@ class S3S:
             bullet_token = r_json['bulletToken']
             return bullet_token
         except (json.decoder.JSONDecodeError, json.JSONDecodeError) as e:
-            self.logger.exception(f'{user_id} get_bullet error. {r.status_code}')
+            self.logger.exception(f'{user_id} get_bullet error. {r.status_code}，res:{r.text}')
             if r.status_code == 401:
                 self.logger.exception(
                     "Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")

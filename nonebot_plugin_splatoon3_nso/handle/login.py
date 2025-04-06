@@ -252,13 +252,13 @@ async def get_login_code(bot: Bot, event: Event):
     mapping = {
         "platform": user.platform,
         "user_id": user.user_id,
-        "user_name": user.user_name,
-        "session_token": user.session_token,
-        "g_token": user.g_token,
-        "bullet_token": user.bullet_token,
-        "game_sp_id": user.game_sp_id,
-        "game_name": user.game_name,
-        "stat_key": user.stat_key,
+        "user_name": user.user_name or "",
+        "session_token": user.session_token or "",
+        "g_token": user.g_token or "",
+        "bullet_token": user.bullet_token or "",
+        "game_sp_id": user.game_sp_id or "",
+        "game_name": user.game_name or "",
+        "stat_key": user.stat_key or "",
         "time": get_time_now_china_str(),
     }
     await rset_lc(login_code, mapping)

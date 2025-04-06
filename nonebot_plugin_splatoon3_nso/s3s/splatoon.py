@@ -77,19 +77,26 @@ class Splatoon:
 
     async def refresh_gtoken_and_bullettoken(self, skip_access=True):
         """刷新gtoken 和 bullettoken"""
+        msg_id = get_msg_id(self.platform, self.user_id)
+        new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
+            "", "", "", self.user_lang, self.user_country
         game_sp_id = self.user_db_info.game_sp_id
-        new_g_token = ""
+        redis_g_token = ""
+        current_user = {}
+
         if skip_access and game_sp_id:
             # 默认跳过access请求看redis是否有数据
-            new_g_token = await rget_gtoken(game_sp_id)
-        if not new_g_token:
-            msg_id = get_msg_id(self.platform, self.user_id)
-            new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
-                "", "", "", self.user_lang, self.user_country
+            redis_g_token = await rget_gtoken(game_sp_id)
+        if redis_g_token:
+            new_g_token = redis_g_token
+        else:
             try:
                 # user_nickname为任天堂官网账号用户名，没有参考价值
                 new_access_token, new_g_token, user_nickname, user_lang, user_country, current_user = \
                     await self.s3s.get_gtoken(self.session_token)
+                if game_sp_id and new_g_token:
+                    # redis set g_token
+                    await rset_gtoken(game_sp_id, new_g_token)
             except Exception as e:
                 self.logger.warning(f'{msg_id} refresh_g_and_b_token error. reason:{e}')
                 if self.user_db_info:
@@ -137,11 +144,9 @@ class Splatoon:
                         return
                     self.logger.warning(
                         f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
+
         if new_g_token:
             try:
-                if game_sp_id:
-                    # redis set g_token
-                    await rset_gtoken(self.user_db_info.game_sp_id, new_g_token)
                 # 获取bullettoken
                 new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
                 if not new_bullet_token:
@@ -191,14 +196,17 @@ class Splatoon:
                     new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
         # 刷新值
         if new_g_token and new_bullet_token:
-            nsa_id = current_user.get("nsaId")
-            my_icon_url = current_user['imageUri']
-            my_icon = await model_get_temp_image_path('my_icon_by_nsa_id', nsa_id, my_icon_url)
-            ns_name = current_user['name']
-            ns_friend_code = current_user['links']['friendCode']['id']
-            # 更新token和用户信息
-            self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token,
-                               nsa_id=nsa_id, ns_name=ns_name, ns_friend_code=ns_friend_code)
+            if current_user:
+                nsa_id = current_user.get("nsaId")
+                my_icon_url = current_user['imageUri']
+                my_icon = await model_get_temp_image_path('my_icon_by_nsa_id', nsa_id, my_icon_url)
+                ns_name = current_user['name']
+                ns_friend_code = current_user['links']['friendCode']['id']
+                self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token,
+                                   nsa_id=nsa_id, ns_name=ns_name, ns_friend_code=ns_friend_code)
+            else:
+                # 更新token和用户信息
+                self.set_user_info(access_token=new_access_token, g_token=new_g_token, bullet_token=new_bullet_token)
             # 刷新其他同绑定账号
             self.refresh_another_account()
             self.logger.info(f'{self.user_db_info.db_id},{msg_id} tokens updated.')
