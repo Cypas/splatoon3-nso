@@ -43,16 +43,21 @@ async def create_set_report_tasks():
     for user in db_users:
         list_user.append((user.platform, user.user_id))
 
-    _pool = 5
-    set_report_count = 0
-    for i in range(0, len(list_user), _pool):
-        p_and_id_list = list_user[i:i + _pool]
-        tasks = [set_user_report_task(p_and_id) for p_and_id in p_and_id_list]
-        res = await asyncio.gather(*tasks)
-        # 统计有多少人更新了日报
-        for r in res:
-            if r:
-                set_report_count += 1
+    counters = {
+        "set_report_count": 0
+    }
+    _pool = 2
+    semaphore = asyncio.Semaphore(_pool)  # 控制最大并发数
+
+    async def process_report_task(p_and_id):
+        async with semaphore:  # 限制并发数
+            result = await set_user_report_task(p_and_id)
+            # 统计有多少人更新了日报
+            if result:
+                counters["set_report_count"] += 1
+
+    tasks = [process_report_task(p_and_id) for p_and_id in list_user]
+    await asyncio.gather(*tasks)
 
     # 清理任务字典
     cron_logger.info(f'clear cron user_info_dict...')
@@ -61,10 +66,10 @@ async def create_set_report_tasks():
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = f"create_set_report_tasks end: {str_time}\n" \
-               f"set_report_count: {set_report_count}\n" \
+               f"set_report_count: {counters['set_report_count']}\n" \
                f"clear_count: {clear_count}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel("set_report", "end", f"耗时:{str_time}\n写日报: {set_report_count}\n清理对象: {clear_count}")
+    await cron_notify_to_channel("set_report", "end", f"耗时:{str_time}\n写日报: {counters['set_report_count']}\n清理对象: {clear_count}")
 
 
 async def set_user_report_task(p_and_id):

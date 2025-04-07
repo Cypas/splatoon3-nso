@@ -30,11 +30,20 @@ async def create_refresh_token_tasks():
     for user in users:
         list_user.append((user.platform, user.user_id))
 
-    _pool = 1
-    for i in range(0, len(list_user), _pool):
-        _p_and_id_list = list_user[i:i + _pool]
-        tasks = [refresh_token_task(p_and_id) for p_and_id in _p_and_id_list]
-        res = await asyncio.gather(*tasks)
+    _pool = 2
+    semaphore = asyncio.Semaphore(_pool)  # 并发控制
+
+    async def process_user(p_and_id):
+        async with semaphore:  # 限制并发数
+            return await refresh_token_task(p_and_id)  # 直接返回任务结果
+
+    # 动态提交所有任务（无需手动分批）
+    tasks = [process_user(p_and_id) for p_and_id in list_user]
+
+    # 按完成顺序处理结果（原逻辑保留）
+    for coro in asyncio.as_completed(tasks):
+        r = await coro  # 获取任务结果
+
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = f"create_refresh_token_tasks end: {str_time}\nusers_count:{len(list_user)}"

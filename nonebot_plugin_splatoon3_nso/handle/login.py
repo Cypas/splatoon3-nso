@@ -386,7 +386,7 @@ async def get_set_api_key(bot: Bot, event: Event):
         msg = f"设置成功，bot将开始同步你当前的对战及打工数据到 stat.ink，并后续每2h自动进行一次同步"
     await bot_send(bot, event, message=msg)
 
-    await update_s3si_ts()
+    # await update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
     threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
 
@@ -406,7 +406,7 @@ async def sync_now(bot: Bot, event: Event):
         await bot_send(bot, event, msg)
         return
 
-    await update_s3si_ts()
+    # await update_s3si_ts()
     msg = "战绩手动同步任务已开始，请稍等..."
     if isinstance(bot, QQ_Bot):
         msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat点ink网站自行查看记录，kook平台bot才可以主动推送"
