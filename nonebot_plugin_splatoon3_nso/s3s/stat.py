@@ -56,10 +56,10 @@ class STAT:
             # 检查token
             await self.prefetch_checks()
             skipprefetch = True
-        # try:
-        await self.check_if_missing(which, None, None, skipprefetch)
-        # except Exception as e:
-        #     err_msg = str(e)
+        try:
+            await self.check_if_missing(which, None, None, skipprefetch)
+        except Exception as e:
+            err_msg = str(e)
         return self.battle_cnt, self.coop_cnt, self.stat_url, err_msg
 
     async def check_if_missing(self, which, isblackout, istestrun, skipprefetch):
@@ -193,7 +193,11 @@ class STAT:
 
     async def prefetch_checks(self):
         """检查bullet_token是否过期，并提供刷新"""
-        await self.splatoon.test_page()
+        try:
+            await self.splatoon.test_page()
+        except ValueError as e:
+            # 预期错误，如无效凭证和会员过期
+            raise e
 
     async def fetch_json(self, which, separate=False, exportall=False, specific=False, numbers_only=False,
                          printout=False,
@@ -250,12 +254,21 @@ class STAT:
                                                              headers=self.headbutt(force_lang=lang,
                                                                                    force_country=country),
                                                              cookies=dict(_gtoken=self.g_token))
-                query1_resp = json.loads(query1.text)
+                try:
+                    query1_resp = json.loads(query1.text)
+                except Exception as e:
+                    # retry again
+                    query1 = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
+                                                                 data=utils.gen_graphql_body(sha),
+                                                                 headers=self.headbutt(force_lang=lang,
+                                                                                       force_country=country),
+                                                                 cookies=dict(_gtoken=self.g_token))
+                    query1_resp = json.loads(query1.text)
 
-                # if not query1_resp.get("data"):  # catch error
-                #     print(
-                #         "\nSomething's wrong with one of the query hashes. Ensure s3s is up-to-date, and if this message persists, please open an issue on GitHub.")
-                #     sys.exit(1)
+                    # if not query1_resp.get("data"):  # catch error
+                    #     print(
+                    #         "\nSomething's wrong with one of the query hashes. Ensure s3s is up-to-date, and if this message persists, please open an issue on GitHub.")
+                    #     sys.exit(1)
 
                 # ink battles - latest 50 of any type
                 if "latestBattleHistories" in query1_resp["data"]:
