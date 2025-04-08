@@ -1,6 +1,7 @@
 # (ↄ) 2017-2022 eli fessler (frozenpandaman), clovervidia
 # https://github.com/frozenpandaman/s3s
 # License: GPLv3
+import asyncio
 import base64
 import hashlib
 import json
@@ -34,6 +35,9 @@ APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
 
 
 class S3S:
+    # 添加全局请求信号量（类级别共享）
+    _semaphore = asyncio.Semaphore(2)
+
     def __init__(self, platform, user_id, _type="normal"):
         self.req_client: ReqClient = get_or_init_client(platform, user_id, _type)
         self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
@@ -461,7 +465,8 @@ class S3S:
             raise e
 
         try:
-            access_token, f, uuid, timestamp, coral_user_id, current_user = await self._get_access_token(id_token, user_info)
+            access_token, f, uuid, timestamp, coral_user_id, current_user = await self._get_access_token(id_token,
+                                                                                                         user_info)
             if not access_token:
                 raise ValueError(f"no access_token")
             if not f:
@@ -524,8 +529,13 @@ class S3S:
             self.logger.warning(f"user_id:{user_id} get_bullet error:{e}")
 
     async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
-        res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
-                                    coral_user_id=coral_user_id)
+        async with self._semaphore:
+            return await self._real_f_api(
+                access_token, step, f_gen_url, r_user_id, coral_user_id
+            )
+
+    async def _real_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
+        res = await self.call_f_api(access_token, step, f_gen_url, r_user_id, coral_user_id)
         if isinstance(res, tuple):
             # 解析tuple
             f, uuid, timestamp = res
@@ -557,8 +567,7 @@ class S3S:
                 else:
                     self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{res}")
             self.f_gen_url = next_f_url
-            res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id,
-                                        coral_user_id=coral_user_id)
+            res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id, coral_user_id)
             if isinstance(res, tuple):
                 # 解析tuple
                 f, uuid, timestamp = res
@@ -569,60 +578,61 @@ class S3S:
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         """Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp)."""
-
         api_head = {}
         api_body = {}
         api_response = None
-        try:
-            api_head = {
-                'User-Agent': F_USER_AGENT,
-                'Content-Type': 'application/json; charset=utf-8',
-                'X-znca-Platform': 'Android',
-                'X-znca-Version': NSOAPP_VERSION,
-                'X-znca-Client-Version': NSOAPP_VERSION,
+        # 信号量控制全局并发速度
+        async with self._semaphore:
+            try:
+                api_head = {
+                    'User-Agent': F_USER_AGENT,
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'X-znca-Platform': 'Android',
+                    'X-znca-Version': NSOAPP_VERSION,
+                    'X-znca-Client-Version': NSOAPP_VERSION,
 
-            }
-            api_body = {  # 'timestamp' & 'request_id' (uuid v4) set automatically
-                'token': access_token,
-                'hash_method': step,  # 1 = coral (NSO) token, 2 = webservicetoken
-                'na_id': r_user_id
-            }
-            if step == 2 and coral_user_id is not None:
-                api_body["coral_user_id"] = str(coral_user_id)
+                }
+                api_body = {  # 'timestamp' & 'request_id' (uuid v4) set automatically
+                    'token': access_token,
+                    'hash_method': step,  # 1 = coral (NSO) token, 2 = webservicetoken
+                    'na_id': r_user_id
+                }
+                if step == 2 and coral_user_id is not None:
+                    api_body["coral_user_id"] = str(coral_user_id)
 
-            # self.logger.info(f"f body:{json.dumps(api_body)}")
-            api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
-            # self.logger.info(f"f res_text:{api_response.text}")
+                # self.logger.info(f"f body:{json.dumps(api_body)}")
+                api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
+                # self.logger.info(f"f res_text:{api_response.text}")
 
-            resp: dict = json.loads(api_response.text)
-            if "error" in resp and "error_message" in resp:
-                self.logger.error(
-                    f"Error during f generation: \n{f_gen_url}  \nres_text:{api_response.text}")
-                return f"f resp error:{api_response.text}"
-            f = resp.get("f")
-            uuid = resp.get("request_id")
-            timestamp = resp.get("timestamp")
-            return f, uuid, timestamp
-        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
-            if isinstance(e, httpx.ConnectError):
-                return "NetConnectError"
-            elif isinstance(e, httpx.ConnectTimeout):
-                return "NetConnectTimeout"
+                resp: dict = json.loads(api_response.text)
+                if "error" in resp and "error_message" in resp:
+                    self.logger.error(
+                        f"Error during f generation: \n{f_gen_url}  \nres_text:{api_response.text}")
+                    return f"f resp error:{api_response.text}"
+                f = resp.get("f")
+                uuid = resp.get("request_id")
+                timestamp = resp.get("timestamp")
+                return f, uuid, timestamp
+            except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+                if isinstance(e, httpx.ConnectError):
+                    return "NetConnectError"
+                elif isinstance(e, httpx.ConnectTimeout):
+                    return "NetConnectTimeout"
 
-        except Exception as e:
-            # self.logger.error(f"Error during f generation: Error {e}.")
-            try:  # if api_response never gets set
-                if api_response and api_response.text:
-                    self.logger.warning(
-                        f"Error during f generation: {f_gen_url}\nres:{api_response.text}")
-                else:
-                    self.logger.warning(
-                        f"Error during f generation: \n{f_gen_url}  status_code:{api_response.status_code}")
-                return f"resp error:{api_response.text}"
             except Exception as e:
-                self.logger.error(f"Error during f generation: Error {e}.")
-                # 一般是status_code都获取不到
-                return None
+                # self.logger.error(f"Error during f generation: Error {e}.")
+                try:  # if api_response never gets set
+                    if api_response and api_response.text:
+                        self.logger.warning(
+                            f"Error during f generation: {f_gen_url}\nres:{api_response.text}")
+                    else:
+                        self.logger.warning(
+                            f"Error during f generation: \n{f_gen_url}  status_code:{api_response.status_code}")
+                    return f"resp error:{api_response.text}"
+                except Exception as e:
+                    self.logger.error(f"Error during f generation: Error {e}.")
+                    # 一般是status_code都获取不到
+                    return None
 
 
 def init_global_nso_version_and_web_view_version():
