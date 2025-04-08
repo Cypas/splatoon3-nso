@@ -100,19 +100,23 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
 
 
 async def dict_clear_user_info_dict(_type: str) -> int:
-    """关闭client对象，然后清空该类型用户字典"""
-    # 选择不同的字典
+    """关闭client并清空用户字典"""
     user_dict = {}
     if _type == "normal":
         user_dict = global_user_info_dict
     elif _type == "cron":
-        # 定时任务
         user_dict = global_cron_user_info_dict
+
+    logger.debug(f"开始清理 {_type} 类型，当前用户数: {len(user_dict)}")  # 调试日志
+
+    try:
+        await ReqClient.close_all(_type)  # 确保await
+    except Exception as e:
+        logger.debug(f"关闭client时出错: {e}")  # 捕获异常
+
     count = len(user_dict)
-    # 关闭全部client
-    await ReqClient.close_all(_type)
-    # 清空字典
     user_dict.clear()
+    logger.debug(f"清理完成，释放 {count} 个用户")  # 调试日志
     return count
 
 
