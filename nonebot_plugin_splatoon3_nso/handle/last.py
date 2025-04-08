@@ -242,8 +242,6 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
         if get_player_code_idx:
             # 为top提供服务
             return msg
-        # 关闭连接池
-        await splatoon.req_client.close()
         return msg, is_playing
     else:
         # 获取打工数据
@@ -251,8 +249,6 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
             return coop_id, coop_info, False, is_playing
         msg = await get_last_msg(splatoon, coop_id, coop_info, idx=idx, is_battle=False, get_equip=get_equip,
                                  get_screenshot=get_screenshot, mask=mask)
-        # 关闭连接池
-        await splatoon.req_client.close()
         return msg, is_playing
 
 

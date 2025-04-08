@@ -211,8 +211,6 @@ async def get_x_top_msg(bot, event):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     msg = await get_x_top_md(splatoon)
-    # 关闭连接池
-    await splatoon.req_client.close()
     return msg
 
 

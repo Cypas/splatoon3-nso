@@ -63,8 +63,6 @@ async def refresh_token_task(p_and_id):
         splatoon = Splatoon(None, None, u)
         # 刷新token
         await splatoon.refresh_gtoken_and_bullettoken()
-        # 关闭连接池
-        await splatoon.req_client.close()
     except Exception as e:
         cron_logger.warning(f"refresh_token_task error: {msg_id}, {e}")
 
@@ -93,7 +91,7 @@ async def show_dict_status():
     """显示字典当前状态"""
     cron_msg = get_dict_status()
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel("status", "end")
+    await cron_notify_to_channel("status", "end", cron_msg)
 
 
 def get_dict_status():

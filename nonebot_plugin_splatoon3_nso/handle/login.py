@@ -199,8 +199,6 @@ async def login_in_2(bot: Bot, event: Event):
     global_user_info_dict.pop(msg_id)
     _msg = f'new_login_user: 会话昵称:{user_name}\nns_player_code:{game_sp_id}\n{session_token}'
 
-    # 关闭连接池
-    await splatoon.req_client.close()
     await notify_to_channel(_msg)
 
 

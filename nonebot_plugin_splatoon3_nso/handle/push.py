@@ -274,9 +274,6 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
         error_push_cnt += 1
         job_data.update({"error_push_cnt": error_push_cnt})
         return
-    finally:
-        # 关闭连接池
-        await splatoon.req_client.close()
 
 
 def close_push(platform, user_id):

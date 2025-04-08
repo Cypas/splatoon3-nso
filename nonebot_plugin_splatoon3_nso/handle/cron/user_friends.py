@@ -81,6 +81,3 @@ async def get_friends_task(p_and_id):
 
     except Exception as e:
         cron_logger.warning(f'refresh_token_task error: {msg_id}, {e}')
-    finally:
-        # 关闭连接池
-        await splatoon.req_client.close()

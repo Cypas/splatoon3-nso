@@ -62,6 +62,4 @@ async def get_screenshot_image(bot, event, platform, user_id, key=None):
         # 测试token是否有效
         await splatoon.test_page()
     img = await get_app_screenshot(platform, user_id, key)
-    # 关闭连接池
-    await splatoon.req_client.close()
     return img

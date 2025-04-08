@@ -47,11 +47,8 @@ async def get_me(bot, event, from_group):
     try:
         msg = await get_me_md(user, history_summary, total_query, coop, from_group)
     except Exception as e:
-        logger.exception(e)
+        logger.error(f"get_me request error:{e}")
         msg = f"获取数据失败，请稍后再试"
-    finally:
-        # 关闭连接池
-        await splatoon.req_client.close()
     return msg
 
 
@@ -193,8 +190,7 @@ async def friends(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     msg = await get_friends_md(splatoon)
-    # 关闭连接池
-    await splatoon.req_client.close()
+
     await bot_send(bot, event, msg, image_width=600)
 
 
@@ -256,8 +252,6 @@ async def ns_friends(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     msg = await get_ns_friends_md(splatoon)
-    # 关闭连接池
-    await splatoon.req_client.close()
     await bot_send(bot, event, msg, image_width=680)
 
 
@@ -387,9 +381,6 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
         except Exception as e:
             logger.error(f"{msg_id} get friend_code error:{e}")
             msg = "bot网络错误，请稍后再试"
-        finally:
-            # 关闭连接池
-            await splatoon.req_client.close()
 
         name = res.get('name')
         code = res.get('code')
@@ -536,9 +527,6 @@ async def my_icon(bot: Bot, event: Event, args: Message = CommandArg()):
         except Exception as e:
             logger.error(f"{msg_id} get my_icon error:{e}")
             msg = "bot网络错误，请稍后再试"
-        finally:
-            # 关闭连接池
-            await splatoon.req_client.close()
 
         icon = res.get('icon')
         if user.nsa_id:
