@@ -258,7 +258,7 @@ class Splatoon:
         return graphql_head
 
     async def test_page(self, multiple=False):
-        """主页(测试访问页面) 目前只有nso截图功能需要用到这个测试访问函数"""
+        """主页(测试访问页面) """
         data = gen_graphql_body(translate_rid["HomeQuery"])
 
         msg_id = get_msg_id(self.platform, self.user_id)
@@ -283,11 +283,11 @@ class Splatoon:
                 if not multiple and self.bot and self.event:
                     await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                 try:
-                    self.logger.info(f'{self.user_id} tokens expired,start refresh tokens soon')
+                    self.logger.info(f'{msg_id},{self.user_name},{self.user_db_info.game_name} tokens expired,start refresh tokens soon')
                     await self.refresh_gtoken_and_bullettoken()
-                    self.logger.info(f'refresh tokens complete，try again')
+                    self.logger.info(f'{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens complete，try again')
                 except Exception as e:
-                    self.logger.info(f'refresh tokens fail,reason:{e}')
+                    self.logger.info(f'{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
 
     async def _request(self, data, multiple=False):
         res = ''
@@ -329,8 +329,16 @@ class Splatoon:
                         self.logger.debug(f'_request: {t2}s')
                         return res.json()
                     except Exception as e:
-                        self.logger.error(f'{msg_id} _request nintendo fail,reason:{e},res:{res.text}')
-                        return None
+                        self.logger.error(f'{msg_id} _request nintendo fail,reason:{e},res:{res.text}, start retry...')
+                        try:
+                            res = await self.req_client.post(GRAPHQL_URL, data=data,
+                                                             headers=self._head_bullet(self.bullet_token),
+                                                             cookies=dict(_gtoken=self.g_token))
+                            return res.json()
+                        except Exception as e:
+                            self.logger.error(
+                                f'{msg_id} _request nintendo twice fail,reason:{e},res:{res.text}')
+                            return None
                 else:
                     return None
             else:

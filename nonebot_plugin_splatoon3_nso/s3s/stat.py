@@ -92,8 +92,10 @@ class STAT:
                 except:
                     # retry once
                     resp = await self.splatoon.req_client.get(url, headers=auth)
-                    statink_uploads = json.loads(resp.text)
-
+                    try:
+                        statink_uploads = json.loads(resp.text)
+                    except Exception as e:
+                        raise ValueError(f"statink_uploads request error:{e},resp:{resp.text}")
                     # if utils.custom_key_exists("errors_pass_silently", self.config_data.get_config()):
                     #     print(f"Error while checking recently-uploaded {noun}. Continuing...")
                     # else:
@@ -263,7 +265,10 @@ class STAT:
                                                                  headers=self.headbutt(force_lang=lang,
                                                                                        force_country=country),
                                                                  cookies=dict(_gtoken=self.g_token))
-                    query1_resp = json.loads(query1.text)
+                    try:
+                        query1_resp = json.loads(query1.text)
+                    except Exception as e:
+                        raise ValueError(f'query1 request error:{e},status_code:{query1.status_code}resp:{query1.text}')
 
                     # if not query1_resp.get("data"):  # catch error
                     #     print(

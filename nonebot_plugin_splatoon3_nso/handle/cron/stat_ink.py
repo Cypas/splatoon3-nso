@@ -61,7 +61,7 @@ async def sync_stat_ink():
         "battle_total": 0,
         "coop_total": 0
     }
-    _pool = 2
+    _pool = 3
     semaphore = asyncio.Semaphore(_pool)  # 控制最大并发数
 
     async def process_user(db_user):
@@ -69,7 +69,7 @@ async def sync_stat_ink():
             r = await sync_stat_ink_func(db_user)
             # 解析结果并更新计数器
             is_complete, is_upload, is_error, is_notice_error, is_else_error, \
-            is_battle_error, is_membership_error, is_invalid_grant, battle_cnt, coop_cnt = r
+                is_battle_error, is_membership_error, is_invalid_grant, battle_cnt, coop_cnt = r
 
             if is_complete:
                 counters["complete"] += 1
@@ -103,9 +103,10 @@ async def sync_stat_ink():
                 f"error_cnt: {counters['error']},battle_error_cnt: {counters['battle_error']},membership_error_cnt: {counters['membership_error']},"
                 f"invalid_grant_error_cnt:{counters['invalid_grant']},notice_error_cnt: {counters['notice_error']}")
     cron_logger.info(cron_msg)
-    notice_msg = (f"耗时:{str_time}\n完成: {counters['complete']},同步: {counters['upload']},b_cnt:{counters['battle_total']},c_cnt:{counters['coop_total']}\n"
-                  f"错误: {counters['error']},对战错误: {counters['battle_error']},缺少会员: {counters['membership_error']},无效登录吗?: {counters['invalid_grant']}\n"
-                  f"通知错误: {counters['notice_error']}")
+    notice_msg = (
+        f"耗时:{str_time}\n完成: {counters['complete']},同步: {counters['upload']},b_cnt:{counters['battle_total']},c_cnt:{counters['coop_total']}\n"
+        f"错误: {counters['error']},对战错误: {counters['battle_error']},缺少会员: {counters['membership_error']},无效登录吗?: {counters['invalid_grant']}\n"
+        f"通知错误: {counters['notice_error']}")
 
     await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
 
@@ -165,16 +166,22 @@ async def sync_stat_ink_func(db_user: UserTable):
 async def get_post_stat_msg(db_user):
     """获取同步消息文本"""
     cron_logger.debug(f"get user: {db_user.id},{db_user.game_name}, have stat_key: {db_user.stat_key}")
+    cron_logger.info(
+        f'start exported_to_stat_ink: user_db_id:{db_user.id},{db_user.game_name}')
+    cron_logger.debug(f'session_token: {db_user.session_token}')
+    cron_logger.debug(f'api_key: {db_user.stat_key}')
+
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
     # User复用以及定时任务用user对象
     platform = db_user.platform
     user_id = db_user.user_id
     msg_id = get_msg_id(platform, user_id)
+    # token复用，如果在公共缓存存在该用户，直接使用该缓存对象而不是创建新对象
     global_user_info = global_user_info_dict.get(msg_id)
     if global_user_info:
         u = global_user_info
-        splatoon = Splatoon(None, None, u, )
+        splatoon = Splatoon(None, None, u)
     else:
         # 新建cron任务对象
         u = dict_get_or_set_user_info(platform, user_id)
@@ -182,13 +189,11 @@ async def get_post_stat_msg(db_user):
             return
         splatoon = Splatoon(None, None, u, _type="cron")
         try:
-            # 刷新token
-            await splatoon.refresh_gtoken_and_bullettoken()
+            # 测试访问并刷新
+            await splatoon.test_page()
         except ValueError as e:
             if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
                 # 无效登录或会员过期 或被封禁
-                # 关闭连接池
-                await splatoon.req_client.close()
                 return "", str(e)
         except Exception as e:
             cron_logger.error(
@@ -423,10 +428,6 @@ def old_exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_la
 
 async def exported_to_stat_ink(splatoon: Splatoon, config_data: CONFIG_DATA):
     """同步战绩文件至stat.ink"""
-    cron_logger.info(
-        f'start exported_to_stat_ink: user_db_id:{splatoon.user_db_info.db_id},{splatoon.user_db_info.game_name}')
-    cron_logger.debug(f'session_token: {config_data.session_token}')
-    cron_logger.debug(f'api_key: {config_data.stat_key}')
 
     res = ""
     error = ""
