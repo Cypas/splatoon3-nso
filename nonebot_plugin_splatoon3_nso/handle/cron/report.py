@@ -56,7 +56,8 @@ async def create_set_report_tasks():
             try:
                 splatoon = Splatoon(None, None, u, _type="cron")
                 # 测试访问并刷新
-                await splatoon.test_page()
+                # await splatoon.test_page()
+                await splatoon.refresh_gtoken_and_bullettoken()
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
                 if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'has be banned']):

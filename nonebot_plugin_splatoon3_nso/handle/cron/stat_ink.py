@@ -190,7 +190,8 @@ async def get_post_stat_msg(db_user):
         splatoon = Splatoon(None, None, u, _type="cron")
         try:
             # 测试访问并刷新
-            await splatoon.test_page()
+            # await splatoon.test_page()
+            await splatoon.refresh_gtoken_and_bullettoken()
         except ValueError as e:
             if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
                 # 无效登录或会员过期 或被封禁
