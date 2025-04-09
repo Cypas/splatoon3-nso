@@ -336,7 +336,7 @@ class Splatoon:
                         self.logger.debug(f'_request: {t2}s')
                         return res.json()
                     except Exception as e:
-                        self.logger.error(f'{msg_id} _request nintendo fail,reason:{e},res:{res.text}, start retry...')
+                        self.logger.error(f'{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
                         try:
                             res = await self.req_client.post(GRAPHQL_URL, data=data,
                                                              headers=self.head_bullet(),
@@ -344,7 +344,7 @@ class Splatoon:
                             return res.json()
                         except Exception as e:
                             self.logger.error(
-                                f'{msg_id} _request nintendo twice fail,reason:{e},res:{res.text}')
+                                f'{msg_id} _request sp3net twice fail,reason:{e},res:{res.text}')
                             return None
                 else:
                     return None

@@ -604,7 +604,7 @@ class S3S:
 
             resp: dict = json.loads(api_response.text)
             if "error" in resp and "error_message" in resp:
-                self.logger.error(
+                self.logger.debug(
                     f"Error during f generation: \n{f_gen_url}  \nres_text:{api_response.text}")
                 return f"f resp error:{api_response.text}"
             f = resp.get("f")
