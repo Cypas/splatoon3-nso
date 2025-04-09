@@ -581,58 +581,56 @@ class S3S:
         api_head = {}
         api_body = {}
         api_response = None
-        # 信号量控制全局并发速度
-        async with self._semaphore:
-            try:
-                api_head = {
-                    'User-Agent': F_USER_AGENT,
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'X-znca-Platform': 'Android',
-                    'X-znca-Version': NSOAPP_VERSION,
-                    'X-znca-Client-Version': NSOAPP_VERSION,
+        try:
+            api_head = {
+                'User-Agent': F_USER_AGENT,
+                'Content-Type': 'application/json; charset=utf-8',
+                'X-znca-Platform': 'Android',
+                'X-znca-Version': NSOAPP_VERSION,
+                'X-znca-Client-Version': NSOAPP_VERSION,
 
-                }
-                api_body = {  # 'timestamp' & 'request_id' (uuid v4) set automatically
-                    'token': access_token,
-                    'hash_method': step,  # 1 = coral (NSO) token, 2 = webservicetoken
-                    'na_id': r_user_id
-                }
-                if step == 2 and coral_user_id is not None:
-                    api_body["coral_user_id"] = str(coral_user_id)
+            }
+            api_body = {  # 'timestamp' & 'request_id' (uuid v4) set automatically
+                'token': access_token,
+                'hash_method': step,  # 1 = coral (NSO) token, 2 = webservicetoken
+                'na_id': r_user_id
+            }
+            if step == 2 and coral_user_id is not None:
+                api_body["coral_user_id"] = str(coral_user_id)
 
-                # self.logger.info(f"f body:{json.dumps(api_body)}")
-                api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
-                # self.logger.info(f"f res_text:{api_response.text}")
+            # self.logger.info(f"f body:{json.dumps(api_body)}")
+            api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
+            # self.logger.info(f"f res_text:{api_response.text}")
 
-                resp: dict = json.loads(api_response.text)
-                if "error" in resp and "error_message" in resp:
-                    self.logger.error(
-                        f"Error during f generation: \n{f_gen_url}  \nres_text:{api_response.text}")
-                    return f"f resp error:{api_response.text}"
-                f = resp.get("f")
-                uuid = resp.get("request_id")
-                timestamp = resp.get("timestamp")
-                return f, uuid, timestamp
-            except (httpx.ConnectError, httpx.ConnectTimeout) as e:
-                if isinstance(e, httpx.ConnectError):
-                    return "NetConnectError"
-                elif isinstance(e, httpx.ConnectTimeout):
-                    return "NetConnectTimeout"
+            resp: dict = json.loads(api_response.text)
+            if "error" in resp and "error_message" in resp:
+                self.logger.error(
+                    f"Error during f generation: \n{f_gen_url}  \nres_text:{api_response.text}")
+                return f"f resp error:{api_response.text}"
+            f = resp.get("f")
+            uuid = resp.get("request_id")
+            timestamp = resp.get("timestamp")
+            return f, uuid, timestamp
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            if isinstance(e, httpx.ConnectError):
+                return "NetConnectError"
+            elif isinstance(e, httpx.ConnectTimeout):
+                return "NetConnectTimeout"
 
+        except Exception as e:
+            # self.logger.error(f"Error during f generation: Error {e}.")
+            try:  # if api_response never gets set
+                if api_response and api_response.text:
+                    self.logger.warning(
+                        f"Error during f generation: {f_gen_url}\nres:{api_response.text}")
+                else:
+                    self.logger.warning(
+                        f"Error during f generation: \n{f_gen_url}  status_code:{api_response.status_code}")
+                return f"resp error:{api_response.text}"
             except Exception as e:
-                # self.logger.error(f"Error during f generation: Error {e}.")
-                try:  # if api_response never gets set
-                    if api_response and api_response.text:
-                        self.logger.warning(
-                            f"Error during f generation: {f_gen_url}\nres:{api_response.text}")
-                    else:
-                        self.logger.warning(
-                            f"Error during f generation: \n{f_gen_url}  status_code:{api_response.status_code}")
-                    return f"resp error:{api_response.text}"
-                except Exception as e:
-                    self.logger.error(f"Error during f generation: Error {e}.")
-                    # 一般是status_code都获取不到
-                    return None
+                self.logger.error(f"Error during f generation: Error {e}.")
+                # 一般是status_code都获取不到
+                return None
 
 
 def init_global_nso_version_and_web_view_version():
