@@ -38,15 +38,22 @@ class CONFIG_DATA:
 class STAT:
     def __init__(self, splatoon: Splatoon, config_data: CONFIG_DATA):
         self.logger = nb_logger
-        self.g_token = config_data.g_token
-        self.session_token = config_data.session_token
-        self.bullet_token = config_data.bullet_token
-        self.stat_key = config_data.stat_key
         self.config_data = config_data
         self.splatoon = splatoon
+        self.stat_key = config_data.stat_key
         self.battle_cnt = 0
         self.coop_cnt = 0
         self.stat_url = ""
+
+    @property
+    def session_token(self):
+        return self.splatoon.session_token
+    @property
+    def g_token(self):
+        return self.splatoon.g_token
+    @property
+    def bullet_token(self):
+        return self.splatoon.bullet_token
 
     async def start(self, skipprefetch=False) -> tuple[int, int, str, str]:
         """开始stat同步"""
