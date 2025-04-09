@@ -96,6 +96,13 @@ class ReqClient:
             self._init_client()
             response = await self.client.request(method, url, **kwargs)
             return response
+        except RuntimeError as e:
+            if "the handler is closed" in str(e):
+                # 重建客户端并重试
+                await self.client.aclose()
+                self._init_client()
+                response = await self.client.request(method, url, **kwargs)
+                return response
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
         """自动恢复连接的 GET 请求"""
