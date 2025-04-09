@@ -48,9 +48,11 @@ class STAT:
     @property
     def session_token(self):
         return self.splatoon.session_token
+
     @property
     def g_token(self):
         return self.splatoon.g_token
+
     @property
     def bullet_token(self):
         return self.splatoon.bullet_token
@@ -117,6 +119,7 @@ class STAT:
                 # same as code in -i section below...
                 _pool = 4
                 semaphore = asyncio.Semaphore(_pool)  # 并发控制
+
                 async def process_id(id):
                     async with semaphore:
                         await self.check_if_missing_func(
@@ -155,8 +158,6 @@ class STAT:
 
         await self.fetch_and_upload_single_result(id, noun, isblackout, istestrun)
 
-
-
     async def fetch_and_upload_single_result(self, hash_, noun, isblackout, istestrun):
         """Performs a GraphQL request for a single vsResultId/coopHistoryDetailId and call post_result()."""
 
@@ -166,23 +167,14 @@ class STAT:
         else:  # noun == "jobs" or "job"
             dict_key = "CoopHistoryDetailQuery"
             dict_key2 = "coopHistoryDetailId"
+        data = utils.gen_graphql_body(utils.translate_rid[dict_key], dict_key2, hash_)
 
-        result_post = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
-                                                          data=utils.gen_graphql_body(utils.translate_rid[dict_key],
-                                                                                      dict_key2,
-                                                                                      hash_),
-                                                          headers=self.headbutt(force_lang="zh-CN", force_country="JP"),
-                                                          cookies=dict(_gtoken=self.g_token))
+        result_post = await self._request(data, multiple=True)
         try:
             result = json.loads(result_post.text)
             await self.post_result(result, False, isblackout, istestrun)  # not monitoring mode
         except json.decoder.JSONDecodeError:  # retry once, hopefully avoid a few errors
-            result_post = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
-                                                              data=utils.gen_graphql_body(utils.translate_rid[dict_key],
-                                                                                          dict_key2, hash_),
-                                                              headers=self.headbutt(force_lang="zh-CN",
-                                                                                    force_country="JP"),
-                                                              cookies=dict(_gtoken=self.g_token))
+            result_post = await self._request(data, multiple=True)
             try:
                 result = json.loads(result_post.text)
                 await self.post_result(result, False, isblackout, istestrun)
@@ -258,20 +250,14 @@ class STAT:
                 sha = utils.translate_rid[sha]
                 battle_ids, job_ids = [], []
 
-                query1 = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
-                                                             data=utils.gen_graphql_body(sha),
-                                                             headers=self.headbutt(force_lang=lang,
-                                                                                   force_country=country),
-                                                             cookies=dict(_gtoken=self.g_token))
+                data = utils.gen_graphql_body(sha)
+                query1 = await self._request(data)
                 try:
                     query1_resp = json.loads(query1.text)
                 except Exception as e:
                     # retry again
-                    query1 = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
-                                                                 data=utils.gen_graphql_body(sha),
-                                                                 headers=self.headbutt(force_lang=lang,
-                                                                                       force_country=country),
-                                                                 cookies=dict(_gtoken=self.g_token))
+                    data = utils.gen_graphql_body(sha)
+                    query1 = await self._request(data)
                     try:
                         query1_resp = json.loads(query1.text)
                     except Exception as e:
@@ -363,44 +349,28 @@ class STAT:
                 combined = ink_list + salmon_list
                 return combined
 
-    def headbutt(self, force_lang=None, force_country=None):
+    def _headbutt(self, force_lang=None, force_country=None):
         """Returns a (dynamic!) header used for GraphQL requests."""
+        return self.splatoon.head_bullet(force_lang, force_country)
 
-        if force_lang:
-            lang = force_lang
-            country = force_country
-        else:
-            lang = self.config_data.user_lang
-            country = self.config_data.user_country
-
-        graphql_head = {
-            'Authorization': f'Bearer {self.bullet_token}',  # update every time it's called with current global var
-            'Accept-Language': lang,
-            'User-Agent': iksm.APP_USER_AGENT,
-            'X-Web-View-Ver': iksm.S3S.get_web_view_ver(),
-            'Content-Type': 'application/json',
-            'Accept': '*/*',
-            'Origin': iksm.SPLATNET3_URL,
-            'X-Requested-With': 'com.nintendo.znca',
-            'Referer': f'{iksm.SPLATNET3_URL}?lang={lang}&na_country={country}&na_lang={lang}',
-            'Accept-Encoding': 'gzip, deflate'
-        }
-        return graphql_head
+    def _request(self, data, multiple=False, force_lang=None, force_country=None):
+        """sp3 整合请求"""
+        return self.splatoon.request(data, multiple, force_lang, force_country)
 
     async def fetch_detailed_result(self, is_vs_history, history_id):
         """Helper function for fetch_json()."""
 
         sha = "VsHistoryDetailQuery" if is_vs_history else "CoopHistoryDetailQuery"
         varname = "vsResultId" if is_vs_history else "coopHistoryDetailId"
-        lang = None if is_vs_history else "zh-CN"
-        country = None if is_vs_history else "zh-CN"
 
-        query2 = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
-                                                     data=utils.gen_graphql_body(utils.translate_rid[sha], varname,
-                                                                                 history_id),
-                                                     headers=self.headbutt(force_lang=lang, force_country=country),
-                                                     cookies=dict(_gtoken=self.g_token))
-        query2_resp = json.loads(query2.text)
+        data = utils.gen_graphql_body(utils.translate_rid[sha], varname, history_id)
+        query2 = await self._request(data, multiple=True)
+        try:
+            query2_resp = json.loads(query2.text)
+        except json.JSONDecodeError as e:
+            data = utils.gen_graphql_body(utils.translate_rid[sha], varname, history_id)
+            query2 = await self._request(data, multiple=True)
+            query2_resp = json.loads(query2.text)
 
         return query2_resp
 
@@ -602,12 +572,8 @@ class STAT:
             battle_id_mutated = battle_id.replace("BANKARA", "RECENT")  # normalize the ID, make work with -M and -r
 
             if overview_data is None:  # no passed in file with -i
-                overview_post = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
-                                                                    data=utils.gen_graphql_body(
-                                                                        utils.translate_rid[
-                                                                            "BankaraBattleHistoriesQuery"]),
-                                                                    headers=self.headbutt(),
-                                                                    cookies=dict(_gtoken=self.g_token))
+                data = utils.gen_graphql_body(utils.translate_rid["BankaraBattleHistoriesQuery"])
+                overview_post = await self._request(data, multiple=True)
                 try:
                     overview_data = [
                         json.loads(overview_post.text)]  # make the request in real-time in attempt to get rank, etc.
@@ -699,11 +665,8 @@ class STAT:
             battle_id_mutated = battle_id.replace("XMATCH", "RECENT")
 
             if overview_data is None:  # no passed in file with -i
-                overview_post = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
-                                                                    data=utils.gen_graphql_body(
-                                                                        utils.translate_rid["XBattleHistoriesQuery"]),
-                                                                    headers=self.headbutt(),
-                                                                    cookies=dict(_gtoken=self.g_token))
+                data = utils.gen_graphql_body(utils.translate_rid["XBattleHistoriesQuery"])
+                overview_post = await self._request(data, multiple=True)
                 try:
                     overview_data = [
                         json.loads(overview_post.text)]  # make the request in real-time in attempt to get rank, etc.
@@ -858,14 +821,8 @@ class STAT:
                             except KeyError:  # prev job was private or disconnect
                                 pass
                 else:
-                    prev_job_post = await self.splatoon.req_client.post(utils.GRAPHQL_URL,
-                                                                        data=utils.gen_graphql_body(
-                                                                            utils.translate_rid[
-                                                                                "CoopHistoryDetailQuery"],
-                                                                            "coopHistoryDetailId", prev_job_id),
-                                                                        headers=self.headbutt(force_lang="zh-CN",
-                                                                                              force_country="JP"),
-                                                                        cookies=dict(_gtoken=self.g_token))
+                    data = utils.gen_graphql_body(utils.translate_rid["CoopHistoryDetailQuery"],"coopHistoryDetailId", prev_job_id)
+                    prev_job_post = await self._request(data, multiple=True)
                     try:
                         prev_job = json.loads(prev_job_post.text)
 
@@ -1255,7 +1212,7 @@ class STAT:
     #                                                                   data=utils.gen_graphql_body(
     #                                                                       utils.translate_rid["VsHistoryDetailQuery"],
     #                                                                       "vsResultId", num),
-    #                                                                   headers=self.headbutt(),
+    #                                                                   headers=self._headbutt(),
     #                                                                   cookies=dict(_gtoken=self.g_token))
     #                 result = json.loads(result_post.text)
     #
@@ -1314,7 +1271,7 @@ class STAT:
     #                                                                   data=utils.gen_graphql_body(
     #                                                                       utils.translate_rid["CoopHistoryDetailQuery"],
     #                                                                       "coopHistoryDetailId", num),
-    #                                                                   headers=self.headbutt(force_lang="zh-CN",
+    #                                                                   headers=self._headbutt(force_lang="zh-CN",
     #                                                                                         force_country="JP"),
     #                                                                   cookies=dict(_gtoken=self.g_token))
     #                 result = json.loads(result_post.text)

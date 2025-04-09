@@ -170,6 +170,7 @@ async def get_post_stat_msg(db_user):
         f'start exported_to_stat_ink: user_db_id:{db_user.id},{db_user.game_name}')
     cron_logger.debug(f'session_token: {db_user.session_token}')
     cron_logger.debug(f'api_key: {db_user.stat_key}')
+    msg, error_msg, battle_cnt, coop_cnt = "", "", 0, 0
 
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
