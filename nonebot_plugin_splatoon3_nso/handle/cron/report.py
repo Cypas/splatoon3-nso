@@ -35,7 +35,7 @@ async def create_set_report_tasks():
     # 阶段1：认证刷新池（并发限制2）
     phase1_semaphore = asyncio.Semaphore(3)
     # 阶段2：报告生成池（并发限制4）
-    phase2_semaphore = asyncio.Semaphore(4)
+    phase2_semaphore = asyncio.Semaphore(3)
 
     # ================== 阶段1：认证刷新 ==================
     async def process_phase1(p_and_id):
@@ -56,13 +56,13 @@ async def create_set_report_tasks():
             try:
                 splatoon = Splatoon(None, None, u, _type="cron")
                 # 测试访问并刷新
-                # await splatoon.test_page()
-                await splatoon.refresh_gtoken_and_bullettoken()
+                success = await splatoon.test_page()
+                # success = await splatoon.refresh_gtoken_and_bullettoken()
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
                 if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'has be banned']):
-                    cron_logger.info(f"跳过无效用户: {msg_id}")
-                return None
+                    cron_logger.info(f"跳过无效用户: {msg_id}，reason:{e}")
+                    return None
 
     # 阶段1
     phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
@@ -71,7 +71,7 @@ async def create_set_report_tasks():
     # ================== 阶段2：报告生成 ==================
     valid_splatoons = [s for s in phase1_splatoons if s is not None]
 
-    async def process_phase2(splatoon:Splatoon):
+    async def process_phase2(splatoon: Splatoon):
         async with phase2_semaphore:
             result = await set_user_report_task(
                 (splatoon.platform, splatoon.user_id),
@@ -107,33 +107,45 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
     platform, user_id = p_and_id
     msg_id = get_msg_id(platform, user_id)
 
+    cron_logger.info(f'set_report: {msg_id}, {splatoon.user_name}')
+    # 再次校验是否有访问权限
+    success = False
     try:
-        cron_logger.debug(f'set_user_report: {msg_id}, {splatoon.user_name}')
+        success = await splatoon.test_page()
+    except ValueError as e:
+        # 预期错误，token更新失败
+        cron_logger.debug(f'set_report error: {msg_id}, {splatoon.user_name},reason：{e}')
+        return False
 
-        # ================== 请求执行 ==================
-        # 历史摘要（首次无参数，重试带参数）
-        res_summary = await fetch_with_retry(
-            coro_func=lambda: splatoon.get_history_summary(),
-            retry_func=lambda: splatoon.get_history_summary(multiple=True)
-        )
+    if not success:
+        # 无效token
+        cron_logger.error(f'set_report error: {msg_id}, {splatoon.user_name},refresh_tokens fail')
+        return False
 
-        # 对战数据（始终带参数）
-        res_battle = await fetch_with_retry(
-            coro_func=lambda: splatoon.get_recent_battles(multiple=True),
-            retry_func=lambda: splatoon.get_recent_battles(multiple=True)
-        )
+    try:
+        # ================== 并发执行所有请求 ==================
+        # 创建所有请求任务
+        tasks = [
+            fetch_with_retry(
+                lambda: splatoon.get_history_summary(multiple=True),
+                lambda: splatoon.get_history_summary(multiple=True)
+            ),
+            fetch_with_retry(
+                lambda: splatoon.get_recent_battles(multiple=True),
+                lambda: splatoon.get_recent_battles(multiple=True)
+            ),
+            fetch_with_retry(
+                lambda: splatoon.get_coops(multiple=True),
+                lambda: splatoon.get_coops(multiple=True)
+            ),
+            fetch_with_retry(
+                lambda: splatoon.get_total_query(multiple=True),
+                lambda: splatoon.get_total_query(multiple=True)
+            )
+        ]
 
-        # 打工数据（始终带参数）
-        res_coop = await fetch_with_retry(
-            coro_func=lambda: splatoon.get_coops(multiple=True),
-            retry_func=lambda: splatoon.get_coops(multiple=True)
-        )
-
-        # 全局统计（始终带参数）
-        all_data = await fetch_with_retry(
-            coro_func=lambda: splatoon.get_total_query(multiple=True),
-            retry_func=lambda: splatoon.get_total_query(multiple=True)
-        )
+        # 同时执行所有任务
+        res_summary, res_battle, res_coop, all_data = await asyncio.gather(*tasks)
 
         # ================== 数据校验 ==================
         if not all([res_summary, res_battle, res_coop, all_data]):

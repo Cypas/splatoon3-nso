@@ -75,7 +75,7 @@ class Splatoon:
         # 修改全局字典
         dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, **kwargs)
 
-    async def refresh_gtoken_and_bullettoken(self, skip_access=True):
+    async def refresh_gtoken_and_bullettoken(self, skip_access=True) -> bool:
         """刷新gtoken 和 bullettoken"""
         msg_id = get_msg_id(self.platform, self.user_id)
         new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
@@ -98,7 +98,7 @@ class Splatoon:
                     # redis set g_token
                     await rset_gtoken(game_sp_id, new_g_token)
             except Exception as e:
-                self.logger.warning(f'{msg_id} refresh_g_and_b_token error. reason:{e}')
+                self.logger.warning(f'{self.user_db_info.db_id},{msg_id} refresh_g_and_b_token error. reason:{e}')
                 if self.user_db_info:
                     user = self.user_db_info
                     if 'invalid_grant' in str(e):
@@ -118,9 +118,9 @@ class Splatoon:
                                     await notify_to_private(self.platform, self.user_id, msg)
                                 except Exception as e:
                                     self.logger.warning(
-                                        f'msg_id:{msg_id} private notice error: {e}')
+                                        f'{self.user_db_info.db_id},msg_id:{msg_id} private notice error: {e}')
                             raise ValueError('invalid_grant')
-                        return
+                        return False
                     elif "Membership required" in str(e):
                         # 会员过期
                         self.logger.warning(
@@ -128,9 +128,10 @@ class Splatoon:
                         # 切割 会员过期 警告信息
                         nickname = str(e).split('|')[1] or ""
                         # 待发送文本
-                        msg = f"喷3账号 {nickname} 会员过期"
+                        msg = f"喷3账号 {nickname} nso会员过期"
                         if self.bot and self.event:
-                            self.logger.warning('membership_required notify')
+                            msg += ",无法使用nso查询功能"
+                            self.logger.warning(f'db_id:{user.db_id},membership_required notify')
                             # 来自用户主动请求
                             await bot_send(self.bot, self.event, msg)
                         else:
@@ -141,9 +142,8 @@ class Splatoon:
                             #     await notify_to_private(self.platform, self.user_id, msg)
 
                             raise ValueError('Membership required')
-                        return
-                    self.logger.warning(
-                        f'invalid_user: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}')
+                        return False
+                return False
 
         if new_g_token:
             try:
@@ -264,7 +264,7 @@ class Splatoon:
         }
         return graphql_head
 
-    async def test_page(self, multiple=False):
+    async def test_page(self, multiple=False) -> bool:
         """主页(测试访问页面) """
         data = gen_graphql_body(translate_rid["HomeQuery"])
 
@@ -276,8 +276,12 @@ class Splatoon:
             if not multiple and self.bot and self.event:
                 await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
 
-            await self.refresh_gtoken_and_bullettoken()
-            self.logger.debug(f'{msg_id} refresh tokens complete')
+            success = await self.refresh_gtoken_and_bullettoken()
+            if success:
+                self.logger.info(f'{msg_id} refresh tokens complete，try again')
+            else:
+                self.logger.error(f'{msg_id} refresh tokens fail, return False')
+                return False
 
         # t = time.time()
         headers = self.head_bullet()
@@ -290,25 +294,44 @@ class Splatoon:
                 if not multiple and self.bot and self.event:
                     await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                 try:
-                    self.logger.info(f'{msg_id},{self.user_name},{self.user_db_info.game_name} tokens expired,start refresh tokens soon')
-                    await self.refresh_gtoken_and_bullettoken()
-                    self.logger.info(f'{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens complete，try again')
+                    self.logger.info(
+                        f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} tokens expired,start refresh tokens soon')
+                    success = await self.refresh_gtoken_and_bullettoken()
+                    if success:
+                        self.logger.info(
+                            f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens complete，try again')
+                        return True
+                    else:
+                        self.logger.error(
+                            f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail, return False')
+                        return False
+                except ValueError as e:
+                    # 定时任务各种预期错误
+                    raise e
                 except Exception as e:
-                    self.logger.info(f'{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
+                    self.logger.info(
+                        f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
+            return False
+        else:
+            return True
 
-    async def request(self, data, multiple=False, force_lang=None, force_country=None):
+    async def request(self, data, multiple=False, force_lang=None, force_country=None, return_json=True):
         res = ''
         msg_id = get_msg_id(self.platform, self.user_id)
         try:
             if not self.bullet_token or not self.g_token:
                 # 首次请求如果为空时
-                self.logger.info(f'{msg_id} tokens is None,start refresh tokens soon')
+                self.logger.info(f'{self.user_db_info.db_id},{msg_id} tokens is None,start refresh tokens soon')
                 # 更新token提醒一下用户
                 if not multiple and self.bot and self.event:
                     await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
 
-                await self.refresh_gtoken_and_bullettoken()
-                self.logger.debug(f'{msg_id} refresh tokens complete')
+                success = await self.refresh_gtoken_and_bullettoken()
+                if success:
+                    self.logger.info(f'{self.user_db_info.db_id},{msg_id} refresh tokens complete，try again')
+                else:
+                    self.logger.error(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail, return None')
+                    return None
             t = time.time()
             res = await self.req_client.post(GRAPHQL_URL, data=data,
                                              headers=self.head_bullet(),
@@ -322,11 +345,15 @@ class Splatoon:
                     if self.bot and self.event:
                         await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                     try:
-                        self.logger.info(f'{msg_id} tokens expired,start refresh tokens soon')
-                        await self.refresh_gtoken_and_bullettoken()
-                        self.logger.info(f'{msg_id} refresh tokens complete，try again')
+                        self.logger.info(f'{self.user_db_info.db_id},{msg_id} tokens expired,start refresh tokens soon')
+                        success = await self.refresh_gtoken_and_bullettoken()
+                        if success:
+                            self.logger.info(f'{self.user_db_info.db_id},{msg_id} refresh tokens complete，try again')
+                        else:
+                            self.logger.error(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail, return None')
+                            return None
                     except Exception as e:
-                        self.logger.error(f'{msg_id} refresh tokens fail,reason:{e}')
+                        self.logger.error(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail,reason:{e}')
                     try:
                         t = time.time()
                         res = await self.req_client.post(GRAPHQL_URL, data=data,
@@ -334,40 +361,58 @@ class Splatoon:
                                                          cookies=dict(_gtoken=self.g_token))
                         t2 = f'{time.time() - t:.3f}'
                         self.logger.debug(f'_request: {t2}s')
-                        return res.json()
+                        if return_json:
+                            return res.json()
+                        else:
+                            return res
                     except Exception as e:
-                        self.logger.error(f'{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
+                        self.logger.error(f'{self.user_db_info.db_id},{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
                         try:
                             res = await self.req_client.post(GRAPHQL_URL, data=data,
                                                              headers=self.head_bullet(),
                                                              cookies=dict(_gtoken=self.g_token))
-                            return res.json()
+                            if return_json:
+                                return res.json()
+                            else:
+                                return res
                         except Exception as e:
                             self.logger.error(
-                                f'{msg_id} _request sp3net twice fail,reason:{e},res:{res.text}')
-                            return None
+                                f'{self.user_db_info.db_id},{msg_id} _request sp3net twice fail,reason:{e},res:{res.text}')
+                            if return_json:
+                                return None
+                            else:
+                                return res
                 else:
-                    return None
+                    if return_json:
+                        return None
+                    else:
+                        return res
             else:
-                return res.json()
+                if return_json:
+                    return res.json()
+                else:
+                    return res
         except httpx.ConnectError:
-            self.logger.warning(f'{msg_id} _request error: connectError')
+            self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _request error: connectError')
             raise ValueError('NetConnectError')
         except httpx.ConnectTimeout:
-            self.logger.warning(f'{msg_id} _request error: connectTimeout')
+            self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _request error: connectTimeout')
             raise ValueError('NetConnectTimeout')
         except ValueError as e:
             raise e
         except Exception as e:
-            self.logger.warning(f'{msg_id} _request error: {e}')
+            self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _request error: {e}')
             self.logger.warning(f'data:{data}')
             if res:
                 self.logger.warning(f'res:{res}')
                 self.logger.warning(f'status_code:{res.status_code}')
                 self.logger.warning(f'res.text:{res.text}')
-            return None
+            if return_json:
+                return None
+            else:
+                return res
 
-    async def _ns_api_request(self, url, multiple=False):
+    async def _ns_api_request(self, url, multiple=False) -> bool | None:
         """ns接口层操作，如ns好友列表，我的 页面"""
         res = ''
         msg_id = get_msg_id(self.platform, self.user_id)
@@ -383,11 +428,15 @@ class Splatoon:
                 if not multiple and self.bot and self.event:
                     await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                 try:
-                    self.logger.info(f'{msg_id}  tokens expired,start refresh tokens soon')
-                    await self.refresh_gtoken_and_bullettoken()
-                    self.logger.info(f'{msg_id} refresh tokens complete，try again')
+                    self.logger.info(f'{self.user_db_info.db_id},{msg_id}  tokens expired,start refresh tokens soon')
+                    success = await self.refresh_gtoken_and_bullettoken()
+                    if success:
+                        self.logger.info(f'{self.user_db_info.db_id},{msg_id} refresh tokens complete，try again')
+                    else:
+                        self.logger.error(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail, return None')
+                        return None
                 except Exception as e:
-                    self.logger.info(f'{msg_id} refresh tokens fail,reason:{e}')
+                    self.logger.info(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail,reason:{e}')
                 # 再次请求
                 json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
                 t = time.time()
@@ -403,15 +452,15 @@ class Splatoon:
             else:
                 return res.json()
         except httpx.ConnectError:
-            self.logger.warning(f'{msg_id} _ns_api_request error: connectError')
+            self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _ns_api_request error: connectError')
             raise ValueError('NetConnectError')
         except httpx.ConnectTimeout:
-            self.logger.warning(f'{msg_id} _ns_api_request error: connectTimeout')
+            self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _ns_api_request error: connectTimeout')
             raise ValueError('NetConnectTimeout')
         except ValueError as e:
             raise e
         except Exception as e:
-            self.logger.warning(f'{msg_id} _request error: {e}')
+            self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _request error: {e}')
             self.logger.warning(f'data:{url}')
             self.logger.warning(f'res:{res}')
             # if res:
@@ -551,19 +600,20 @@ class Splatoon:
     async def app_ns_friend_list(self, multiple=False):
         """nso 好友列表"""
         url = "https://api-lp1.znc.srv.nintendo.net/v3/Friend/List"
-        res = await self._ns_api_request(url, multiple=multiple)
-        if not res:
-            raise ValueError('NetConnectError')
+        try:
+            res = await self._ns_api_request(url, multiple=multiple)
+        except Exception as e:
+            raise e
         return res
 
     async def app_ns_myself(self, multiple=False):
         """nso 我的 页面
         返回ns好友码"""
         url = "https://api-lp1.znc.srv.nintendo.net/v4/User/ShowSelf"
-        res = await self._ns_api_request(url, multiple=multiple)
-        if not res:
-            raise ValueError('NetConnectError')
-
+        try:
+            res = await self._ns_api_request(url, multiple=multiple)
+        except Exception as e:
+            raise e
         name = res['result']['name']
         my_sw_code = res['result']['links']['friendCode']['id']
         icon = res['result']['imageUri']

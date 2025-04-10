@@ -61,7 +61,7 @@ async def sync_stat_ink():
         "battle_total": 0,
         "coop_total": 0
     }
-    _pool = 3
+    _pool = 4
     semaphore = asyncio.Semaphore(_pool)  # 控制最大并发数
 
     async def process_user(db_user):
@@ -196,11 +196,11 @@ async def get_post_stat_msg(db_user):
         except ValueError as e:
             if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
                 # 无效登录或会员过期 或被封禁
-                return "", str(e)
+                return "", str(e), battle_cnt, coop_cnt
         except Exception as e:
             cron_logger.error(
                 f'stat_ink_task error: {msg_id},{db_user.game_name},refresh_gtoken_and_bullettoken error:{e}')
-            return "", str(e)
+            return "", str(e), battle_cnt, coop_cnt
 
     # 两个f_api 负载均衡
     f_url_lst = [F_GEN_URL, F_GEN_URL_2]
@@ -235,6 +235,7 @@ async def get_post_stat_msg(db_user):
                 next_f_str = "F_URL"
                 next_f_url = F_GEN_URL
             cron_logger.warning(f"{db_user.id}, {db_user.game_name}, {now_f_str} Error，try {next_f_str} again")
+            splatoon.s3s.f_gen_url = next_f_url
             res = await exported_to_stat_ink(splatoon=splatoon, config_data=config_data)
 
             if not isinstance(res, tuple):
@@ -430,9 +431,6 @@ def old_exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_la
 
 async def exported_to_stat_ink(splatoon: Splatoon, config_data: CONFIG_DATA):
     """同步战绩文件至stat.ink"""
-
-    res = ""
-    error = ""
     battle_cnt = 0
     coop_cnt = 0
     url = ''
@@ -452,9 +450,6 @@ async def exported_to_stat_ink(splatoon: Splatoon, config_data: CONFIG_DATA):
         else:
             cron_logger.error(
                 f'user_db_id:{splatoon.user_db_info.db_id} upload stat unexpected error,result:\n{error_msg}')
-    elif res:
-        # success
-        cron_logger.debug(f'user_db_id:{splatoon.user_db_info.db_id} upload stat success,result:\n{res}')
 
     cron_logger.info(
         f'upload stat success,user_db_id:{splatoon.user_db_info.db_id},{splatoon.user_db_info.game_name} result: {battle_cnt}, {coop_cnt}, {url}')

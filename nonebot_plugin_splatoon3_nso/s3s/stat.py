@@ -13,6 +13,7 @@ from nonebot import logger as nb_logger
 
 from . import utils, iksm
 from .splatoon import Splatoon
+from ..utils import get_msg_id
 
 thread_pool = ThreadPoolExecutor(max_workers=4)
 
@@ -194,8 +195,11 @@ class STAT:
 
     async def prefetch_checks(self):
         """检查bullet_token是否过期，并提供刷新"""
+        msg_id = get_msg_id(self.splatoon.platform, self.splatoon.user_id)
         try:
-            await self.splatoon.test_page()
+            success = await self.splatoon.test_page()
+            if not success:
+                raise ValueError(f"{msg_id} stat prefetch_checks error:test_page fail")
         except ValueError as e:
             # 预期错误，如无效凭证和会员过期
             raise e
@@ -353,9 +357,9 @@ class STAT:
         """Returns a (dynamic!) header used for GraphQL requests."""
         return self.splatoon.head_bullet(force_lang, force_country)
 
-    def _request(self, data, multiple=False, force_lang=None, force_country=None):
+    def _request(self, data, multiple=False, force_lang=None, force_country=None, return_json=False):
         """sp3 整合请求"""
-        return self.splatoon.request(data, multiple, force_lang, force_country)
+        return self.splatoon.request(data, multiple, force_lang, force_country, return_json)
 
     async def fetch_detailed_result(self, is_vs_history, history_id):
         """Helper function for fetch_json()."""
@@ -1118,8 +1122,8 @@ class STAT:
                                                                                 self.config_data.get_config()):  # SR version
                 continue
 
-            s3s_values = {'agent': '\u0073\u0033\u0073', 'agent_version': f'v{iksm.A_VERSION}'}  # lol
-            s3s_values["agent_variables"] = {'Upload Mode': "Monitoring" if ismonitoring else "Manual"}
+            s3s_values = {'agent': f'{iksm.S3S_AGENT}', 'agent_version': f'v{iksm.S3S_VERSION}',
+                          "agent_variables": {'Upload Mode': "Monitoring" if ismonitoring else "Manual"}}  # lol
             payload.update(s3s_values)
 
             # if payload["agent"][0:3] != os.path.basename(__file__)[:-3]:
