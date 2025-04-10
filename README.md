@@ -57,9 +57,7 @@ _✨ splatoon3 nso查询插件 ✨_
 ### 前置环境
 
 - python3.10或以上版本
-- 系统安装有2.30版本以上git
-- deno引擎，安装参考 https://www.denojs.cn/
-- 如需在win下使用，还需要安装win版sed，[下载地址](https://sourceforge.net/projects/gnuwin32/files/sed/)
+- 本地或远程的redis数据库
 
 ### 插件安装
 
@@ -101,7 +99,6 @@ _✨ splatoon3 nso查询插件 ✨_
 |           splatoon3_reply_mode           | 否  | bool |                                                  False                                                   |                     指定回复模式，开启后将通过触发词的消息进行回复，默认为False(该配置项与日程查询插件公用)                      |
 |        splatoon3_proxy_list_mode         | 否  | bool |                                                   True                                                   |                局部域名代理模式,具体依据自己服务器对各个域名的访问情况进行设置，默认True，False情况为全部域名请求走代理                 |
 |           splatoon3_proxy_list           | 否  | list | [见源码](https://github.com/Cypas/splatoon3-nso/blob/master/nonebot_plugin_splatoon3_nso/config.py#L14-L23) |                                         局部域名代理列表                                         |
-|           splatoon3_deno_path            | 否  | str  |                                                    ""                                                    | 需要先在系统下安装deno，参考https://www.denojs.cn/ 此处填写安装路径，具体到deno文件，如"/home/ubuntu/.deno/bin/deno" |
 | splatoon3_schedule_plugin_priority_mode  | 否  | bool |                                                  False                                                   |                       日程插件的帮助菜单优先模式(会影响帮助菜单由哪个插件提供，该配置项与日程查询插件公用)                        |
 |          splatoon3_kk_guild_id           | 否  | str  |                                                    ""                                                    |                             Q群在进行登录时，将用户引导至kook平台完成登录的服务器id                              |
 |     splatoon3_bot_disconnect_notify      | 否  | bool |                                                   True                                                   |                                      bot上线，掉线时通知到频道                                      |
@@ -122,7 +119,6 @@ splatoon3_proxy_address = "" #代理地址
 splatoon3_reply_mode = False #指定回复模式
 splatoon3_proxy_list_mode = True #局部域名代理模式,具体依据自己服务器对各个域名的访问情况进行设置，默认True，False情况为全部域名请求走代理
 splatoon3_proxy_list = ["accounts.nintendo.com", "api.accounts.nintendo.com", "api-lp1.znc.srv.nintendo.net"] #局部域名代理列表
-splatoon3_deno_path = "" #需要先在系统下安装deno，参考https://www.denojs.cn/ 此处填写安装路径，具体到deno文件，如"/home/ubuntu/.deno/bin/deno"
 splatoon3_schedule_plugin_priority_mode = False #日程插件的帮助菜单优先模式(会影响帮助菜单由哪个插件提供，该配置项与日程查询插件公用)
 splatoon3_kk_guild_id = "" #Q群在进行登录时，将用户引导至kook平台完成登录的服务器id
 splatoon3_bot_disconnect_notify = True #bot上线，掉线时通知到频道
@@ -136,6 +132,13 @@ splatoon3_tg_channel_job_chat_id = ""
 splatoon3_notify_kk_bot_id = ""
 splatoon3_kk_channel_msg_chat_id = ""
 splatoon3_kk_channel_job_chat_id = ""
+# redis数据库地址
+# redis_ip
+splatoon3_redis_ip: str = ""
+# redis_port
+splatoon3_redis_port: str|int = ""
+# redis_psw
+splatoon3_redis_psw: str = ""
 ```
 
 </details>

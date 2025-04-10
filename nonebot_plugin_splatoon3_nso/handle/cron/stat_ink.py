@@ -310,123 +310,123 @@ async def update_s3si_ts():
     await cron_notify_to_channel("update_s3si_ts", "end", f"耗时:{str_time}")
 
 
-def old_exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="zh-CN", g_token="",
-                             bullet_token=""):
-    """同步战绩文件至stat.ink"""
-    cron_logger.info(f'start exported_to_stat_ink: user_db_id:{user_id}')
-    cron_logger.debug(f'session_token: {session_token}')
-    cron_logger.debug(f'api_key: {api_key}')
-    user_lang = user_lang or 'zh-CN'
-
-    s3sits_folder = f'{DIR_RESOURCE}/s3sits_git'
-    os.chdir(s3sits_folder)
-
-    # 检查deno路径是否配置
-    deno_path = plugin_config.splatoon3_deno_path
-    if not deno_path or not os.path.exists(deno_path):
-        cron_logger.info(f'deno_path not set: {deno_path or ""} '.center(120, '-'))
-        return
-
-    # 新建或修改配置项
-    path_config_file = f'{s3sits_folder}/user_configs/config_{user_id}.json'
-    if not os.path.exists(path_config_file):
-        # 新建文件
-        config_data = {
-            "fGen": f_gen_url,
-            "userLang": user_lang,
-            "loginState": {
-                "sessionToken": session_token,
-                "gToken": g_token,
-                "bulletToken": bullet_token,
-            },
-            "statInkApiKey": api_key
-        }
-        with open(path_config_file, 'w') as f:
-            f.write(json.dumps(config_data, indent=2, sort_keys=False, separators=(',', ': ')))
-    else:
-        # 写入配置文件
-        # fGen写入过程中 https://含有/ 会和控制符/冲突，此处控制符得改为#
-        cmds = [
-            f"""sed -i 's#fGen[^,]*,#fGen\": \"{f_gen_url}\",#' {path_config_file}""",
-            f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/' {path_config_file}""",
-            f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/' {path_config_file}""",
-            f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/' {path_config_file}""",
-        ]
-        if g_token and bullet_token:
-            cmds.append(f"""sed -i 's/gToken[^,]*,/gToken\": \"{g_token}\",/' {path_config_file}""")
-            cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
-
-    env = {}
-    # deno代理配置
-    # http
-    if proxy_address:
-        env.update({"HTTP_PROXY": f"http://{proxy_address}",
-                    "HTTPS_PROXY": f"http://{proxy_address}"
-                    })
-    # no proxy
-    if plugin_config.splatoon3_proxy_list_mode and proxy_address:
-        env.update({"NO_PROXY": f"api.lp1.av5ja.srv.nintendo.net"})
-
-    # run deno
-    cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
-    cron_logger.debug(cmd)
-
-    res = ""
-    error = ""
-    battle_cnt = 0
-    coop_cnt = 0
-    url = ''
-    error_msg = ""
-
-    try:
-        rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE,
-                                                                 stderr=subprocess.PIPE, env=env, timeout=300)
-        res = rtn.stdout.decode('utf-8')
-        error = rtn.stderr.decode('utf-8')
-    except subprocess.TimeoutExpired:
-        error_msg = f"deno run timeout\n"
-    except Exception as e:
-        if "html" in e:
-            e = "html error"
-        error_msg = f"deno run err:\n{e}"
-    if error:
-        # error里面混有deno debug内容，需要经过过滤
-        for line in error.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            # 输出内容加了供终端显示颜色的ascii码，将其转化为b64 str后再判断前缀
-            if strToBase64(line).startswith('G1swbRtbMzJtRG93bmxvYWQbWzBtIGh0dHBzOi8vZGVuby5sYW5kL3'):
-                continue
-            error_msg += f"{line}\n"
-
-    if error_msg:
-        expect = ""
-        for expected_str in expected_str_list:
-            if expected_str in error_msg:
-                expect = expected_str
-                break
-        if expect:
-            cron_logger.error(f'user_db_id:{user_id} deno cli error,result: {expect}')
-        else:
-            cron_logger.error(f'user_db_id:{user_id} deno cli unexpected error,result:\n{error_msg}')
-    elif res:
-        # success
-        cron_logger.debug(f'user_db_id:{user_id} deno cli success,result:\n{res}')
-
-        for line in res.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            if 'exported to https://stat.ink' in line:
-                if 'salmon3' in line:
-                    coop_cnt += 1
-                else:
-                    battle_cnt += 1
-                url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
-
-    cron_logger.info(f'user_db_id:{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
-    return battle_cnt, coop_cnt, url, error_msg
+# def old_exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="zh-CN", g_token="",
+#                              bullet_token=""):
+#     """同步战绩文件至stat.ink"""
+#     cron_logger.info(f'start exported_to_stat_ink: user_db_id:{user_id}')
+#     cron_logger.debug(f'session_token: {session_token}')
+#     cron_logger.debug(f'api_key: {api_key}')
+#     user_lang = user_lang or 'zh-CN'
+#
+#     s3sits_folder = f'{DIR_RESOURCE}/s3sits_git'
+#     os.chdir(s3sits_folder)
+#
+#     # 检查deno路径是否配置
+#     deno_path = plugin_config.splatoon3_deno_path
+#     if not deno_path or not os.path.exists(deno_path):
+#         cron_logger.info(f'deno_path not set: {deno_path or ""} '.center(120, '-'))
+#         return
+#
+#     # 新建或修改配置项
+#     path_config_file = f'{s3sits_folder}/user_configs/config_{user_id}.json'
+#     if not os.path.exists(path_config_file):
+#         # 新建文件
+#         config_data = {
+#             "fGen": f_gen_url,
+#             "userLang": user_lang,
+#             "loginState": {
+#                 "sessionToken": session_token,
+#                 "gToken": g_token,
+#                 "bulletToken": bullet_token,
+#             },
+#             "statInkApiKey": api_key
+#         }
+#         with open(path_config_file, 'w') as f:
+#             f.write(json.dumps(config_data, indent=2, sort_keys=False, separators=(',', ': ')))
+#     else:
+#         # 写入配置文件
+#         # fGen写入过程中 https://含有/ 会和控制符/冲突，此处控制符得改为#
+#         cmds = [
+#             f"""sed -i 's#fGen[^,]*,#fGen\": \"{f_gen_url}\",#' {path_config_file}""",
+#             f"""sed -i 's/userLang[^,]*,/userLang\": \"{user_lang}\",/' {path_config_file}""",
+#             f"""sed -i 's/sessionToken[^,]*,/sessionToken\": \"{session_token}\",/' {path_config_file}""",
+#             f"""sed -i 's/statInkApiKey[^,]*,/statInkApiKey\": \"{api_key}\",/' {path_config_file}""",
+#         ]
+#         if g_token and bullet_token:
+#             cmds.append(f"""sed -i 's/gToken[^,]*,/gToken\": \"{g_token}\",/' {path_config_file}""")
+#             cmds.append(f"""sed -i 's/bulletToken[^,]*,/bulletToken\": \"{bullet_token}\",/' {path_config_file}""")
+#
+#     env = {}
+#     # deno代理配置
+#     # http
+#     if proxy_address:
+#         env.update({"HTTP_PROXY": f"http://{proxy_address}",
+#                     "HTTPS_PROXY": f"http://{proxy_address}"
+#                     })
+#     # no proxy
+#     if plugin_config.splatoon3_proxy_list_mode and proxy_address:
+#         env.update({"NO_PROXY": f"api.lp1.av5ja.srv.nintendo.net"})
+#
+#     # run deno
+#     cmd = f'{deno_path} run -Ar ./s3si.ts -n -p {path_config_file}'
+#     cron_logger.debug(cmd)
+#
+#     res = ""
+#     error = ""
+#     battle_cnt = 0
+#     coop_cnt = 0
+#     url = ''
+#     error_msg = ""
+#
+#     try:
+#         rtn: subprocess.CompletedProcess[bytes] = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE,
+#                                                                  stderr=subprocess.PIPE, env=env, timeout=300)
+#         res = rtn.stdout.decode('utf-8')
+#         error = rtn.stderr.decode('utf-8')
+#     except subprocess.TimeoutExpired:
+#         error_msg = f"deno run timeout\n"
+#     except Exception as e:
+#         if "html" in e:
+#             e = "html error"
+#         error_msg = f"deno run err:\n{e}"
+#     if error:
+#         # error里面混有deno debug内容，需要经过过滤
+#         for line in error.split('\n'):
+#             line = line.strip()
+#             if not line:
+#                 continue
+#             # 输出内容加了供终端显示颜色的ascii码，将其转化为b64 str后再判断前缀
+#             if strToBase64(line).startswith('G1swbRtbMzJtRG93bmxvYWQbWzBtIGh0dHBzOi8vZGVuby5sYW5kL3'):
+#                 continue
+#             error_msg += f"{line}\n"
+#
+#     if error_msg:
+#         expect = ""
+#         for expected_str in expected_str_list:
+#             if expected_str in error_msg:
+#                 expect = expected_str
+#                 break
+#         if expect:
+#             cron_logger.error(f'user_db_id:{user_id} deno cli error,result: {expect}')
+#         else:
+#             cron_logger.error(f'user_db_id:{user_id} deno cli unexpected error,result:\n{error_msg}')
+#     elif res:
+#         # success
+#         cron_logger.debug(f'user_db_id:{user_id} deno cli success,result:\n{res}')
+#
+#         for line in res.split('\n'):
+#             line = line.strip()
+#             if not line:
+#                 continue
+#             if 'exported to https://stat.ink' in line:
+#                 if 'salmon3' in line:
+#                     coop_cnt += 1
+#                 else:
+#                     battle_cnt += 1
+#                 url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
+#
+#     cron_logger.info(f'user_db_id:{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
+#     return battle_cnt, coop_cnt, url, error_msg
 
 
 async def exported_to_stat_ink(splatoon: Splatoon, config_data: CONFIG_DATA):
