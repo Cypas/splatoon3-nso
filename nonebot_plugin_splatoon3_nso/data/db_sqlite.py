@@ -38,6 +38,7 @@ class UserTable(Base_Main):
     game_sp_id = Column(String(), nullable=True, index=True)
     ns_name = Column(String(), nullable=True)
     ns_friend_code = Column(String(), nullable=True)
+    nsa_id = Column(String(), nullable=True)
     stat_notify = Column(Integer(), default=1)  # 0:close 1:open
     report_notify = Column(Integer(), default=1)  # 0:close 1:open
     last_play_time = Column(String(), nullable=True)

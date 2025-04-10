@@ -92,7 +92,7 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
 |||||||||||
 | --: |--:|--:|--:|--:|:---------|--:|:--|--|--|
 | 击杀 |蛋数|死亡|救人|红蛋|玩家|大|招|武器||
-{await coop_row_user(my, wave_results, is_myself=True)}
+{await coop_row_user(my, wave_results, is_myself=True, nsa_id=splatoon.nsa_id)}
 """
     for p in detail['memberResults']:
         msg += f"""{await coop_row_user(p, wave_results, mask=mask)}\n"""
@@ -151,7 +151,7 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
     return msg
 
 
-async def coop_row_user(p, wave_results, mask=False, is_myself=False):
+async def coop_row_user(p, wave_results, mask=False, is_myself=False, nsa_id=None):
     """打工获取一行用户"""
     try:
         sp_name = p['specialWeapon']['name']
@@ -190,7 +190,7 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False):
 
     player_code, player_name = get_game_sp_id_and_name(p['player'])
     if is_myself:
-        p_name, icon = await get_user_name_color(p_name, player_code, is_myself=True)
+        p_name, icon = await get_user_name_color(p_name, player_code, is_myself=True, nsa_id=nsa_id)
     else:
         p_name, icon = await get_user_name_color(player_name, player_code)
     # 辅助投蛋数

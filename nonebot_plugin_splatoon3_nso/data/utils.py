@@ -30,10 +30,11 @@ class GlobalUserInfo:
         self.stat_key = kwargs.get('stat_key', None)
         self.ns_name = kwargs.get('ns_name', None)
         self.ns_friend_code = kwargs.get('ns_friend_code', None)
+        self.nsa_id = kwargs.get('nsa_id', None)
         self.req_client = kwargs.get('req_client', None)
 
 
-async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageTable:
+async def model_get_or_set_temp_image(_type, name: str, link=None, force=False) -> TempImageTable:
     """获取或设置缓存图片"""
     session = DBSession()
     name = name.replace("/", "-")
@@ -44,11 +45,13 @@ async def model_get_or_set_temp_image(_type, name: str, link=None) -> TempImageT
     if row:
         # 判断是否是用户图像缓存，并比对缓存数据是否需要更新, 图片名称是否为空
         if (link and row.type in (
-                "friend_icon", 'ns_friend_icon', 'my_icon') and row.link != link) or not row.file_name:
+                "friend_icon", 'ns_friend_icon', 'my_icon', 'my_icon_by_nsa_id') and row.link != link) or not row.file_name:
             download_flag = True
         else:
             temp_image = row
     else:
+        download_flag = True
+    if force:
         download_flag = True
     if download_flag and link:
         # 通过url下载图片储存至本地

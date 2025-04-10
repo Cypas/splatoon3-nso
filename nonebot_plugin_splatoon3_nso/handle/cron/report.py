@@ -10,7 +10,8 @@ from ..send_msg import notify_to_private, cron_notify_to_channel
 from ...data.db_sqlite import Report
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
-    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict
+    model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict, \
+    dict_get_all_global_users
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id, convert_td
 from ...utils.bot import *
@@ -23,124 +24,193 @@ async def create_set_report_tasks():
     await cron_notify_to_channel("set_report", "start")
 
     t = dt.utcnow()
-    users = model_get_all_user()
-    # 去重
-    users = user_remove_duplicates(users)
+    db_users = model_get_all_user()
+    db_users = user_remove_duplicates(db_users)
 
-    list_user: list[tuple] = []  # 简要记录平台和user_id信息，等到具体任务内再获取user数据
-    for user in users:
-        list_user.append((user.platform, user.user_id))
+    list_user: list[tuple] = [(user.platform, user.user_id) for user in db_users]
 
-    _pool = 10
-    set_report_count = 0
-    for i in range(0, len(list_user), _pool):
-        p_and_id_list = list_user[i:i + _pool]
-        tasks = [set_user_report_task(p_and_id) for p_and_id in p_and_id_list]
-        res = await asyncio.gather(*tasks)
-        # 统计有多少人更新了日报
-        for r in res:
-            if r:
-                set_report_count += 1
+    # 阶段计数器
+    counters = {"set_report_count": 0}
 
-    # 清理任务字典
+    # 阶段1：认证刷新池（并发限制2）
+    phase1_semaphore = asyncio.Semaphore(3)
+    # 阶段2：报告生成池（并发限制4）
+    phase2_semaphore = asyncio.Semaphore(3)
+
+    # ================== 阶段1：认证刷新 ==================
+    async def process_phase1(p_and_id):
+        async with phase1_semaphore:
+            platform, user_id = p_and_id
+            msg_id = get_msg_id(platform, user_id)
+
+            # 检查全局缓存
+            global_user_info = global_user_info_dict.get(msg_id)
+            if global_user_info:
+                return Splatoon(None, None, global_user_info)  # 直接返回已存在的对象
+
+            # 新建cron任务对象
+            u = dict_get_or_set_user_info(platform, user_id, _type="cron")
+            if not u or not u.session_token:
+                return None
+
+            try:
+                splatoon = Splatoon(None, None, u, _type="cron")
+                # 测试访问并刷新
+                success = await splatoon.test_page()
+                # success = await splatoon.refresh_gtoken_and_bullettoken()
+                return splatoon  # 返回初始化完成的对象
+            except ValueError as e:
+                if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'has be banned']):
+                    cron_logger.info(f"跳过无效用户: {msg_id}，reason:{e}")
+                    return None
+
+    # 阶段1
+    phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
+    phase1_splatoons = await asyncio.gather(*phase1_tasks)
+
+    # ================== 阶段2：报告生成 ==================
+    valid_splatoons = [s for s in phase1_splatoons if s is not None]
+
+    async def process_phase2(splatoon: Splatoon):
+        async with phase2_semaphore:
+            result = await set_user_report_task(
+                (splatoon.platform, splatoon.user_id),
+                splatoon
+            )
+            if result:
+                counters["set_report_count"] += 1
+
+    # 阶段2
+    phase2_tasks = [process_phase2(s) for s in valid_splatoons]
+    await asyncio.gather(*phase2_tasks)
+
+    # 清理
     cron_logger.info(f'clear cron user_info_dict...')
     clear_count = await dict_clear_user_info_dict(_type="cron")
 
-    # 耗时
+    # 结果报告
     str_time = convert_td(dt.utcnow() - t)
-    cron_msg = f"create_set_report_tasks end: {str_time}\n" \
-               f"set_report_count: {set_report_count}\n" \
-               f"clear_count: {clear_count}"
+    cron_msg = (f"create_set_report_tasks end: {str_time}\n"
+                f"有效用户: {len(valid_splatoons)}\n"
+                f"成功写日报: {counters['set_report_count']}\n"
+                f"清理对象: {clear_count}")
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel("set_report", "end", f"耗时:{str_time}\n写日报: {set_report_count}\n清理对象: {clear_count}")
+    await cron_notify_to_channel("set_report", "end",
+                                 f"耗时:{str_time}\n"
+                                 f"有效用户:{len(valid_splatoons)}\n"
+                                 f"写日报:{counters['set_report_count']}\n"
+                                 f"清理对象:{clear_count}")
 
 
-async def set_user_report_task(p_and_id):
-    """任务:写用户最后游玩数据以及日报数据"""
+async def set_user_report_task(p_and_id, splatoon: Splatoon):
+    """任务: 写用户最后游玩数据及日报数据（精确处理版）"""
     platform, user_id = p_and_id
     msg_id = get_msg_id(platform, user_id)
-    # token复用，如果在公共缓存存在该用户，直接使用该缓存对象而不是创建新对象
-    global_user_info = global_user_info_dict.get(msg_id)
-    if global_user_info:
-        u = global_user_info
-        if not u or not u.session_token:
-            return
-        splatoon = Splatoon(None, None, u)
-    else:
-        # 新建cron任务对象
-        u = dict_get_or_set_user_info(platform, user_id, _type="cron")
-        if not u or not u.session_token:
-            return
-        splatoon = Splatoon(None, None, u, _type="cron")
-        try:
-            # 刷新token
-            await splatoon.refresh_gtoken_and_bullettoken()
-        except ValueError as e:
-            if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
-                # 无效登录或会员过期 或被封禁
-                # 关闭连接池
-                await splatoon.req_client.close()
-                return False
-        except Exception as e:
-            # 这里刷新token失败没太大影响，后续在请求时仍会刷新token
-            cron_logger.warning(f'set_user_report_task error: {msg_id},refresh_gtoken_and_bullettoken error:{e}')
+
+    cron_logger.info(f'set_report: {msg_id}, {splatoon.user_name}')
+    # 再次校验是否有访问权限
+    success = False
     try:
-        cron_logger.debug(f'set_user_report: {msg_id}, {u.user_name}')
-        # 个人摘要数据
-        res_summary = await splatoon.get_history_summary()
-        if not res_summary:
-            res_summary = await splatoon.get_history_summary(multiple=True)
-        history = res_summary['data']['playHistory']
-        player = res_summary['data']['currentPlayer']
-        first_play_time = history['gameStartTime']
-        first_play_time = dt.strptime(first_play_time, '%Y-%m-%dT%H:%M:%SZ')
-        game_name = player['name']
-        # 从个人数据缓存头像
-        # 我的头像，使用sp_id进行储存
-        icon_img = await model_get_temp_image_path('my_icon', u.game_sp_id, player['userIcon']['url'])
+        success = await splatoon.test_page()
+    except ValueError as e:
+        # 预期错误，token更新失败
+        cron_logger.debug(f'set_report error: {msg_id}, {splatoon.user_name},reason：{e}')
+        return False
 
-        # 最近对战数据
-        res_battle = await splatoon.get_recent_battles(multiple=True)
-        if not res_battle:
-            res_battle = await splatoon.get_recent_battles(multiple=True)
-        b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
-        battle_t = get_battle_time_or_coop_time(b_info['id'])
-        game_sp_id = get_game_sp_id(b_info['player']['id'])
+    if not success:
+        # 无效token
+        cron_logger.error(f'set_report error: {msg_id}, {splatoon.user_name},refresh_tokens fail')
+        return False
 
-        # 最近打工数据
-        res_coop = await splatoon.get_coops(multiple=True)
-        if not res_coop:
-            res_coop = await splatoon.get_coops(multiple=True)
-        coop_id = res_coop['data']['coopResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]['id']
-        coop_t = get_battle_time_or_coop_time(coop_id)
+    try:
+        # ================== 并发执行所有请求 ==================
+        # 创建所有请求任务
+        tasks = [
+            fetch_with_retry(
+                lambda: splatoon.get_history_summary(multiple=True),
+                lambda: splatoon.get_history_summary(multiple=True)
+            ),
+            fetch_with_retry(
+                lambda: splatoon.get_recent_battles(multiple=True),
+                lambda: splatoon.get_recent_battles(multiple=True)
+            ),
+            fetch_with_retry(
+                lambda: splatoon.get_coops(multiple=True),
+                lambda: splatoon.get_coops(multiple=True)
+            ),
+            fetch_with_retry(
+                lambda: splatoon.get_total_query(multiple=True),
+                lambda: splatoon.get_total_query(multiple=True)
+            )
+        ]
 
+        # 同时执行所有任务
+        res_summary, res_battle, res_coop, all_data = await asyncio.gather(*tasks)
+
+        # ================== 数据校验 ==================
+        if not all([res_summary, res_battle, res_coop, all_data]):
+            missing = []
+            if not res_summary: missing.append("summary")
+            if not res_battle: missing.append("battle")
+            if not res_coop: missing.append("coop")
+            if not all_data: missing.append("all_data")
+            cron_logger.error(f"数据缺失: {msg_id} 缺失字段: {missing}")
+            return False
+
+        # ================== 对战数据处理 ==================
+        try:
+            b_info = \
+                res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
+            battle_t = get_battle_time_or_coop_time(b_info['id'])
+            game_sp_id = get_game_sp_id(b_info['player']['id'])
+        except (KeyError, IndexError) as e:
+            cron_logger.error(f"对战数据解析失败: {msg_id} 错误类型: {type(e).__name__}")
+            return False
+
+        # ================== 打工数据处理 ==================
+        try:
+            coop_node = res_coop['data']['coopResult']['historyGroups']['nodes'][0]
+            coop_detail = coop_node['historyDetails']['nodes'][0]
+            coop_t = get_battle_time_or_coop_time(coop_detail['id'])
+        except (KeyError, IndexError) as e:
+            cron_logger.error(f"打工数据解析失败: {msg_id} 错误类型: {type(e).__name__}")
+            return False
+
+        # ================== 时间计算 ==================
         last_play_time = max(dt.strptime(battle_t, '%Y%m%dT%H%M%S'), dt.strptime(coop_t, '%Y%m%dT%H%M%S'))
 
-        # 更新用户游玩记录
-        model_get_or_set_user(platform, user_id, game_name=game_name, game_sp_id=game_sp_id,
-                              first_play_time=first_play_time, last_play_time=last_play_time)
-
+        # ================== 剩余业务逻辑 ==================
         # 上次游玩时间位于一天内
         if last_play_time.date() >= (dt.utcnow() - timedelta(days=1)).date():
             # 写新的日报
-            await set_user_report(u, res_summary, res_coop, last_play_time, splatoon, game_sp_id)
+            await set_user_report(splatoon.user_db_info.db_id, res_summary, res_coop, last_play_time, splatoon,
+                                  game_sp_id, all_data)
             cron_logger.info(f'set_user_report_task success: {msg_id}')
             return True
 
+        return False
     except Exception as ex:
-        cron_logger.warning(f'set_user_report_task error: {msg_id}, error:{ex}')
-    finally:
-        # 关闭连接池
-        await splatoon.req_client.close()
+        cron_logger.error(f'set_user_report_task error: {msg_id} error:{str(ex)}', exc_info=True)
+        return False
 
 
-async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, player_code):
+async def fetch_with_retry(coro_func, retry_func):
+    """带一次重试的通用请求函数"""
+    try:
+        result = await coro_func()
+        if result: return result
+    except Exception as e:
+        cron_logger.debug(f"首次请求失败: {str(e)}")
+
+    try:
+        return await retry_func()
+    except Exception as e:
+        cron_logger.warning(f"重试请求失败: {str(e)}")
+        return None
+
+
+async def set_user_report(user_db_id, res_summary, res_coop, last_play_time, splatoon, player_code, all_data):
     """写用户日报数据"""
-    # 总对战数目
-    all_data = await splatoon.get_total_query(multiple=True)
-    if not all_data:
-        all_data = await splatoon.get_total_query(multiple=True)
-
     history = res_summary['data']['playHistory']
     player = res_summary['data']['currentPlayer']
     nickname = player['name']
@@ -166,7 +236,7 @@ async def set_user_report(u, res_summary, res_coop, last_play_time, splatoon, pl
     p = coop['scale']
 
     _report = {
-        'user_id': u.db_id,
+        'user_id': user_db_id,
         'user_id_sp': player_code,
         'nickname': nickname,
         'name_id': player['nameId'],

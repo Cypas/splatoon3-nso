@@ -33,6 +33,12 @@ class Config(BaseModel):
     splatoon3_kk_channel_job_chat_id: str | int = ""
     # deno_path  需要先在系统下安装deno，参考https://www.denojs.cn/ 此处填写安装路径，具体到deno文件，如"/home/ubuntu/.deno/bin/deno"
     splatoon3_deno_path: str = ""
+    # redis_ip
+    splatoon3_redis_ip: str = ""
+    # redis_port
+    splatoon3_redis_port: str|int = ""
+    # redis_psw
+    splatoon3_redis_psw: str = ""
 
     # Q群在进行登录时，将用户引导至kook平台完成登录的服务器id
     splatoon3_kk_guild_id: str | int = ""

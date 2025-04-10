@@ -7,7 +7,7 @@ from nonebot import logger
 from .utils import get_msg_id
 from ..config import plugin_config
 
-HTTP_TIME_OUT = 20.0  # 请求超时，秒
+HTTP_TIME_OUT = 60.0  # 请求超时，秒
 proxy_address = plugin_config.splatoon3_proxy_address
 if proxy_address:
     global_proxies = f"http://{proxy_address}"
@@ -57,70 +57,98 @@ def get_or_init_client(platform, user_id, _type="normal", with_proxy=False):
         return req_client
 
 
+import httpx
+import urllib.parse
+from typing import Optional
+
 class ReqClient:
-    """二次封装的httpx client会话管理"""
+    """二次封装的httpx client会话管理（自动恢复连接版）"""
 
-    def __init__(self, msg_id, _type=None, with_proxy=False):
+    def __init__(self, msg_id: str, _type=None, with_proxy: bool = False):
         self.msg_id = msg_id
-        if with_proxy:
-            self.client = httpx.AsyncClient(proxies=global_proxies)
-        else:
-            self.client = httpx.AsyncClient()
-        self._type = _type  # 标记client的作用
+        self._type = _type
         self.with_proxy = with_proxy
+        # 初始化时直接创建 Client
+        self._init_client()
 
-    async def close(self):
-        """关闭client"""
-        await self.client.aclose()
+    def _init_client(self) -> None:
+        """初始化或重建 AsyncClient"""
+        self.client = httpx.AsyncClient(
+            proxies=global_proxies if self.with_proxy else None,
+            timeout=HTTP_TIME_OUT  # 统一超时设置
+        )
 
-    async def get(self, url, **kwargs) -> Response:
-        """client get"""
+    async def _ensure_client_active(self) -> None:
+        """确保 Client 可用，否则重建"""
         if self.client.is_closed:
-            if self.with_proxy:
-                self.client = httpx.AsyncClient(proxies=global_proxies)
-            else:
-                self.client = httpx.AsyncClient()
-        # 判断host是否需要代理
-        host = urllib.parse.urlparse(url).hostname
-        # 判断是否为代理client，否则创建一次性代理请求
-        if not self.with_proxy and (host in proxy_host_list):
-            response = await AsHttpReq.get(url, with_proxy=True, **kwargs)
-        else:
-            response = await self.client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
-        return response
+            await self.client.aclose()  # 确保彻底关闭旧连接
+            self._init_client()
 
-    async def post(self, url, **kwargs) -> Response:
-        """client post"""
-        if self.client.is_closed:
-            if self.with_proxy:
-                self.client = httpx.AsyncClient(proxies=global_proxies)
-            else:
-                self.client = httpx.AsyncClient()
-        # 判断host是否需要代理
+    async def _request_with_fallback(self, method: str, url: str, **kwargs) -> httpx.Response:
+        """带自动恢复的请求核心方法"""
+        try:
+            await self._ensure_client_active()
+            response = await self.client.request(method, url, **kwargs)
+            return response
+        except (httpx.TransportError, httpx.RemoteProtocolError) as e:
+            # 底层连接异常时，重建 Client 并重试一次
+            await self.client.aclose()
+            self._init_client()
+            response = await self.client.request(method, url, **kwargs)
+            return response
+        except RuntimeError as e:
+            if "the handler is closed" in str(e):
+                # 重建客户端并重试
+                await self.client.aclose()
+                self._init_client()
+                response = await self.client.request(method, url, **kwargs)
+                return response
+
+    async def get(self, url: str, **kwargs) -> httpx.Response:
+        """自动恢复连接的 GET 请求"""
         host = urllib.parse.urlparse(url).hostname
-        # 判断是否为代理client，否则创建一次性代理请求
-        if not self.with_proxy and (host in proxy_host_list):
-            response = await AsHttpReq.post(url, with_proxy=True, **kwargs)
-        else:
-            response = await self.client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
-        return response
+        if not self.with_proxy and host in proxy_host_list:
+            # 临时使用代理的独立请求（避免污染主 Client）
+            async with httpx.AsyncClient(proxies=global_proxies) as tmp_client:
+                return await tmp_client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
+        return await self._request_with_fallback("GET", url, **kwargs)
+
+    async def post(self, url: str, **kwargs) -> httpx.Response:
+        """自动恢复连接的 POST 请求"""
+        host = urllib.parse.urlparse(url).hostname
+        if not self.with_proxy and host in proxy_host_list:
+            async with httpx.AsyncClient(proxies=global_proxies) as tmp_client:
+                return await tmp_client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
+        return await self._request_with_fallback("POST", url, **kwargs)
+
+    async def close(self) -> None:
+        """安全关闭 Client"""
+        if not self.client.is_closed:
+            await self.client.aclose()
 
     @staticmethod
-    async def close_all(_type: str):
-        """关闭某一类型的全部client"""
-        global global_client_dict
-        global global_cron_client_dict
+    async def close_all(_type: str) -> None:
+        """安全关闭某一类型的全部client"""
+        global global_client_dict, global_cron_client_dict
 
         client_dict = {}
         if _type == "normal":
-            client_dict = global_client_dict
+            client_dict = global_client_dict.copy()  # 避免遍历时修改
         elif _type == "cron":
-            # 定时任务
-            client_dict = global_cron_client_dict
+            client_dict = global_cron_client_dict.copy()
 
-        for req_client in client_dict.values():
-            await req_client.close()
-        client_dict.clear()
+        for req_client in list(client_dict.values()):  # 转换为list避免迭代问题
+            try:
+                if hasattr(req_client, "close") and callable(req_client.close):
+                    await req_client.close()  # 确保await异步关闭
+            except Exception as e:
+                logger.warning(f"关闭全部{_type} client失败: {e}")  # 记录日志，避免中断其他关闭
+
+        # 清空字典
+        if _type == "normal":
+            global_client_dict.clear()
+        elif _type == "cron":
+            global_cron_client_dict.clear()
 
 
 global_client_dict: dict[str, ReqClient] = {}

@@ -149,6 +149,17 @@ splatoon3_kk_channel_job_chat_id = ""
 
 </details>
 
+## 第三方api的使用
+nso查询过程中使用到了第三方的自动令牌生成接口
+- 自动生成令牌需要向非 Nintendo 服务器发出安全请求，请求中包含最少的非识别信息。
+- 我们力求对此 100% 透明，并提供有关安全和隐私的深入信息。
+
+### 隐私声明
+- 插件不会向第三方自动令牌接口，如[imink API](https://status.imink.app/)或[nxapi-znca-api](https://github.com/samuelthomas2774/nxapi-znca-api)发送任何身份信息。
+- 用户名和密码与 API 的作用相距甚远，除了您之外，任何人都无法读取，返回的值不包含有关您帐户的任何有意义的信息。
+- 无法使用发送或存储的数据来识别哪个帐户/用户执行了请求，无法查看有关用户的识别信息，也无法访问帐户。
+- 有关更多信息，请参阅[imink API 隐私政策](https://github.com/JoneWang/imink/wiki/Privacy-Policy)和[文档](https://github.com/JoneWang/imink/wiki/imink-API-Documentation),[nxapi-znca-api 文档](https://github.com/samuelthomas2774/nxapi-znca-api/blob/main/docs/api.md).
+
 ## ✨喜欢的话就点个star✨吧，球球了QAQ
 
 ## 鸣谢

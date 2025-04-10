@@ -96,18 +96,14 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await bot_send(bot, event, message="即将开始sync_stat_ink")
             threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
 
-        case "clean_s3s_cache":
-            await bot_send(bot, event, message="即将开始clean_s3s_cache")
-            await clean_s3s_cache()
-
         case "clean_user_info_dict":
             await bot_send(bot, event, message="即将开始clean_global_user_info_dict")
             await clean_global_user_info_dict()
 
         case "status":
-            msg = get_dict_status()
-            await bot_send(bot, event, message=msg)
+            msg = await get_dict_status()
             await show_dict_status()
+            await bot_send(bot, event, message=msg)
 
         case "restore_token":
             """还原自己token"""
@@ -134,9 +130,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                   "send_report 发送日报\n" \
                   "get_user_friends 获取全部用户好友列表\n" \
                   "refresh_token 刷新全部缓存用户token\n" \
-                  "update_s3si_ts 更新s3sti脚本\n" \
                   "sync_stat_ink 开始全部用户同步stat\n" \
-                  "clean_s3s_cache 清空s3s缓存文件夹\n" \
                   "clean_user_info_dict 清理用户数据缓存字典以及client\n" \
                   "status 当前缓存用户状态以及ss截图调用情况\n" \
                   "kook_leave {guild_id} kook离开服务器\n" \

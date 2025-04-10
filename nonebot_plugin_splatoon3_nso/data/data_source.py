@@ -53,6 +53,7 @@ def dict_get_or_set_user_info(platform, user_id, _type="normal", **kwargs):
                 stat_key=user.stat_key,
                 ns_name=user.ns_name,
                 ns_friend_code=user.ns_friend_code,
+                nsa_id=user.nsa_id,
                 req_client=get_or_init_client(platform, user_id, _type)
             )
             user_dict.update({key: user_info})
@@ -99,19 +100,23 @@ def dict_get_all_global_users(remove_duplicates=True) -> list[GlobalUserInfo]:
 
 
 async def dict_clear_user_info_dict(_type: str) -> int:
-    """关闭client对象，然后清空该类型用户字典"""
-    # 选择不同的字典
+    """关闭client并清空用户字典"""
     user_dict = {}
     if _type == "normal":
         user_dict = global_user_info_dict
     elif _type == "cron":
-        # 定时任务
         user_dict = global_cron_user_info_dict
+
+    logger.debug(f"开始清理 {_type} 类型，当前用户数: {len(user_dict)}")  # 调试日志
+
+    try:
+        await ReqClient.close_all(_type)  # 确保await
+    except Exception as e:
+        logger.debug(f"关闭client时出错: {e}")  # 捕获异常
+
     count = len(user_dict)
-    # 关闭全部client
-    await ReqClient.close_all(_type)
-    # 清空字典
     user_dict.clear()
+    logger.debug(f"清理完成，释放 {count} 个用户")  # 调试日志
     return count
 
 
@@ -127,9 +132,9 @@ async def dict_clear_one_user_info_dict(platform, user_id):
         await client.close()
 
 
-async def model_get_temp_image_path(_type, name, link=None) -> str:
+async def model_get_temp_image_path(_type, name, link=None, force=False) -> str:
     """获取缓存文件路径"""
-    row = await model_get_or_set_temp_image(_type, name, link=link)
+    row = await model_get_or_set_temp_image(_type, name, link=link, force=force)
     # logger.info(f"row为{row.__dict__}")
 
     if row and row.file_name:
@@ -388,7 +393,7 @@ limit 60
 
 
 def model_get_user_friend(game_name) -> UserFriendTable:
-    """获取好友数据"""
+    """获取好友数据(使用name粗略匹配)"""
     session = DBSession_Friends()
     user = session.query(UserFriendTable).filter(
         UserFriendTable.game_name == game_name
@@ -396,6 +401,15 @@ def model_get_user_friend(game_name) -> UserFriendTable:
     session.close()
     return user
 
+
+def model_new_get_user_friend(nsa_id) -> UserFriendTable:
+    """获取好友数据(使用nsa_id精准匹配)"""
+    session = DBSession_Friends()
+    user = session.query(UserFriendTable).filter(
+        UserFriendTable.nsa_id == nsa_id
+    ).order_by(UserFriendTable.create_time.desc()).first()
+    session.close()
+    return user
 
 def model_set_user_friend(data_lst):
     """设置好友数据"""

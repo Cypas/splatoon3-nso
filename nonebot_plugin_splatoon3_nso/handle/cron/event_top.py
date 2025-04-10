@@ -28,9 +28,6 @@ async def get_event_top():
         await get_event_top_player_task(splatoon)
     except Exception as e:
         cron_logger.info(f"get_event_top error:{e}")
-    finally:
-        # 关闭连接池
-        await splatoon.req_client.close()
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = f"get_event_top end {str_time}"

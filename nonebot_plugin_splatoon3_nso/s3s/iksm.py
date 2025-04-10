@@ -1,6 +1,7 @@
 # (ↄ) 2017-2022 eli fessler (frozenpandaman), clovervidia
 # https://github.com/frozenpandaman/s3s
 # License: GPLv3
+import asyncio
 import base64
 import hashlib
 import json
@@ -9,16 +10,19 @@ import re
 import sys
 import urllib
 import random
+import asyncio
+from typing import Dict, Any
 
 import httpx
 from bs4 import BeautifulSoup
 from nonebot import logger as nb_logger
+from weakref import WeakKeyDictionary
 
 from .utils import SPLATNET3_URL
 from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 
-A_VERSION = "0.6.5"  # s3s脚本实际版本号，本项目内仅用于比对代码，无实际调用
-S3S_VERSION = "unknown"  # s3s脚本版本号，原始代码内用于iksm user-agent标识，本项目内无实际调用
+S3S_AGENT = "s3s - github.com/Cypas/splatoon3-nso"  # s3s agent
+S3S_VERSION = "0.6.7"  # s3s脚本版本号
 NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "2.12.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
@@ -27,21 +31,95 @@ WEB_VIEW_VER_FALLBACK = "6.0.0-2ba8cb04"  # fallback
 F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 
-F_USER_AGENT = f"github.com/Cypas/splatoon3-nso/{BOT_VERSION}"
+F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
 APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
 
+# f api请求容量
+fapi_rate = 1
+# 限流器
+rate_limiter = None
+
+
+class GlobalRateLimiter:
+    """全局限流器"""
+    _instance = None
+    _lock = asyncio.Lock()
+    _semaphores: Dict[asyncio.AbstractEventLoop, asyncio.BoundedSemaphore] = WeakKeyDictionary()
+
+    def __init__(self, rate: int = fapi_rate):
+        self.rate = rate
+        self._loop_lock = asyncio.Lock()  # 单独保护_semaphores
+
+    async def acquire(self):
+        """获取令牌，支持等待"""
+        loop = asyncio.get_running_loop()
+        async with self._loop_lock:
+            if loop not in self._semaphores:
+                # 使用BoundedSemaphore防止release次数过多
+                self._semaphores[loop] = asyncio.BoundedSemaphore(self.rate)
+        # nb_logger.info(f"get success,dict:{json.dumps(self.get_serializable_state())}")
+
+        try:
+            await self._semaphores[loop].acquire()
+            return True
+        except asyncio.CancelledError:
+            # 如果任务被取消，确保释放令牌
+            self._semaphores[loop].release()
+            raise
+
+    async def release(self):
+        """释放令牌"""
+        loop = asyncio.get_running_loop()
+        async with self._loop_lock:
+            if loop in self._semaphores:
+                try:
+                    self._semaphores[loop].release()
+                except ValueError:
+                    # 防止release次数超过acquire次数
+                    pass
+        # nb_logger.info(f"exit success,dict:{json.dumps(self.get_serializable_state())}")
+
+    async def get_serializable_state(self) -> Dict[str, Any]:
+        """获取可序列化的状态信息"""
+        async with self._loop_lock:
+            used = sum(self.rate - sem._value for sem in self._semaphores.values())
+            return {
+                "max_rate": self.rate,
+                "used_permits": used,
+                "available": max(0, self.rate - used),
+                "active_loops": len(self._semaphores)
+            }
+
+    async def __aenter__(self):
+        await self.acquire()
+        return self
+
+    async def __aexit__(self, *args):
+        await self.release()
+
+    @classmethod
+    async def get_instance(cls, rate: int = fapi_rate) -> 'GlobalRateLimiter':
+        """获取单例"""
+        if cls._instance is None:
+            async with cls._lock:  # 双检锁保证线程安全
+                if cls._instance is None:
+                    cls._instance = cls(rate)
+        return cls._instance
+
 
 class S3S:
+    _rate_limiter = None  # 延迟初始化
+
     def __init__(self, platform, user_id, _type="normal"):
-        self.req_client: ReqClient = get_or_init_client(platform, user_id, _type)
+        self.req_client = get_or_init_client(platform, user_id, _type)
         self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
         self.user_nickname = ""
         self.user_lang = "zh-CN"
         self.user_country = "JP"
 
-        # 两个f_api 负载均衡
+        # 负载均衡初始化
         f_url_lst = [F_GEN_URL, F_GEN_URL_2]
         random.shuffle(f_url_lst)
         self.f_gen_url = f_url_lst[0]
@@ -359,9 +437,11 @@ class S3S:
             raise ValueError(f"resp error:{json.dumps(splatoon_token)}")
 
         try:
-            # access_token过期时间7200s 即2h
+            # access_token过期时间3600s 即1h
             access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
             coral_user_id = splatoon_token["result"]["user"]["id"]
+            # res里面含有各种用户信息，将其传输到splatoon层，并储存相关信息
+            current_user = splatoon_token["result"]["user"]
         except:
             # retry once if 9403/9599 error from nintendo
             try:
@@ -376,6 +456,8 @@ class S3S:
                 splatoon_token = json.loads(r.text)
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
                 coral_user_id = splatoon_token["result"]["user"]["id"]
+                # res里面含有各种用户信息，将其传输到splatoon层，并储存相关信息
+                current_user = splatoon_token["result"]["user"]
             except json.JSONDecodeError as e:
                 raise ValueError("JSONDecodeError")
             except Exception:
@@ -386,7 +468,7 @@ class S3S:
             except Exception as e:
                 raise e
 
-        return access_token, f, uuid, timestamp, coral_user_id
+        return access_token, f, uuid, timestamp, coral_user_id, current_user
 
     async def _get_g_token(self, access_token, f, uuid, timestamp, coral_user_id):
         """get_gtoken第三步"""
@@ -457,7 +539,8 @@ class S3S:
             raise e
 
         try:
-            access_token, f, uuid, timestamp, coral_user_id = await self._get_access_token(id_token, user_info)
+            access_token, f, uuid, timestamp, coral_user_id, current_user = await self._get_access_token(id_token,
+                                                                                                         user_info)
             if not access_token:
                 raise ValueError(f"no access_token")
             if not f:
@@ -473,7 +556,7 @@ class S3S:
             self.logger.warning(f"get_g_token error:{e}")
             raise e
 
-        return access_token, g_token, self.user_nickname, self.user_lang, self.user_country
+        return access_token, g_token, self.user_nickname, self.user_lang, self.user_country, current_user
 
     async def get_bullet(self, user_id, g_token):
         """Given a gtoken, returns a bulletToken."""
@@ -495,6 +578,8 @@ class S3S:
         }
         url = f'{SPLATNET3_URL}/api/bullet_tokens'
         r = await self.req_client.post(url, headers=app_head, cookies=app_cookies)
+        # self.logger.error(f'{user_id} get_bullet error. {r.status_code}，res:{str(r.content.decode("utf-8"))}')
+        # self.logger.info(f'url:{url}\nheaders: {json.dumps(app_head)},\ncookies: {json.dumps(app_cookies)}')
 
         try:
             # bullet_token过期时间7200s 即2h
@@ -502,7 +587,7 @@ class S3S:
             bullet_token = r_json['bulletToken']
             return bullet_token
         except (json.decoder.JSONDecodeError, json.JSONDecodeError) as e:
-            self.logger.exception(f'{user_id} get_bullet error. {r.status_code}')
+            self.logger.exception(f'{user_id} get_bullet error. {r.status_code}，res:{r.text}')
             if r.status_code == 401:
                 self.logger.exception(
                     "Unauthorized error (ERROR_INVALID_GAME_WEB_TOKEN). Cannot fetch tokens at this time.")
@@ -517,53 +602,64 @@ class S3S:
         except Exception as e:
             self.logger.warning(f"user_id:{user_id} get_bullet error:{e}")
 
-    async def f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
-        res = await self.call_f_api(access_token, step, f_gen_url, r_user_id,
-                                    coral_user_id=coral_user_id)
+    async def f_api(self, *args, **kwargs):
+        """限流版f_api，支持等待和重试"""
+        if self._rate_limiter is None:
+            self._rate_limiter = await GlobalRateLimiter.get_instance(fapi_rate)
+
+        try:
+            async with self._rate_limiter:
+                return await self._real_f_api(*args, **kwargs)
+        except asyncio.CancelledError:
+            # 如果任务被取消，重新抛出异常
+            raise
+        except Exception as e:
+            self.logger.error(f"Error in f_api: {str(e)}")
+            raise
+
+    async def _real_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
+        res = await self.call_f_api(access_token, step, f_gen_url, r_user_id, coral_user_id)
         if isinstance(res, tuple):
-            # 解析tuple
-            f, uuid, timestamp = res
-            return f, uuid, timestamp
+            return res
         else:
             # # 4.3日 只有nxapi可用，暂时禁用重试机制 return None
             # raise ValueError(res)
             # return None
+            pass
 
-            # 判断重试时的对象名称以及f地址
-            if self.f_gen_url == F_GEN_URL:
-                now_f_str = "F_URL"
-                next_f_str = "F_URL_2"
-                next_f_url = F_GEN_URL_2
+        # 判断重试时的对象名称以及f地址
+        if self.f_gen_url == F_GEN_URL:
+            now_f_str = "F_URL"
+            next_f_str = "F_URL_2"
+            next_f_url = F_GEN_URL_2
+        else:
+            now_f_str = "F_URL_2"
+            next_f_str = "F_URL"
+            next_f_url = F_GEN_URL
+
+        if not res:
+            # 无响应结果
+            self.logger.warning(f"{now_f_str} no res，try {next_f_str} again")
+        elif isinstance(res, str):
+            # 错误信息
+            # 改为另一个f接口并重新请求一次
+            if "NetConnectError" in res:
+                self.logger.warning(f"{now_f_str} ConnectError，try {next_f_str} again")
+            elif "NetConnectTimeout" in res:
+                self.logger.warning(f"{now_f_str} ConnectTimeout，try {next_f_str} again")
             else:
-                now_f_str = "F_URL_2"
-                next_f_str = "F_URL"
-                next_f_url = F_GEN_URL
-            if not res:
-                # 无响应结果
-                self.logger.warning(f"{now_f_str} no res，try {next_f_str} again")
-            elif isinstance(res, str):
-                # 错误信息
-                # 改为另一个f接口并重新请求一次
-                if "NetConnectError" in res:
-                    self.logger.warning(f"{now_f_str} ConnectError，try {next_f_str} again")
-                elif "NetConnectTimeout" in res:
-                    self.logger.warning(f"{now_f_str} ConnectTimeout，try {next_f_str} again")
-                else:
-                    self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{res}")
-            self.f_gen_url = next_f_url
-            res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id,
-                                        coral_user_id=coral_user_id)
-            if isinstance(res, tuple):
-                # 解析tuple
-                f, uuid, timestamp = res
-                return f, uuid, timestamp
-            else:
-                self.logger.warning(f"{next_f_str} Both Error: {res}")
-                return None
+                self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{res}")
+
+        self.f_gen_url = next_f_url
+        res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id, coral_user_id)
+        if isinstance(res, tuple):
+            return res
+        else:
+            self.logger.warning(f"{next_f_str} Both Error: {res}")
+            return None
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
         """Passes naIdToken & user ID to f generation API (default: imink) & fetches response (f token, UUID, timestamp)."""
-
         api_head = {}
         api_body = {}
         api_response = None
@@ -590,9 +686,9 @@ class S3S:
 
             resp: dict = json.loads(api_response.text)
             if "error" in resp and "error_message" in resp:
-                self.logger.error(
+                self.logger.debug(
                     f"Error during f generation: \n{f_gen_url}  \nres_text:{api_response.text}")
-                return f"f resp error:{api_response.text}"
+                return f"f resp status_code:{api_response.status_code},error:{api_response.text}"
             f = resp.get("f")
             uuid = resp.get("request_id")
             timestamp = resp.get("timestamp")

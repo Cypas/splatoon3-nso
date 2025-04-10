@@ -11,10 +11,11 @@ from ...data.db_sqlite import UserTable
 from ...config import plugin_config
 from ...s3s.iksm import F_GEN_URL_2, F_GEN_URL
 from ...s3s.splatoon import Splatoon
+from ...s3s.stat import CONFIG_DATA, STAT
 from ...utils import proxy_address, convert_td
 from ...utils.utils import DIR_RESOURCE, init_path, get_msg_id
 from ...data.data_source import model_get_all_stat_user, dict_clear_user_info_dict, global_user_info_dict, \
-    dict_get_or_set_user_info, model_get_or_set_user
+    dict_get_or_set_user_info, model_get_or_set_user, dict_get_all_global_users
 from ..send_msg import notify_to_private, report_notify_to_channel, cron_notify_to_channel
 from .utils import user_remove_duplicates, cron_logger
 from ...utils.bot import Kook_ActionFailed
@@ -30,46 +31,82 @@ async def sync_stat_ink():
     await cron_notify_to_channel("sync_stat_ink", "start")
     t = dt.utcnow()
 
-    # 更新s3sti脚本
-    await update_s3si_ts()
+    # # 更新s3sti脚本
+    # await update_s3si_ts()
 
     db_users = model_get_all_stat_user()
     # 去重
     db_users = user_remove_duplicates(db_users)
 
-    complete_cnt, upload_cnt, error_cnt, else_error_cnt, notice_error_cnt, battle_error_cnt, membership_error_cnt, invalid_grant_error_cnt = 0, 0, 0, 0, 0, 0, 0, 0
-    _pool = 40
-    for i in range(0, len(db_users), _pool):
-        pool_users_list = db_users[i:i + _pool]
-        tasks = [sync_stat_ink_func(db_user) for db_user in pool_users_list]
-        res = await asyncio.gather(*tasks)
-        for r in res:
-            is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error, is_invalid_grant = r
+    # # 与缓存用户取交集，只为缓存用户提供更新
+    # global_users = dict_get_all_global_users()
+    #
+    # # 构建字典 {session_token: user}
+    # db_users_dict = {user.session_token: user for user in db_users}
+    # global_users_dict = {user.session_token: user for user in global_users}
+    # # 取 token 交集
+    # common_tokens = set(db_users_dict.keys()) & set(global_users_dict.keys())
+    # 获取在线的stat.ink的用户
+    # db_users = [db_users_dict[token] for token in common_tokens]
+
+    counters = {
+        "complete": 0,
+        "upload": 0,
+        "error": 0,
+        "notice_error": 0,
+        "else_error": 0,
+        "battle_error": 0,
+        "membership_error": 0,
+        "invalid_grant": 0,
+        "battle_total": 0,
+        "coop_total": 0
+    }
+    _pool = 4
+    semaphore = asyncio.Semaphore(_pool)  # 控制最大并发数
+
+    async def process_user(db_user):
+        async with semaphore:  # 限制并发数
+            r = await sync_stat_ink_func(db_user)
+            # 解析结果并更新计数器
+            is_complete, is_upload, is_error, is_notice_error, is_else_error, \
+                is_battle_error, is_membership_error, is_invalid_grant, battle_cnt, coop_cnt = r
+
             if is_complete:
-                complete_cnt += 1
+                counters["complete"] += 1
             if is_upload:
-                upload_cnt += 1
+                counters["upload"] += 1
             if is_error:
-                error_cnt += 1
+                counters["error"] += 1
             if is_notice_error:
-                notice_error_cnt += 1
+                counters["notice_error"] += 1
             if is_else_error:
-                else_error_cnt += 1
+                counters["else_error"] += 1
             if is_battle_error:
-                battle_error_cnt += 1
+                counters["battle_error"] += 1
             if is_membership_error:
-                membership_error_cnt += 1
+                counters["membership_error"] += 1
             if is_invalid_grant:
-                invalid_grant_error_cnt += 1
+                counters["invalid_grant"] += 1
+            if battle_cnt:
+                counters["battle_total"] += battle_cnt
+            if coop_cnt:
+                counters["coop_total"] += coop_cnt
+
+    # 动态提交所有任务
+    tasks = [process_user(db_user) for db_user in db_users]
+    await asyncio.gather(*tasks)
+
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = (f"sync_stat_ink end: {str_time}\n"
-                f"complete_cnt: {complete_cnt}, upload_cnt: {upload_cnt}\n"
-                f"error_cnt: {error_cnt},battle_error_cnt: {battle_error_cnt},membership_error_cnt: {membership_error_cnt},invalid_grant_error_cnt:{invalid_grant_error_cnt},notice_error_cnt: {notice_error_cnt}")
+                f"complete_cnt: {counters['complete']}, upload_cnt: {counters['upload']},b_cnt:{counters['battle_total']},c_cnt:{counters['coop_total']}\n"
+                f"error_cnt: {counters['error']},battle_error_cnt: {counters['battle_error']},membership_error_cnt: {counters['membership_error']},"
+                f"invalid_grant_error_cnt:{counters['invalid_grant']},notice_error_cnt: {counters['notice_error']}")
     cron_logger.info(cron_msg)
-    notice_msg = (f"耗时:{str_time}\n完成: {complete_cnt},同步: {upload_cnt}\n"
-                  f"错误: {error_cnt},对战错误: {battle_error_cnt},缺少会员: {membership_error_cnt},无效登录吗?: {invalid_grant_error_cnt}\n"
-                  f"通知错误: {notice_error_cnt}")
+    notice_msg = (
+        f"耗时:{str_time}\n完成: {counters['complete']},同步: {counters['upload']},b_cnt:{counters['battle_total']},c_cnt:{counters['coop_total']}\n"
+        f"错误: {counters['error']},对战错误: {counters['battle_error']},缺少会员: {counters['membership_error']},无效登录吗?: {counters['invalid_grant']}\n"
+        f"通知错误: {counters['notice_error']}")
 
     await cron_notify_to_channel("sync_stat_ink", "end", notice_msg)
 
@@ -77,15 +114,16 @@ async def sync_stat_ink():
 async def sync_stat_ink_func(db_user: UserTable):
     """同步stat.ink"""
     is_complete, is_upload, is_error, is_else_error, is_notice_error, is_battle_error, is_membership_error, is_invalid_grant = False, False, False, False, False, False, False, False
+    battle_cnt, coop_cnt = 0, 0
 
     cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
 
     res = await get_post_stat_msg(db_user)
     if not isinstance(res, tuple):
         is_else_error = True
-        return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error, is_invalid_grant
+        return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error, is_invalid_grant, battle_cnt, coop_cnt
 
-    msg, error_msg = res
+    msg, error_msg, battle_cnt, coop_cnt = res
 
     platform = db_user.platform
     user_id = db_user.user_id
@@ -122,49 +160,58 @@ async def sync_stat_ink_func(db_user: UserTable):
         if "invalid_grant" in error_msg:
             is_invalid_grant = True
 
-    return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error, is_invalid_grant
+    return is_complete, is_upload, is_error, is_notice_error, is_else_error, is_battle_error, is_membership_error, is_invalid_grant, battle_cnt, coop_cnt
 
 
 async def get_post_stat_msg(db_user):
     """获取同步消息文本"""
-    cron_logger.debug(f"get user: {db_user.user_name}, have stat_key: {db_user.stat_key}")
+    cron_logger.debug(f"get user: {db_user.id},{db_user.game_name}, have stat_key: {db_user.stat_key}")
+    cron_logger.info(
+        f'start exported_to_stat_ink: user_db_id:{db_user.id},{db_user.game_name}')
+    cron_logger.debug(f'session_token: {db_user.session_token}')
+    cron_logger.debug(f'api_key: {db_user.stat_key}')
+    msg, error_msg, battle_cnt, coop_cnt = "", "", 0, 0
+
     if not (db_user and db_user.session_token and db_user.stat_key):
         return
     # User复用以及定时任务用user对象
     platform = db_user.platform
     user_id = db_user.user_id
     msg_id = get_msg_id(platform, user_id)
+    # token复用，如果在公共缓存存在该用户，直接使用该缓存对象而不是创建新对象
     global_user_info = global_user_info_dict.get(msg_id)
     if global_user_info:
         u = global_user_info
+        splatoon = Splatoon(None, None, u)
     else:
         # 新建cron任务对象
         u = dict_get_or_set_user_info(platform, user_id)
         if not u or not u.session_token:
             return
-        splatoon = Splatoon(None, None, u)
+        splatoon = Splatoon(None, None, u, _type="cron")
         try:
-            # 刷新token
+            # 测试访问并刷新
+            # await splatoon.test_page()
             await splatoon.refresh_gtoken_and_bullettoken()
         except ValueError as e:
             if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
                 # 无效登录或会员过期 或被封禁
-                # 关闭连接池
-                await splatoon.req_client.close()
-                return "", str(e)
+                return "", str(e), battle_cnt, coop_cnt
         except Exception as e:
-            cron_logger.error(f'stat_ink_task error: {msg_id},refresh_gtoken_and_bullettoken error:{e}')
-            return "", str(e)
-        finally:
-            # 关闭连接池
-            await splatoon.req_client.close()
+            cron_logger.error(
+                f'stat_ink_task error: {msg_id},{db_user.game_name},refresh_gtoken_and_bullettoken error:{e}')
+            return "", str(e), battle_cnt, coop_cnt
 
     # 两个f_api 负载均衡
     f_url_lst = [F_GEN_URL, F_GEN_URL_2]
     random.shuffle(f_url_lst)
     f_gen_url = f_url_lst[0]
-    res = exported_to_stat_ink(db_user.id, u.session_token, db_user.stat_key, f_gen_url, g_token=u.g_token,
-                               bullet_token=u.bullet_token)
+
+    config_data = CONFIG_DATA(f_gen=f_gen_url, user_lang='zh-CN', user_country='JP',
+                              stat_key=db_user.stat_key, g_token=u.g_token, bullet_token=u.bullet_token,
+                              session_token=u.session_token)
+
+    res = await exported_to_stat_ink(splatoon=splatoon, config_data=config_data)
 
     if not isinstance(res, tuple):
         return
@@ -187,10 +234,9 @@ async def get_post_stat_msg(db_user):
                 now_f_str = "F_URL_2"
                 next_f_str = "F_URL"
                 next_f_url = F_GEN_URL
-            cron_logger.warning(f"{db_user.id}, {db_user.user_name}, {now_f_str} Error，try {next_f_str} again")
-            res = exported_to_stat_ink(db_user.id, u.session_token, db_user.stat_key, next_f_url,
-                                       g_token=u.g_token,
-                                       bullet_token=u.bullet_token)
+            cron_logger.warning(f"{db_user.id}, {db_user.game_name}, {now_f_str} Error，try {next_f_str} again")
+            splatoon.s3s.f_gen_url = next_f_url
+            res = await exported_to_stat_ink(splatoon=splatoon, config_data=config_data)
 
             if not isinstance(res, tuple):
                 return
@@ -213,7 +259,7 @@ async def get_post_stat_msg(db_user):
         log_msg = msg.replace("\n", "")
         cron_logger.info(f"{db_user.id}, {db_user.user_name}, {log_msg}")
 
-    return msg, error_msg
+    return msg, error_msg, battle_cnt, coop_cnt
 
 
 async def update_s3si_ts():
@@ -264,7 +310,8 @@ async def update_s3si_ts():
     await cron_notify_to_channel("update_s3si_ts", "end", f"耗时:{str_time}")
 
 
-def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="zh-CN", g_token="", bullet_token=""):
+def old_exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="zh-CN", g_token="",
+                             bullet_token=""):
     """同步战绩文件至stat.ink"""
     cron_logger.info(f'start exported_to_stat_ink: user_db_id:{user_id}')
     cron_logger.debug(f'session_token: {session_token}')
@@ -379,6 +426,33 @@ def exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="
                 url = line.split('to ')[1].split('spl3')[0].split('salmon3')[0][:-1]
 
     cron_logger.info(f'user_db_id:{user_id} result: {battle_cnt}, {coop_cnt}, {url}')
+    return battle_cnt, coop_cnt, url, error_msg
+
+
+async def exported_to_stat_ink(splatoon: Splatoon, config_data: CONFIG_DATA):
+    """同步战绩文件至stat.ink"""
+    battle_cnt = 0
+    coop_cnt = 0
+    url = ''
+    error_msg = ""
+
+    stat = STAT(splatoon=splatoon, config_data=config_data)
+    battle_cnt, coop_cnt, url, error_msg = await stat.start(skipprefetch=True)
+
+    if error_msg:
+        expect = ""
+        for expected_str in expected_str_list:
+            if expected_str in error_msg:
+                expect = expected_str
+                break
+        if expect:
+            cron_logger.error(f'user_db_id:{splatoon.user_db_info.db_id} upload stat error,result: {expect}')
+        else:
+            cron_logger.error(
+                f'user_db_id:{splatoon.user_db_info.db_id} upload stat unexpected error,result:\n{error_msg}')
+
+    cron_logger.info(
+        f'upload stat success,user_db_id:{splatoon.user_db_info.db_id},{splatoon.user_db_info.game_name} result: {battle_cnt}, {coop_cnt}, {url}')
     return battle_cnt, coop_cnt, url, error_msg
 
 

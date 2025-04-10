@@ -14,8 +14,9 @@ from ..data.data_source import dict_get_or_set_user_info, model_delete_user, glo
     model_get_or_set_user
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
-from ..utils import get_msg_id, DIR_RESOURCE
+from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str
 from ..utils.bot import *
+from ..utils.redis import rset_lc, rget_lc, rdel_lc
 
 MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
@@ -50,7 +51,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         # elif isinstance(event, QQ_C2CME):
         #     pass
         else:
-            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
+            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码,支持跨机器人(如漆bot)\n" \
                   f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
             await matcher.finish(msg)
     elif isinstance(event, All_Group_Message):
@@ -84,7 +85,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             await bot.send(event, message=msg)
 
         elif isinstance(bot, All_BOT):
-            msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，此类第三方调用可能会导致nso鱿鱼圈被封禁一个月，目前未观察到游戏连带被禁的情况。(要怪请去怪乌贼研究所)\n" \
+            msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi的过程，可能存在一定的风险，具体说明可查看该频道信息https://www.kookapp.cn/app/channels/7545457877013311/7021701150930949\n" \
                   "若继续完成以下登录流程，则视为您已知晓此风险并继续使用nso查询\n\n"
             msg += "登录流程: 在浏览器中打开下面链接（移动端复制链接至其他浏览器,\n" \
                    "登陆后，在显示红色的选择此人按钮时，右键红色按钮(手机端长按复制)\n" \
@@ -198,8 +199,6 @@ async def login_in_2(bot: Bot, event: Event):
     global_user_info_dict.pop(msg_id)
     _msg = f'new_login_user: 会话昵称:{user_name}\nns_player_code:{game_sp_id}\n{session_token}'
 
-    # 关闭连接池
-    await splatoon.req_client.close()
     await notify_to_channel(_msg)
 
 
@@ -243,12 +242,28 @@ async def get_login_code(bot: Bot, event: Event):
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
+    user = dict_get_or_set_user_info(platform, user_id)
 
     # 生成一次性 code
     login_code = secrets.token_urlsafe(20)
-    login_code_info = {"platform": platform, "user_id": user_id, "create_time": int(time.time())}
-    global_login_code_dict.update({login_code: login_code_info})
-    msg = f"请在其他平台艾特机器人并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用"
+    # 缓存进redis
+    mapping = {
+        "platform": user.platform,
+        "user_id": user.user_id,
+        "user_name": user.user_name or "",
+        "session_token": user.session_token or "",
+        "g_token": user.g_token or "",
+        "bullet_token": user.bullet_token or "",
+        "game_sp_id": user.game_sp_id or "",
+        "game_name": user.game_name or "",
+        "stat_key": user.stat_key or "",
+        "time": get_time_now_china_str(),
+    }
+    await rset_lc(login_code, mapping)
+
+    # login_code_info = {"platform": platform, "user_id": user_id, "create_time": int(time.time())}
+    # global_login_code_dict.update({login_code: login_code_info})
+    msg = f"请在其他平台艾特小鱿鱿(也支持跨机器人，如漆bot)并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用"
     await bot_send(bot, event, message=msg)
     await bot.send(event, message="我是分割线".center(20, "-"))
     await bot_send(bot, event, message=f"/set_login {login_code}")
@@ -263,37 +278,47 @@ async def set_login_code(bot: Bot, event: Event):
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
 
-    login_code_info = global_login_code_dict.get(login_code)
+    # login_code_info = global_login_code_dict.get(login_code)
+    lc_info = await rget_lc(login_code)
 
-    if not login_code_info:
+    if not lc_info:
         await bot_send(bot, event, "code错误，账号绑定失败")
         return
-    create_time = login_code_info.get("create_time")
-    if int(time.time()) - create_time > 600:
-        await bot_send(bot, event, "code已过期，请重新生成")
-        global_login_code_dict.pop(login_code)
-        return
+    # create_time = login_code_info.get("create_time")
+    # if int(time.time()) - create_time > 600:
+    #     await bot_send(bot, event, "code已过期，请重新生成")
+    #     global_login_code_dict.pop(login_code)
+    #     return
 
-    # 查找旧账号信息
-    old_platform = login_code_info.get("platform")
-    old_user_id = login_code_info.get("user_id")
+    # # 查找旧账号信息
+    old_platform = lc_info.get("platform")
+    old_user_id = lc_info.get("user_id")
+    old_user_name = lc_info.get("user_name")
     old_msg_id = get_msg_id(old_platform, old_user_id)
-    if old_platform and old_user_id:
-        old_user = dict_get_or_set_user_info(old_platform, old_user_id)
-    else:
-        old_user = None
-    if not old_user:
-        await bot_send(bot, event, "旧用户数据不存在，账号绑定失败")
-        return
+
+    # if old_platform and old_user_id:
+    #     old_user = dict_get_or_set_user_info(old_platform, old_user_id)
+    # else:
+    #     old_user = None
+    # if not old_user:
+    #     await bot_send(bot, event, "旧用户数据不存在，账号绑定失败")
+    #     return
 
     # 复制信息至新账号
-    user = dict_get_or_set_user_info(platform, user_id, session_token=old_user.session_token, g_token=old_user.g_token,
-                                     bullet_token=old_user.bullet_token, access_token=old_user.access_token,
-                                     game_name=old_user.game_name, game_sp_id=old_user.game_sp_id,
-                                     stat_key=old_user.stat_key, user_agreement=old_user.user_agreement)
+    # user = dict_get_or_set_user_info(platform, user_id, session_token=old_user.session_token, g_token=old_user.g_token,
+    #                                  bullet_token=old_user.bullet_token, access_token=old_user.access_token,
+    #                                  game_name=old_user.game_name, game_sp_id=old_user.game_sp_id,
+    #                                  stat_key=old_user.stat_key, user_agreement=old_user.user_agreement)
+
+    user = dict_get_or_set_user_info(platform, user_id, session_token=lc_info.get("session_token"), g_token=lc_info.get("g_token"),
+                                     bullet_token=lc_info.get("bullet_token"), access_token=lc_info.get("access_token"),
+                                     game_name=lc_info.get("game_name"), game_sp_id=lc_info.get("game_sp_id"),
+                                     stat_key=lc_info.get("stat_key"), user_agreement=1,
+                                     )
 
     # 清空 code
-    global_login_code_dict.pop(login_code)
+    # global_login_code_dict.pop(login_code)
+    await rdel_lc(login_code)
 
     msg = "登录成功！机器人现在可以从App获取你的数据。\n" \
           "/me - 显示你的信息\n" \
@@ -308,7 +333,7 @@ async def set_login_code(bot: Bot, event: Event):
 
     logger.info(f'set_login success: {msg_id},old user is {old_msg_id}')
 
-    await notify_to_channel(f"绑定账号成功: {msg_id}, 旧用户为{old_msg_id},{old_user.user_name}")
+    await notify_to_channel(f"绑定账号成功: {msg_id}, 旧用户为{old_msg_id},{old_user_name}")
 
 
 matcher_set_api_key = on_command("set_stat_key", aliases={"set_api_key"}, priority=10, block=True)
@@ -359,7 +384,7 @@ async def get_set_api_key(bot: Bot, event: Event):
         msg = f"设置成功，bot将开始同步你当前的对战及打工数据到 stat.ink，并后续每2h自动进行一次同步"
     await bot_send(bot, event, message=msg)
 
-    await update_s3si_ts()
+    # await update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
     threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
 
@@ -379,7 +404,7 @@ async def sync_now(bot: Bot, event: Event):
         await bot_send(bot, event, msg)
         return
 
-    await update_s3si_ts()
+    # await update_s3si_ts()
     msg = "战绩手动同步任务已开始，请稍等..."
     if isinstance(bot, QQ_Bot):
         msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat点ink网站自行查看记录，kook平台bot才可以主动推送"

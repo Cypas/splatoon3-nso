@@ -23,24 +23,30 @@ async def create_get_user_friends_tasks():
     for user in users:
         list_user.append((user.platform, user.user_id))
 
-    friends_count = 0
     _pool = 5
-    for i in range(0, len(list_user), _pool):
-        _p_and_id_list = list_user[i:i + _pool]
-        cron_logger.info(f'get friends for {i}-{i + _pool} ...')
-        tasks = [get_friends_task(p_and_id) for p_and_id in _p_and_id_list]
-        res = await asyncio.gather(*tasks)
-        for f_list in res:
-            if not f_list:
-                continue
-            model_set_user_friend(f_list)
-            friends_count += len(f_list)
-    cron_logger.info(f"get all friends count: {friends_count}")
+    semaphore = asyncio.Semaphore(_pool)  # 并发控制
+    counters = {'friends_count': 0}
+
+    async def process_single_user(p_and_id):
+        async with semaphore:
+            try:
+                f_list = await get_friends_task(p_and_id)
+                if f_list:
+                    model_set_user_friend(f_list)
+                    counters['friends_count'] += len(f_list)
+            except Exception as e:
+                cron_logger.error(f"Failed to process {p_and_id}: {str(e)}")
+
+    # 动态提交所有任务（不再分批）
+    tasks = [process_single_user(p_and_id) for p_and_id in list_user]
+    await asyncio.gather(*tasks)
+
+    cron_logger.info(f"get all friends count: {counters['friends_count']}")
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
-    cron_msg = f"create_get_user_friends_tasks end: {str_time}\nget friends: {friends_count}"
+    cron_msg = f"create_get_user_friends_tasks end: {str_time}\nget friends: {counters['friends_count']}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel("get_user_friends", "end", f"耗时:{str_time}\n获取好友: {friends_count}")
+    await cron_notify_to_channel("get_user_friends", "end", f"耗时:{str_time}\n获取好友: {counters['friends_count']}")
 
 
 async def get_friends_task(p_and_id):
@@ -75,6 +81,3 @@ async def get_friends_task(p_and_id):
 
     except Exception as e:
         cron_logger.warning(f'refresh_token_task error: {msg_id}, {e}')
-    finally:
-        # 关闭连接池
-        await splatoon.req_client.close()

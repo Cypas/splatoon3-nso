@@ -60,8 +60,8 @@ async def get_screenshot_image(bot, event, platform, user_id, key=None):
     context = global_dict_ss_user.get(msg_id)
     if not context:
         # 测试token是否有效
-        await splatoon.test_page()
+        success = await splatoon.test_page()
+        if not success:
+            raise ValueError(f"{msg_id} get_screenshot_image error: test_page fail")
     img = await get_app_screenshot(platform, user_id, key)
-    # 关闭连接池
-    await splatoon.req_client.close()
     return img

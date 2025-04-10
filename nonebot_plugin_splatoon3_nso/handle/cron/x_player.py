@@ -42,8 +42,6 @@ async def get_x_player():
     for top_id in [base64.b64encode(s.encode()).decode('utf-8') for s in _lst]:
         await parse_x_data(top_id, splatoon)
 
-    # 关闭连接池
-    await splatoon.req_client.close()
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = f"get_x_player end. {datetime.datetime.utcnow() - t}"
