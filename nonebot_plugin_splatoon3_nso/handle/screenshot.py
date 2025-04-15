@@ -43,7 +43,10 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         # 此处message为bytes
         message = await get_screenshot_image(bot, event, platform, user_id, key=key)
     except ValueError as e:
-        message = "当前没有祭典投票问卷"
+        if "text not found" in str(e):
+            message = "当前没有祭典投票问卷"
+        if "get_screenshot_image error" in str(e):
+            message = "token刷新失败，请稍后再试"
     except Exception as e:
         logger.exception(e)
         message = "bot网络错误，请稍后再试"
@@ -57,11 +60,11 @@ async def get_screenshot_image(bot, event, platform, user_id, key=None):
     msg_id = get_msg_id(platform, user_id)
 
     # 只有第一次使用ss时需要测试token是否有效，后续加入了token定时维护便不再需要测试
-    context = global_dict_ss_user.get(msg_id)
-    if not context:
-        # 测试token是否有效
-        success = await splatoon.test_page()
-        if not success:
-            raise ValueError(f"{msg_id} get_screenshot_image error: test_page fail")
+    # ok = global_dict_ss_user.get(msg_id)
+    # if not ok:
+    # 测试token是否有效
+    success = await splatoon.test_page()
+    if not success:
+        raise ValueError(f"{msg_id} get_screenshot_image error: test_page fail")
     img = await get_app_screenshot(platform, user_id, key)
     return img
