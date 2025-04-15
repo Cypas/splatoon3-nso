@@ -1,5 +1,6 @@
 import copy
 import datetime
+import weakref
 from typing import Type
 
 from nonebot import logger
@@ -11,7 +12,7 @@ from ..utils import get_or_init_client, get_msg_id, ReqClient
 
 global_user_info_dict: dict[str:GlobalUserInfo] = {}  # 用于缓存今日已使用过指令的用户，并为这些活跃用户定期更新token
 
-global_cron_user_info_dict: dict[str:GlobalUserInfo] = {}  # 定时任务专用的字典，用完即销毁
+global_cron_user_info_dict = weakref.WeakValueDictionary()  # 定时任务专用的字典，用完即销毁
 
 
 def dict_get_or_set_user_info(platform, user_id, _type="normal", **kwargs):

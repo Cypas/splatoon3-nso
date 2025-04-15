@@ -1,4 +1,5 @@
 import urllib.parse
+import weakref
 
 import httpx
 from httpx import Response
@@ -155,7 +156,7 @@ global_client_dict: dict[str, ReqClient] = {}
 # 登录涉及函数login in和login_2需要保持一段时间浏览器状态，在输入npf码完成登录后需要关闭client
 # 普通请求也可以共用这个结构体，有利于加速网页请求，仅首次请求需要3s左右，后续只需要0.7s
 
-global_cron_client_dict: dict[str, ReqClient] = {}
+global_cron_client_dict = weakref.WeakValueDictionary()
 
 
 class HttpReq(object):
