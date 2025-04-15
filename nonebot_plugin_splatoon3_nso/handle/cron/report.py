@@ -33,9 +33,9 @@ async def create_set_report_tasks():
     counters = {"set_report_count": 0}
 
     # 阶段1：认证刷新池（并发限制2）
-    phase1_semaphore = asyncio.Semaphore(3)
+    phase1_semaphore = asyncio.Semaphore(4)
     # 阶段2：报告生成池（并发限制4）
-    phase2_semaphore = asyncio.Semaphore(3)
+    phase2_semaphore = asyncio.Semaphore(4)
 
     # ================== 阶段1：认证刷新 ==================
     async def process_phase1(p_and_id):
@@ -107,7 +107,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
     platform, user_id = p_and_id
     msg_id = get_msg_id(platform, user_id)
 
-    cron_logger.info(f'set_report: {msg_id}, {splatoon.user_name}')
+    cron_logger.info(f'start set_report: {msg_id}, {splatoon.user_name}')
     # 再次校验是否有访问权限
     success = False
     try:

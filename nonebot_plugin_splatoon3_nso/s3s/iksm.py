@@ -37,7 +37,7 @@ APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
 
 # f api请求容量
-fapi_rate = 1
+fapi_rate = 2
 # 限流器
 rate_limiter = None
 

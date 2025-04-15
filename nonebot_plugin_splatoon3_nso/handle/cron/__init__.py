@@ -58,7 +58,7 @@ def scheduler_controller():
         # 清空s3sti.ts脚本生成的缓存文件
         add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
         # set_report at 7:30
-        add_scheduler("set_report", trigger='cron', hour=7, minute=30)
+        add_scheduler("set_report", trigger='cron', hour=7, minute=0)
         # send_report at 9:00
         add_scheduler("send_report", trigger='cron', hour=9, minute=0)
         # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########
