@@ -100,6 +100,8 @@ async def create_set_report_tasks():
                                  f"有效用户:{len(valid_splatoons)}\n"
                                  f"写日报:{counters['set_report_count']}\n"
                                  f"清理对象:{clear_count}")
+    # 发信
+    await send_report_task()
 
 
 async def set_user_report_task(p_and_id, splatoon: Splatoon):
