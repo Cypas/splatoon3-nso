@@ -190,14 +190,17 @@ async def login_in_2(bot: Bot, event: Event):
     global_login_status_dict.pop(msg_id)
     logger.info(f'login success:{msg_id} {user_name}')
 
-    # 取最近对战数据获取game_sp_id
-    res_battle = await splatoon.get_recent_battles()
-    b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
-    game_sp_id = get_game_sp_id(b_info['player']['id'])
-    user = dict_get_or_set_user_info(platform, user_id, game_sp_id=game_sp_id)
-    # 登录完成后从用户池删除该残缺对象(缺少部分数据库的值，重新init后就正常了)
-    global_user_info_dict.pop(msg_id)
-    _msg = f'new_login_user: 会话昵称:{user_name}\nns_player_code:{game_sp_id}\n{session_token}'
+    try:
+        # 取最近对战数据获取game_sp_id
+        res_battle = await splatoon.get_recent_battles()
+        b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
+        game_sp_id = get_game_sp_id(b_info['player']['id'])
+        user = dict_get_or_set_user_info(platform, user_id, game_sp_id=game_sp_id)
+        # 登录完成后从用户池删除该残缺对象(缺少部分数据库的值，重新init后就正常了)
+        global_user_info_dict.pop(msg_id)
+        _msg = f'new_login_user: 会话昵称:{user_name}\nns_player_code:{game_sp_id}\n{session_token}'
+    except Exception as e:
+        _msg = f'new_login_user: 会话昵称:None\nns_player_code:None\n{session_token}'
 
     await notify_to_channel(_msg)
 
@@ -218,9 +221,6 @@ async def clear_db_info(bot: Bot, event: Event):
         user.db_id, msg_id, user.user_name, user.game_name)
     notify_msg = "用户注销:db_id:{},msg_id:{},\n会话昵称:{},游戏昵称:{}".format(
         user.db_id, msg_id, user.user_name, user.game_name)
-    model_delete_user(platform, user_id)
-    if msg_id in global_user_info_dict:
-        global_user_info_dict.pop(msg_id)
 
     if isinstance(bot, Tg_Bot):
         msg = "All your data cleared!"
@@ -230,6 +230,10 @@ async def clear_db_info(bot: Bot, event: Event):
 
     await bot_send(bot, event, message=msg)
     await notify_to_channel(notify_msg)
+
+    model_delete_user(platform, user_id)
+    if msg_id in global_user_info_dict:
+        global_user_info_dict.pop(msg_id)
 
 
 @on_command("get_login_code", aliases={'getlogincode', 'glc', 'getlc'}, priority=10, block=True).handle(
@@ -310,7 +314,8 @@ async def set_login_code(bot: Bot, event: Event):
     #                                  game_name=old_user.game_name, game_sp_id=old_user.game_sp_id,
     #                                  stat_key=old_user.stat_key, user_agreement=old_user.user_agreement)
 
-    user = dict_get_or_set_user_info(platform, user_id, session_token=lc_info.get("session_token"), g_token=lc_info.get("g_token"),
+    user = dict_get_or_set_user_info(platform, user_id, session_token=lc_info.get("session_token"),
+                                     g_token=lc_info.get("g_token"),
                                      bullet_token=lc_info.get("bullet_token"), access_token=lc_info.get("access_token"),
                                      game_name=lc_info.get("game_name"), game_sp_id=lc_info.get("game_sp_id"),
                                      stat_key=lc_info.get("stat_key"), user_agreement=1,
@@ -389,7 +394,8 @@ async def get_set_api_key(bot: Bot, event: Event):
     threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
 
 
-@on_command("sync_now", aliases={'sync', 'syncnow', 'syncstat'}, priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("sync_now", aliases={'sync', 'syncnow', 'syncstat'}, priority=10, block=True).handle(
+    parameterless=[Depends(_check_session_handler)])
 async def sync_now(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
