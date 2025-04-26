@@ -113,7 +113,7 @@ async def get_dict_status():
                 f"global_client_cnt:{len(global_client_dict)}\n"
                 f"cron_client_cnt:{len(global_cron_client_dict)}\n"
                 f"limiter:{json.dumps(limiter_dict)}\n"
-                f"ss_user:{json.dumps(global_dict_ss_user)}"
+                # f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
     return cron_msg
 

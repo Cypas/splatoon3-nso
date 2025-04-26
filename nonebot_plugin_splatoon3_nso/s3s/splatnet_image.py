@@ -88,7 +88,8 @@ async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=Fals
         k = "问卷实施中"
         locator = page.get_by_text(k, exact=True)
         if not await locator.count():
-            raise ValueError("text not found")
+            pass
+            # raise ValueError("text not found")
         else:
             await locator.nth(0).click()
             await page.wait_for_load_state(state="networkidle")

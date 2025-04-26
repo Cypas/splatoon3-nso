@@ -1,4 +1,8 @@
 import urllib.parse
+import weakref
+import httpx
+import urllib.parse
+from typing import Optional
 
 import httpx
 from httpx import Response
@@ -56,10 +60,6 @@ def get_or_init_client(platform, user_id, _type="normal", with_proxy=False):
         client_dict.update({msg_id: req_client})
         return req_client
 
-
-import httpx
-import urllib.parse
-from typing import Optional
 
 class ReqClient:
     """二次封装的httpx client会话管理（自动恢复连接版）"""
@@ -155,7 +155,7 @@ global_client_dict: dict[str, ReqClient] = {}
 # 登录涉及函数login in和login_2需要保持一段时间浏览器状态，在输入npf码完成登录后需要关闭client
 # 普通请求也可以共用这个结构体，有利于加速网页请求，仅首次请求需要3s左右，后续只需要0.7s
 
-global_cron_client_dict: dict[str, ReqClient] = {}
+global_cron_client_dict = weakref.WeakValueDictionary()
 
 
 class HttpReq(object):

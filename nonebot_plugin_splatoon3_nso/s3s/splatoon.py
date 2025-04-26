@@ -66,6 +66,14 @@ class Splatoon:
                                            user.push_cnt or 0,
                                            user.cmd_cnt or 0)
 
+    def reload_tokens(self):
+        """重载token"""
+        user = model_get_or_set_user(self.platform, self.user_id)
+        if user:
+            self.bullet_token = user.bullet_token
+            self.g_token = user.g_token
+            self.access_token = user.access_token
+
     def set_user_info(self, **kwargs):
         """修改user信息"""
         # 修改自身类的值
@@ -77,6 +85,8 @@ class Splatoon:
 
     async def refresh_gtoken_and_bullettoken(self, skip_access=True) -> bool:
         """刷新gtoken 和 bullettoken"""
+        # 跨线程重载token
+        self.reload_tokens()
         msg_id = get_msg_id(self.platform, self.user_id)
         new_access_token, new_g_token, new_bullet_token, user_lang, user_country = \
             "", "", "", self.user_lang, self.user_country
@@ -266,7 +276,9 @@ class Splatoon:
 
     async def test_page(self, multiple=False) -> bool:
         """主页(测试访问页面) """
-        data = gen_graphql_body(translate_rid["HomeQuery"])
+        # 跨线程重载token
+        self.reload_tokens()
+        data = gen_graphql_body(translate_rid["HomeQuery"], "naCountry", "JP")
 
         msg_id = get_msg_id(self.platform, self.user_id)
         if not self.bullet_token or not self.g_token:
@@ -309,13 +321,18 @@ class Splatoon:
                     # 定时任务各种预期错误
                     raise e
                 except Exception as e:
-                    self.logger.info(
-                        f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
+                    self.logger.error(f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
+                    return False
+            self.logger.error(
+                f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} page test fail,status_code:{test.status_code},res:{test.text}'
+                f'\ndata:{data}\nheaders:{headers}\ncookies:{cookies}')
             return False
         else:
             return True
 
     async def request(self, data, multiple=False, force_lang=None, force_country=None, return_json=True):
+        # 跨线程重载token
+        self.reload_tokens()
         res = ''
         msg_id = get_msg_id(self.platform, self.user_id)
         try:
@@ -414,6 +431,8 @@ class Splatoon:
 
     async def _ns_api_request(self, url, multiple=False) -> bool | None:
         """ns接口层操作，如ns好友列表，我的 页面"""
+        # 跨线程重载token
+        self.reload_tokens()
         res = ''
         msg_id = get_msg_id(self.platform, self.user_id)
         try:

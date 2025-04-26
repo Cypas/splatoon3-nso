@@ -56,20 +56,20 @@ def scheduler_controller():
         # 更新活动排行榜
         add_scheduler("get_event_top", trigger='cron', hour=6, minute=20)
         # 清空s3sti.ts脚本生成的缓存文件
-        add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
-        # set_report at 7:30
-        add_scheduler("set_report", trigger='cron', hour=7, minute=30)
+        # add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
+        # set_report at 7:00
+        add_scheduler("set_report", trigger='cron', hour=7, minute=0)
         # send_report at 9:00
-        add_scheduler("send_report", trigger='cron', hour=9, minute=0)
+        # add_scheduler("send_report", trigger='cron', hour=9, minute=0)
         # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########
-        # get_user_friends every 3 hours   仅为缓存内的用户提供定期获取好友信息
+        # get_user_friends every 1 hours   仅为缓存内的用户提供定期获取好友信息
         add_scheduler("get_user_friends", trigger='interval', hours=1)
         # refresh_token every 1 hours 50 min   仅为缓存内的用户提供定期刷新token
         add_scheduler("refresh_token", trigger='interval', hours=1, minutes=50)
         # # update_s3si_ts 在指定时间检查脚本更新
         # add_scheduler("update_s3si_ts", trigger='cron', hour=6, minute=50)
         # sync_stat_ink 在指定时间进行同步
-        add_scheduler("sync_stat_ink", trigger='cron', hour="0,2,4,6,8,10,12,14,16,18,20,22", minute=4)
+        add_scheduler("sync_stat_ink", trigger='cron', hour="0,3,6,9,12,15,18,20,22", minute=4)
         # 每周一周四清理一次公共用户字典
         add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
         # 每天23:59分将 NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空
