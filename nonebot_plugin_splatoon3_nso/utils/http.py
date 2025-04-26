@@ -1,5 +1,8 @@
 import urllib.parse
 import weakref
+import httpx
+import urllib.parse
+from typing import Optional
 
 import httpx
 from httpx import Response
@@ -57,10 +60,6 @@ def get_or_init_client(platform, user_id, _type="normal", with_proxy=False):
         client_dict.update({msg_id: req_client})
         return req_client
 
-
-import httpx
-import urllib.parse
-from typing import Optional
 
 class ReqClient:
     """二次封装的httpx client会话管理（自动恢复连接版）"""
