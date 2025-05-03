@@ -8,6 +8,7 @@ import json
 import os
 import re
 import sys
+import threading
 import urllib
 import random
 import asyncio
@@ -46,34 +47,21 @@ class GlobalRateLimiter:
     """全局限流器"""
     _instance: Optional["GlobalRateLimiter"] = None
     _lock = asyncio.Lock()
-    _semaphore: Optional[asyncio.BoundedSemaphore] = None
+    _semaphore: threading.Semaphore
 
     def __init__(self, rate: int = fapi_rate):
-        self.rate = rate
+        self._semaphore = threading.Semaphore(rate)
 
     async def acquire(self):
         """获取令牌，支持等待"""
-        if self._semaphore is None:
-            self._semaphore = asyncio.BoundedSemaphore(self.rate)
-        await self._semaphore.acquire()
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._semaphore.acquire)
         # nb_logger.info(f"get success,dict:{json.dumps(self.get_serializable_state())}")
-
-        try:
-            await self._semaphore.acquire()
-            return True
-        except asyncio.CancelledError:
-            # 如果任务被取消，确保释放令牌
-            self._semaphore.release()
-            raise
 
     async def release(self):
         """释放令牌（所有 EventLoop 共用）"""
-        if self._semaphore is not None:
-            try:
-                self._semaphore.release()
-            except ValueError:
-                # 防止 release 次数超过 acquire 次数
-                pass
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, self._semaphore.release)
             # nb_logger.info(f"exit success,dict:{json.dumps(self.get_serializable_state())}")
 
     # async def get_serializable_state(self) -> Dict[str, Any]:
@@ -87,10 +75,12 @@ class GlobalRateLimiter:
     #         }
 
     async def __aenter__(self):
+        """进入上下文时获取令牌"""
         await self.acquire()
         return self
 
     async def __aexit__(self, *args):
+        """退出上下文时自动释放令牌"""
         await self.release()
 
     @classmethod
@@ -615,11 +605,11 @@ class S3S:
         res = await self.call_f_api(access_token, step, f_gen_url, r_user_id, coral_user_id)
         if isinstance(res, tuple):
             return res
-        else:
+        # else:
             # # 4.3日 只有nxapi可用，暂时禁用重试机制 return None
             # raise ValueError(res)
             # return None
-            pass
+            # pass
 
         # 判断重试时的对象名称以及f地址
         if self.f_gen_url == F_GEN_URL:

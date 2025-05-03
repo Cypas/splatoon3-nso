@@ -62,10 +62,10 @@ def scheduler_controller():
         # send_report at 9:00
         # add_scheduler("send_report", trigger='cron', hour=9, minute=0)
         # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########
-        # get_user_friends every 1 hours   仅为缓存内的用户提供定期获取好友信息
-        add_scheduler("get_user_friends", trigger='interval', hours=1)
-        # refresh_token every 1 hours 50 min   仅为缓存内的用户提供定期刷新token
-        add_scheduler("refresh_token", trigger='interval', hours=1, minutes=50)
+        # get_user_friends every 3 hours   仅为缓存内的用户提供定期获取好友信息
+        add_scheduler("get_user_friends", trigger='interval', hours=3)
+        # refresh_token every 2 hours 30 min   仅为缓存内的用户提供定期刷新token
+        add_scheduler("refresh_token", trigger='interval', hours=2, minutes=30)
         # # update_s3si_ts 在指定时间检查脚本更新
         # add_scheduler("update_s3si_ts", trigger='cron', hour=6, minute=50)
         # sync_stat_ink 在指定时间进行同步
@@ -75,7 +75,7 @@ def scheduler_controller():
         # 每天23:59分将 NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
         # 每3小时自动显示status
-        add_scheduler("show_status", trigger='interval', hours=3)
+        # add_scheduler("show_status", trigger='interval', hours=3)
 
 
 async def cron(_type):
