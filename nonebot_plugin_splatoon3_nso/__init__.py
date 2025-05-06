@@ -99,8 +99,6 @@ async def bot_on_start():
 async def bot_on_shutdown():
     version = BOT_VERSION
     logger.info(f" bot shutdown, version: {version} ".center(120, "x"))
-    bots = get_bots()
-    logger.info(f"bot: {bots}")
 
 
 @driver.on_bot_connect
