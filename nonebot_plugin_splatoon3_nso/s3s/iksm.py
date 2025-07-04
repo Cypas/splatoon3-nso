@@ -45,34 +45,53 @@ rate_limiter = None
 
 class GlobalRateLimiter:
     """全局限流器"""
-    _instance: Optional["GlobalRateLimiter"] = None
+    _instance = None
     _lock = asyncio.Lock()
-    _semaphore: threading.Semaphore
+    _semaphores: Dict[asyncio.AbstractEventLoop, asyncio.BoundedSemaphore] = WeakKeyDictionary()
 
     def __init__(self, rate: int = fapi_rate):
-        self._semaphore = threading.Semaphore(rate)
+        self.rate = rate
+        self._loop_lock = asyncio.Lock()  # 单独保护_semaphores
 
     async def acquire(self):
         """获取令牌，支持等待"""
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._semaphore.acquire)
+        async with self._loop_lock:
+            if loop not in self._semaphores:
+                # 使用BoundedSemaphore防止release次数过多
+                self._semaphores[loop] = asyncio.BoundedSemaphore(self.rate)
         # nb_logger.info(f"get success,dict:{json.dumps(self.get_serializable_state())}")
 
-    async def release(self):
-        """释放令牌（所有 EventLoop 共用）"""
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._semaphore.release)
-            # nb_logger.info(f"exit success,dict:{json.dumps(self.get_serializable_state())}")
+        try:
+            await self._semaphores[loop].acquire()
+            return True
+        except asyncio.CancelledError:
+            # 如果任务被取消，确保释放令牌
+            self._semaphores[loop].release()
+            raise
 
-    # async def get_serializable_state(self) -> Dict[str, Any]:
-    #     """获取可序列化的状态信息"""
-    #     async with self._loop_lock:
-    #         used = sum(self.rate - sem._value for sem in self._semaphores.values())
-    #         return {
-    #             "max_rate": self.rate,
-    #             "used_permits": used,
-    #             "available": max(0, self.rate - used),
-    #         }
+    async def release(self):
+        """释放令牌"""
+        loop = asyncio.get_running_loop()
+        async with self._loop_lock:
+            if loop in self._semaphores:
+                try:
+                    self._semaphores[loop].release()
+                except ValueError:
+                    # 防止release次数超过acquire次数
+                    pass
+        # nb_logger.info(f"exit success,dict:{json.dumps(self.get_serializable_state())}")
+
+    async def get_serializable_state(self) -> Dict[str, Any]:
+        """获取可序列化的状态信息"""
+        async with self._loop_lock:
+            used = sum(self.rate - sem._value for sem in self._semaphores.values())
+            return {
+                "max_rate": self.rate,
+                "used_permits": used,
+                "available": max(0, self.rate - used),
+                "active_loops": len(self._semaphores)
+            }
 
     async def __aenter__(self):
         """进入上下文时获取令牌"""
