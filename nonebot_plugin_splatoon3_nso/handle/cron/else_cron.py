@@ -104,15 +104,15 @@ async def show_dict_status():
 
 async def get_dict_status():
     """获取字典当前状态文本"""
-    limiter = await GlobalRateLimiter.get_instance(rate=2)
+    # limiter = await GlobalRateLimiter.get_instance(rate=2)
 
     # 获取状态
-    limiter_dict = await limiter.get_serializable_state()
+    # limiter_dict = await limiter.get_serializable_state()
     cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
                 f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
                 f"global_client_cnt:{len(global_client_dict)}\n"
                 f"cron_client_cnt:{len(global_cron_client_dict)}\n"
-                f"limiter:{json.dumps(limiter_dict)}\n"
+                # f"limiter:{json.dumps(limiter_dict)}\n"
                 # f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
     return cron_msg

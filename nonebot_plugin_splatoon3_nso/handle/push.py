@@ -1,5 +1,5 @@
 from datetime import datetime as dt, timedelta
-
+from threading import Lock
 from .b_or_c_tools import PushStatistics
 from .utils import _check_session_handler, PUSH_INTERVAL
 from .send_msg import bot_send, notify_to_channel
@@ -14,6 +14,9 @@ from nonebot_plugin_apscheduler import scheduler
 
 matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, priority=10, block=True)
 
+# push任务状态
+is_running_dict = {}
+is_running_lock = Lock()  # 全局锁
 
 @matcher_start_push.handle(parameterless=[Depends(_check_session_handler)])
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
@@ -110,7 +113,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     scheduler.add_job(
         push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
         id=job_id, args=[bot.self_id, event, job_data, filters],
-        misfire_grace_time=push_interval - 1, coalesce=True, max_instances=1
+        misfire_grace_time=PUSH_INTERVAL * 4 * 4, coalesce=True, max_instances=1
     )
     if isinstance(bot, Tg_Bot):
         msg = f'Start push! check new data(battle or coop) every {push_interval} seconds. /stop_push to stop'
@@ -181,6 +184,13 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
     get_screenshot = filters["get_screenshot"]
     mask = filters["mask"]
 
+    with is_running_lock:
+        if is_running_dict.get(msg_id, False):
+            logger.warning(f"push-{msg_id} 前一个任务未完成，跳过本次执行")
+            return
+        # 更新为运行状态
+        is_running_dict[msg_id] = True
+
     user = dict_get_or_set_user_info(platform, user_id)
 
     push_cnt += 1
@@ -209,6 +219,8 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
             await bot_send(bot, event, message=msg, skip_log_cmd=True)
             msg = f"#{msg_id} {user.game_name or ''}\n 连续多次请求报错，停止推送，推送持续 {push_time_minute}分钟"
             await notify_to_channel(msg)
+            with is_running_lock:
+                is_running_dict.pop(msg_id)
             return
 
         # 获取对战或打工数据
@@ -241,6 +253,8 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                     f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
                 await bot_send(bot, event, message=msg, skip_log_cmd=True)
+                with is_running_lock:
+                    is_running_dict.pop(msg_id)
                 # msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
                 # await notify_to_channel(msg)
                 return
@@ -274,6 +288,10 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
         error_push_cnt += 1
         job_data.update({"error_push_cnt": error_push_cnt})
         return
+    finally:
+        # 更新为结束状态
+        with is_running_lock:
+            is_running_dict[msg_id] = False
 
 
 def close_push(platform, user_id):

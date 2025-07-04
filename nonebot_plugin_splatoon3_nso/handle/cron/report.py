@@ -30,7 +30,11 @@ async def create_set_report_tasks():
     list_user: list[tuple] = [(user.platform, user.user_id) for user in db_users]
 
     # 阶段计数器
-    counters = {"set_report_count": 0}
+    counters = {"refresh_tokens_fail_count": 0,
+                "data_missing_count": 0,
+                "no_report_count": 0,
+                "set_report_count": 0,
+                }
 
     # 阶段1：认证刷新池（并发限制2）
     phase1_semaphore = asyncio.Semaphore(4)
@@ -78,28 +82,34 @@ async def create_set_report_tasks():
                 splatoon
             )
             if result:
-                counters["set_report_count"] += 1
+                if result == "refresh_tokens fail":
+                    counters["refresh_tokens_fail_count"] += 1
+                if result == "data missing":
+                    counters["data_missing_count"] += 1
+                if result == "no report":
+                    counters["no_report_count"] += 1
+                if result == "success":
+                    counters["set_report_count"] += 1
 
     # 阶段2
     phase2_tasks = [process_phase2(s) for s in valid_splatoons]
     await asyncio.gather(*phase2_tasks)
 
-    # 清理
-    cron_logger.info(f'clear cron user_info_dict...')
-    clear_count = await dict_clear_user_info_dict(_type="cron")
-
     # 结果报告
     str_time = convert_td(dt.utcnow() - t)
     cron_msg = (f"create_set_report_tasks end: {str_time}\n"
+                f"全部用户: {len(list_user)}\n"
                 f"有效用户: {len(valid_splatoons)}\n"
-                f"成功写日报: {counters['set_report_count']}\n"
-                f"清理对象: {clear_count}")
+                f"刷新成功: {len(valid_splatoons) - counters['refresh_tokens_fail_count']}\n"
+                f"无日报: {counters['no_report_count']}\n"
+                f"成功写日报: {counters['set_report_count']}\n")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("set_report", "end",
                                  f"耗时:{str_time}\n"
+                                 f"全部用户: {len(list_user)}\n"
                                  f"有效用户:{len(valid_splatoons)}\n"
-                                 f"写日报:{counters['set_report_count']}\n"
-                                 f"清理对象:{clear_count}")
+                                 f"刷新成功: {len(valid_splatoons)}\n"
+                                 f"成功写日报:{counters['set_report_count']}\n")
     # 发信
     await send_report_task()
 
@@ -117,12 +127,12 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
     except ValueError as e:
         # 预期错误，token更新失败
         cron_logger.debug(f'set_report error: {msg_id}, {splatoon.user_name},reason：{e}')
-        return False
+        return "refresh_tokens fail"
 
     if not success:
         # 无效token
         cron_logger.error(f'set_report error: {msg_id}, {splatoon.user_name},refresh_tokens fail')
-        return False
+        return "refresh_tokens fail"
 
     try:
         # ================== 并发执行所有请求 ==================
@@ -157,7 +167,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             if not res_coop: missing.append("coop")
             if not all_data: missing.append("all_data")
             cron_logger.error(f"数据缺失: {msg_id} 缺失字段: {missing}")
-            return False
+            return "data missing"
 
         # ================== 对战数据处理 ==================
         try:
@@ -167,7 +177,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             game_sp_id = get_game_sp_id(b_info['player']['id'])
         except (KeyError, IndexError) as e:
             cron_logger.error(f"对战数据解析失败: {msg_id} 错误类型: {type(e).__name__}")
-            return False
+            return "data missing"
 
         # ================== 打工数据处理 ==================
         try:
@@ -176,7 +186,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             coop_t = get_battle_time_or_coop_time(coop_detail['id'])
         except (KeyError, IndexError) as e:
             cron_logger.error(f"打工数据解析失败: {msg_id} 错误类型: {type(e).__name__}")
-            return False
+            return "data missing"
 
         # ================== 时间计算 ==================
         last_play_time = max(dt.strptime(battle_t, '%Y%m%dT%H%M%S'), dt.strptime(coop_t, '%Y%m%dT%H%M%S'))
@@ -188,9 +198,9 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             await set_user_report(splatoon.user_db_info.db_id, res_summary, res_coop, last_play_time, splatoon,
                                   game_sp_id, all_data)
             cron_logger.info(f'set_user_report_task success: {msg_id}')
-            return True
+            return "success"
 
-        return False
+        return "no report"
     except Exception as ex:
         cron_logger.error(f'set_user_report_task error: {msg_id} error:{str(ex)}', exc_info=True)
         return False
@@ -289,16 +299,25 @@ async def send_report_task():
     await cron_notify_to_channel("send_report", "start")
     t = dt.utcnow()
 
+    # 阶段计数器
+    counters = {"new_report_count": 0,
+                "can_send_report_count": 0,
+                "error_kook_send_limit": 0,
+                "error_user_ban_bot": 0,
+                }
+
     users = model_get_all_user()
     for user in users:
-        # 排除qq平台发信 和 日报通知未打开的用户
-        if user.platform == "QQ" or not user.report_notify:
-            continue
         msg_id = get_msg_id(user.platform, user.user_id)
         # 根据sp_id查询今天是否生成新日报
         have_report = model_get_today_report(user.game_sp_id)
         if not have_report:
             continue
+        counters["new_report_count"] += 1
+        # 排除qq平台发信 和 日报通知未打开的用户
+        if user.platform == "QQ" or not user.report_notify:
+            continue
+        counters["can_send_report_count"] += 1
         # 每次循环强制睡眠1s，使一分钟内不超过120次发信阈值
         time.sleep(1)
         try:
@@ -315,21 +334,26 @@ async def send_report_task():
         except Kook_ActionFailed as e:
             if e.status_code == 40000:
                 if e.message.startswith("无法发起私信"):
+                    counters["error_kook_send_limit"] += 1
                     time.sleep(10)
                 elif e.message.startswith("你已被对方屏蔽"):
                     model_get_or_set_user(user.platform, user.user_id, stat_notify=0, report_notify=0)
                     cron_logger.warning(
                         f'create_send_report_tasks error:{msg_id},error:用户已屏蔽发信bot，已关闭其通知权限')
+                    counters["error_user_ban_bot"] += 1
             continue
         except Exception as e:
             cron_logger.warning(f'create_send_report_tasks error:{msg_id},error:{e}')
             continue
 
-    # 清理任务字典
-    cron_logger.info(f'clear cron user_info_dict...')
-    clear_count = await dict_clear_user_info_dict(_type="cron")
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
-    cron_msg = f"create_send_report_tasks end: {str_time}\nclear_count: {clear_count}"
+    cron_msg = (f"create_send_report_tasks end: {str_time}\n"
+                f"new_report_count: {counters['new_report_count']},can_send_report_count: {counters['can_send_report_count']}\n"
+                f"error_kook_send_limit: {counters['error_kook_send_limit']},error_user_ban_bot: {counters['error_user_ban_bot']}")
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel("send_report", "end", f"耗时:{str_time}\n清理对象: {clear_count}")
+    await cron_notify_to_channel("send_report", "end",
+                                 f"耗时:{str_time}\n"
+                                 f"全部日报: {counters['new_report_count']},待发送日报:{counters['can_send_report_count']}\n"
+                                 f"发送限速: {counters['error_kook_send_limit']},bot被屏蔽:{counters['error_user_ban_bot']}\n"
+                                 )

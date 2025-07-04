@@ -15,15 +15,12 @@ from ..utils import get_msg_id
 from ..utils.bot import *
 from nonebot import logger
 
-global_admin_session_token: str = ""
-
 matcher_admin = on_command("admin", block=True, permission=SUPERUSER)
 
 
 @matcher_admin.handle()
 async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
     plain_text = args.extract_plain_text().strip()
-    global global_admin_session_token
     match plain_text:
 
         case "get_push":
@@ -38,26 +35,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await bot_send(bot, event, message=msg)
 
         case "close_push":
-            users = dict_get_all_global_users(False)
-            msg = ""
-            push_cnt = 0
-            for u in users:
-                if not u.push:
-                    continue
-                msg = "push推送被管理员强制关闭，大概率是需要重启bot，请稍等几分钟完成重启后，重新对bot发送/push 命令\n"
-                # 获取统计数据
-                user_bot, user_event, st_msg, _ = close_push(u.platform, u.user_id)
-                msg += st_msg
-                if user_bot and user_event:
-                    try:
-                        await bot_send(user_bot, user_event, message=msg)
-                    except Exception as e:
-                        msg_id = get_msg_id(u.platform, u.user_id)
-                        logger.warning(
-                            f'msg_id:{msg_id} private notice error: {e}')
-                push_cnt += 1
-                time.sleep(0.5)
-
+            push_cnt = await admin_close_push()
             await bot_send(bot, event, message=f"已关闭全部{push_cnt}个push")
 
         case "get_x_player":
@@ -107,12 +85,13 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
         case "restore_token":
             """还原自己token"""
-            if not global_admin_session_token:
+            admin_token = await get_or_set_plugin_data("splatoon3_admin_session_token")
+            if not admin_token:
                 await bot_send(bot, event, message=f"未更改token，无需还原")
             else:
                 platform = bot.adapter.get_name()
                 my_user_id = event.get_user_id()
-                dict_get_or_set_user_info(platform, my_user_id, session_token=global_admin_session_token,
+                dict_get_or_set_user_info(platform, my_user_id, session_token=admin_token,
                                           access_token="",
                                           g_token="", bullet_token="")
                 await bot_send(bot, event, message=f"token已恢复")
@@ -174,8 +153,9 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             user = model_get_or_set_user(platform, user_id)
             my = model_get_or_set_user(platform, my_user_id)
             # 备份自己cookies
-            if not global_admin_session_token:
-                global_admin_session_token = my.session_token
+            admin_token = await get_or_set_plugin_data("splatoon3_admin_session_token")
+            if not admin_token:
+                await get_or_set_plugin_data("splatoon3_admin_session_token", my.session_token)
             if not user:
                 await bot_send(bot, event, message=f"{platform}平台用户{user_id} 数据不存在")
                 return False
@@ -186,3 +166,26 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                            message=f"已复制账号 db_id:{user.id},msg_id:{get_msg_id(user.platform, user.user_id)},\ngame_name:{user.game_name}\n还原:/admin restore_token")
         else:
             await bot_send(bot, event, message=f"无效命令， lens:{len(args)}")
+
+
+async def admin_close_push() -> int:
+    users = dict_get_all_global_users(False)
+    msg = ""
+    push_cnt = 0
+    for u in users:
+        if not u.push:
+            continue
+        msg = "push推送被管理员强制关闭，大概率是需要重启bot，请稍等几分钟完成重启后，重新对bot发送/push 命令\n"
+        # 获取统计数据
+        user_bot, user_event, st_msg, _ = close_push(u.platform, u.user_id)
+        msg += st_msg
+        if user_bot and user_event:
+            try:
+                await bot_send(user_bot, user_event, message=msg)
+            except Exception as e:
+                msg_id = get_msg_id(u.platform, u.user_id)
+                logger.warning(
+                    f'msg_id:{msg_id} private notice error: {e}')
+        push_cnt += 1
+        time.sleep(0.5)
+    return push_cnt

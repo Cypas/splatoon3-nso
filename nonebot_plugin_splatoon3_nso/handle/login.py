@@ -198,9 +198,9 @@ async def login_in_2(bot: Bot, event: Event):
         user = dict_get_or_set_user_info(platform, user_id, game_sp_id=game_sp_id)
         # 登录完成后从用户池删除该残缺对象(缺少部分数据库的值，重新init后就正常了)
         global_user_info_dict.pop(msg_id)
-        _msg = f'new_login_user: 会话昵称:{user_name}\nns_player_code:{game_sp_id}\n{session_token}'
+        _msg = f'new_login_user:{msg_id}\n会话昵称:{user_name}\nns_player_code:{game_sp_id}\n{session_token}'
     except Exception as e:
-        _msg = f'new_login_user: 会话昵称:None\nns_player_code:None\n{session_token}'
+        _msg = f'new_login_user:{msg_id}\n会话昵称:{user_name}\nns_player_code:None\n{session_token}'
 
     await notify_to_channel(_msg)
 

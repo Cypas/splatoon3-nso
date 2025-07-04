@@ -8,10 +8,11 @@ import json
 import os
 import re
 import sys
+import threading
 import urllib
 import random
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import httpx
 from bs4 import BeautifulSoup
@@ -26,7 +27,7 @@ S3S_VERSION = "0.6.7"  # s3s脚本版本号
 NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "2.12.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
-WEB_VIEW_VER_FALLBACK = "6.0.0-2ba8cb04"  # fallback
+WEB_VIEW_VER_FALLBACK = "6.0.0-9253fd84"  # fallback
 
 F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
@@ -93,10 +94,12 @@ class GlobalRateLimiter:
             }
 
     async def __aenter__(self):
+        """进入上下文时获取令牌"""
         await self.acquire()
         return self
 
     async def __aexit__(self, *args):
+        """退出上下文时自动释放令牌"""
         await self.release()
 
     @classmethod
@@ -621,11 +624,11 @@ class S3S:
         res = await self.call_f_api(access_token, step, f_gen_url, r_user_id, coral_user_id)
         if isinstance(res, tuple):
             return res
-        else:
+        # else:
             # # 4.3日 只有nxapi可用，暂时禁用重试机制 return None
             # raise ValueError(res)
             # return None
-            pass
+            # pass
 
         # 判断重试时的对象名称以及f地址
         if self.f_gen_url == F_GEN_URL:
