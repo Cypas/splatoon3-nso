@@ -31,28 +31,30 @@ translate_rid = {
     'BankaraBattleHistoriesQuery': '9863ea4744730743268e2940396e21b891104ed40e2286789f05100b45a0b0fd',  # 对战 - 蛮颓
     'PrivateBattleHistoriesQuery': 'fef94f39b9eeac6b2fac4de43bc0442c16a9f2df95f4d367dd8a79d7c5ed5ce7',  # 对战 - 私房
     'XBattleHistoriesQuery': 'eb5996a12705c2e94813a62e05c0dc419aad2811b8d49d53e5732290105559cb',  # 对战 - X比赛
-    'VsHistoryDetailQuery': '20f88b10d0b1d264fcb2163b0866de26bbf6f2b362f397a0258a75b7fa900943',
+    'VsHistoryDetailQuery': '94faa2ff992222d11ced55e0f349920a82ac50f414ae33c83d1d1c9d8161c5dd',
     # 通过比赛id详查  参数2:"vsResultId" 参数3:比赛id
-    'CoopHistoryQuery': '0f8c33970a425683bb1bdecca50a0ca4fb3c3641c0b2a1237aedfde9c0cb2b8f',  # 鲑鱼跑
+    'CoopHistoryQuery': 'e11a8cf2c3de7348495dea5cdcaa25e0c153541c4ed63f044b6c174bc5b703df',  # 鲑鱼跑
     'CoopHistoryDetailQuery': 'f2d55873a9281213ae27edc171e2b19131b3021a2ae263757543cdd3bf015cc8',
     # 通过打工id详查 参数2:"coopHistoryDetailId" 参数3:打工id
     'MyOutfitCommonDataEquipmentsQuery': '45a4c343d973864f7bb9e9efac404182be1d48cf2181619505e9b7cd3b56a6e8',
     # 主页 - 武器  获取全部武器数据
     'FriendsList': 'ea1297e9bb8e52404f52d89ac821e1d73b726ceef2fd9cc8d6b38ab253428fb3',  # 好友列表
-    'HistorySummary': '0a62c0152f27c4218cf6c87523377521c2cff76a4ef0373f2da3300079bf0388',  # 主页 - 历史 -总览
+    'HistorySummary': 'a654ecc80161a7ca5c38761c1d9e502d405eae764e2d343618b9c74b1dc0a80f',  # 主页 - 历史 -总览
     'TotalQuery': '2a9302bdd09a13f8b344642d4ed483b9464f20889ac17401e993dfa5c2bb3607',  # 统计查询  nso没有这个页面
     'XRankingQuery': 'a5331ed228dbf2e904168efe166964e2be2b00460c578eee49fc0bc58b4b899c',  # 主页 - x排名
     'ScheduleQuery': '9b6b90568f990b2a14f04c25dd6eb53b35cc12ac815db85ececfccee64215edd',  # 日程
     'StageRecordsQuery': 'c8b31c491355b4d889306a22bd9003ac68f8ce31b2d5345017cdd30a2c8056f3',  # 主页 - 场地 (查各地图胜率)
     'EventBattleHistoriesQuery': 'e47f9aac5599f75c842335ef0ab8f4c640e8bf2afe588a3b1d4b480ee79198ac',  # 对战 - 活动
-    'EventListQuery': '875a827a6e460c3cd6b1921e6a0872d8b95a1fce6d52af79df67734c5cc8b527',  # 主页 - 活动比赛
+    'EventListQuery': 'bf5cefda9fb6a7511fe4620a0be0c7492ca56ae10f41790cf490bbe8904fefea',  # 主页 - 活动比赛
     'EventBoardQuery': 'ad4097d5fb900b01f12dffcb02228ef6c20ddbfba41f0158bb91e845335c708e',
     # 日程 - 活动比赛 - 详细排行榜   参数2:"eventMatchRankingPeriodId" 参数3:top_id
     'CoopPagerLatestCoopQuery': 'bc8a3d48e91d5d695ef52d52ae466920670d4f4381cb288cd570dc8160250457',
     # 打工页面获取最新打工数据，但数据其实还是输出的全部打工列表
     'PagerLatestVsDetailQuery': '73462e18d464acfdf7ac36bde08a1859aa2872a90ed0baed69c94864c20de046',  # 查询最新一局的对战id
     'CoopStatistics': '56f989a59643642e0799c90d3f6d0457f5f5f72d4444dfae87043c4a23d13043',  # 主页 - 打工  打工统计数据
-    'XRanking500Query': '90932ee3357eadab30eb11e9d6b4fe52d6b35fde91b5c6fd92ba4d6159ea1cb7'  # 主页-x排名 - 顶级500强玩家
+    'XRanking500Query': '90932ee3357eadab30eb11e9d6b4fe52d6b35fde91b5c6fd92ba4d6159ea1cb7',  # 主页-x排名 - 顶级500强玩家
+    'WeaponRecordsQuery':'6b8db227bbe479401875e509a95c3183931e708ec222a824f8d4157cebea4584',
+    'BestNineRankin': 'a9c97b7c1a9f73e30f51935a2562b48b1f47cc0bf008996473b632b9d2c62cc9',
 }
 
 

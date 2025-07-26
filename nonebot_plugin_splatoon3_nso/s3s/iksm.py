@@ -25,9 +25,9 @@ from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
 S3S_AGENT = "s3s - github.com/Cypas/splatoon3-nso"  # s3s agent
 S3S_VERSION = "0.6.7"  # s3s脚本版本号
 NSOAPP_VERSION = "unknown"
-NSOAPP_VER_FALLBACK = "2.12.0"  # fallback
+NSOAPP_VER_FALLBACK = "3.0.3"  # fallback
 WEB_VIEW_VERSION = "unknown"
-WEB_VIEW_VER_FALLBACK = "6.0.0-9253fd84"  # fallback
+WEB_VIEW_VER_FALLBACK = "10.0.0-cba84fcd"  # fallback
 
 F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
