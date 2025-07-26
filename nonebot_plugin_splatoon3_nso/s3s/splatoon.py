@@ -355,6 +355,7 @@ class Splatoon:
                                              cookies=dict(_gtoken=self.g_token))
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
+            self.logger.debug(f'data:{data} res:{res.text}')
             if res.status_code != 200:
                 # multiple请求不再刷新token，以免重复报错
                 if res.status_code == 401 and not multiple:

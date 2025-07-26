@@ -31,6 +31,8 @@ WEB_VIEW_VER_FALLBACK = "10.0.0-cba84fcd"  # fallback
 
 F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
+F_GEN_OAUTH_URL = "https://nxapi-auth.fancy.org.uk/api/oauth/token"
+F_GEN_OAUTH_client_id = "Orh4jxABP3D3jYaBFgL9Ug"
 
 F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
 APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
@@ -121,6 +123,7 @@ class S3S:
         self.user_nickname = ""
         self.user_lang = "zh-CN"
         self.user_country = "JP"
+        self.oauth_token = None
 
         # 负载均衡初始化
         f_url_lst = [F_GEN_URL, F_GEN_URL_2]
@@ -605,6 +608,50 @@ class S3S:
         except Exception as e:
             self.logger.warning(f"user_id:{user_id} get_bullet error:{e}")
 
+    async def f_api_clent_auth2_register(self):
+        # api docs see https://github.com/samuelthomas2774/nxapi-znca-api/blob/docs/docs/api.md
+        # oauth2 web see https://nxapi-auth.fancy.org.uk/oauth/clients
+        api_response = None
+        try:
+            api_head = {
+                'User-Agent': F_USER_AGENT,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            api_body = {
+                'grant_type': 'client_credentials',
+                'client_id': F_GEN_OAUTH_client_id,
+                'scope': 'ca:gf'
+            }
+
+            # self.logger.info(f"f body:{json.dumps(api_body)}")
+            api_response = await self.req_client.post(F_GEN_OAUTH_URL, data=api_body, headers=api_head)
+            # self.logger.info(f"f res_text:{api_response.text}")
+
+            resp: dict = json.loads(api_response.text)
+
+            access_token = resp.get("access_token")
+            self.oauth_token = access_token
+        except (httpx.ConnectError, httpx.ConnectTimeout) as e:
+            if isinstance(e, httpx.ConnectError):
+                return "NetConnectError"
+            elif isinstance(e, httpx.ConnectTimeout):
+                return "NetConnectTimeout"
+
+        except Exception as e:
+            # self.logger.error(f"Error during f generation: Error {e}.")
+            try:  # if api_response never gets set
+                if api_response and api_response.text:
+                    self.logger.warning(
+                        f"Error during oauth register\nres:{api_response.text}")
+                else:
+                    self.logger.warning(
+                        f"Error during oauth register status_code:{api_response.status_code}")
+                return f"resp error:{api_response.text}"
+            except Exception as e:
+                self.logger.error(f"Error during oauth register: Error {e}.")
+                # 一般是status_code都获取不到
+                return None
+
     async def f_api(self, *args, **kwargs):
         """限流版f_api，支持等待和重试"""
         if self._rate_limiter is None:
@@ -666,6 +713,9 @@ class S3S:
         api_head = {}
         api_body = {}
         api_response = None
+        if not self.oauth_token:
+            # oauth token 过期,重新申请token
+            await self.f_api_clent_auth2_register()
         try:
             api_head = {
                 'User-Agent': F_USER_AGENT,
@@ -673,6 +723,7 @@ class S3S:
                 'X-znca-Platform': 'Android',
                 'X-znca-Version': NSOAPP_VERSION,
                 'X-znca-Client-Version': NSOAPP_VERSION,
+                'Authorization': 'Bearer ' + self.oauth_token,
 
             }
             api_body = {  # 'timestamp' & 'request_id' (uuid v4) set automatically
@@ -692,6 +743,12 @@ class S3S:
                 self.logger.debug(
                     f"Error during f generation: \n{f_gen_url}  \nres_text:{api_response.text}")
                 return f"f resp status_code:{api_response.status_code},error:{api_response.text}"
+            error = resp.get("error")
+            error_message = resp.get("error_message")
+            if error == "invalid_token" and error_message == "Token expired":
+                # oauth token 过期,重新申请token
+                await self.f_api_clent_auth2_register()
+                return await self.call_f_api(access_token=access_token, step=step, f_gen_url=f_gen_url, r_user_id=r_user_id, coral_user_id=coral_user_id)
             f = resp.get("f")
             uuid = resp.get("request_id")
             timestamp = resp.get("timestamp")
