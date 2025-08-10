@@ -3,6 +3,7 @@ import io
 from PIL import Image
 
 from .qq_md import last_md, login_md, url_md, c2c_login_md
+from .. import trigger_with_probability
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china
 from ..utils.bot import *
 from ..config import plugin_config
@@ -210,10 +211,13 @@ async def bot_send_login_url_md(bot: Bot, event: Event, url):
     await bot.send(event, qq_msg)
 
 
-async def send_msg(bot: Bot, event: Event, msg: str | bytes):
+async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
     """公用send_msg"""
     # 指定回复模式
     reply_mode = plugin_config.splatoon3_reply_mode
+    ad_msg = "如果小鱿鱿帮助到了你，请帮忙去github仓库点个star吧~谢谢~\nhttps://github.com/Cypas/splatoon3-nso"
+    if isinstance(bot, QQ_Bot):
+        ad_msg = ad_msg.replace(".", "点")
 
     if isinstance(msg, str):
         # 文字消息
@@ -275,6 +279,9 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes):
                     pass
                 else:
                     logger.warning(f"QQ send msg error: {e}")
+
+    if not is_ad and trigger_with_probability():
+        await send_msg(bot, event, ad_msg, is_ad=True)
 
 
 async def get_image_url(img: bytes) -> str:

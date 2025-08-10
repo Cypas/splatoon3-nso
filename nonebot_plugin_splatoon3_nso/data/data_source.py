@@ -322,9 +322,21 @@ def model_get_today_report(user_id_sp):
     if not user_id_sp:
         return None
     session = DBSession()
+    # 获取当前 UTC+8 时区的日期（如：2023-01-02）
+    utc8_now = datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+    today_utc8_start = utc8_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_utc8_end = today_utc8_start + datetime.timedelta(hours=22)
+
+    # 转换为 UTC 时间范围
+    today_utc_start = today_utc8_start - datetime.timedelta(hours=8)
+    today_utc_end = today_utc8_end - datetime.timedelta(hours=8)
+
     report = session.query(Report).filter(
         and_(Report.user_id_sp == user_id_sp,
-             Report.create_time > datetime.datetime.utcnow() - datetime.timedelta(hours=4))).first()
+             Report.create_time >= today_utc_start,
+             Report.create_time < today_utc_end
+             )
+    ).first()
     session.close()
     return report
 
