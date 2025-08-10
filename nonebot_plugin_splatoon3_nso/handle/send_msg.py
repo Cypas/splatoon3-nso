@@ -3,8 +3,7 @@ import io
 from PIL import Image
 
 from .qq_md import last_md, login_md, url_md, c2c_login_md
-from .. import trigger_with_probability
-from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china
+from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability
 from ..utils.bot import *
 from ..config import plugin_config
 
