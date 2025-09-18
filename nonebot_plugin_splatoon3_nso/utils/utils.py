@@ -34,7 +34,7 @@ def trigger_with_probability():
     # 生成0到999之间的随机整数（包含0和999）
     random_number = random.randint(0, 999)
     # 如果随机数是0、1或2，则触发（3种情况）
-    return random_number < 3
+    return random_number < 10
 
 
 
