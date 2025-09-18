@@ -722,7 +722,7 @@ class S3S:
                 'Content-Type': 'application/json; charset=utf-8',
                 'X-znca-Platform': 'Android',
                 'X-znca-Version': NSOAPP_VERSION,
-                'X-znca-Client-Version': NSOAPP_VERSION,
+                'X-znca-Client-Version': '3.0.3',
                 'Authorization': 'Bearer ' + self.oauth_token,
 
             }
