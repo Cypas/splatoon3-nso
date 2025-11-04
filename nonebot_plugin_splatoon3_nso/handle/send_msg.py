@@ -215,8 +215,6 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
     # 指定回复模式
     reply_mode = plugin_config.splatoon3_reply_mode
     ad_msg = "如果小鱿鱿帮助到了你，请帮忙去github仓库点个star吧~谢谢~\nhttps://github.com/Cypas/splatoon3-nso"
-    if isinstance(bot, QQ_Bot):
-        ad_msg = ad_msg.replace(".", "点")
 
     if isinstance(msg, str):
         # 文字消息
@@ -279,6 +277,8 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
                     logger.warning(f"QQ send msg error: {e}")
 
     if not is_ad and trigger_with_probability():
+        if isinstance(bot, QQ_Bot):
+            ad_msg = ad_msg.replace(".", "点")
         await send_msg(bot, event, ad_msg, is_ad=True)
 
 
