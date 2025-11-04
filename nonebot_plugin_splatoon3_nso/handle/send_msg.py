@@ -264,15 +264,14 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
                 await bot.send(event, Tg_File.photo(img))
         elif isinstance(bot, Kook_Bot):
             url = await bot.upload_file(img)
+            logger.info("url:" + url)
             await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
             try:
-                if isinstance(event, (QQ_GME, QQ_C2CME)):
-                    url = await get_image_url(img)
-                    if url:
-                        await bot.send(event, message=QQ_MsgSeg.image(url))
-                else:
-                    await bot.send(event, message=QQ_MsgSeg.file_image(img))
+                url = await get_image_url(img)
+                logger.info("url:" + url)
+                if url:
+                    await bot.send(event, message=QQ_MsgSeg.image(url))
             except QQ_ActionFailed as e:
                 if "消息被去重" in str(e):
                     pass
@@ -285,12 +284,20 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
 
 async def get_image_url(img: bytes) -> str:
     """通过kook获取图片url"""
+    kook_bot = None
     bots = nonebot.get_bots()
-    kook_bot = bots.get(notify_kk_bot_id)
+    for k, b in bots.items():
+        if isinstance(b, Kook_Bot):
+            kook_bot = b
+            break
     url = ""
     if kook_bot is not None:
         # 使用kook的接口传图片
         url = await kook_bot.upload_file(img)
+        channel_id = plugin_config.splatoon3_kk_channel_waste_chat_id
+        await kook_bot.send_channel_msg(
+            channel_id=channel_id, message=Kook_MsgSeg.image(url)
+        )
     return url
 
 
