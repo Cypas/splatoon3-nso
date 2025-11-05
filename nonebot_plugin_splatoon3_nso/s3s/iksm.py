@@ -763,8 +763,11 @@ class S3S:
             # self.logger.error(f"Error during f generation: Error {e}.")
             try:  # if api_response never gets set
                 if api_response and api_response.text:
+                    error = api_response.text
+                    if "html" in error:
+                        error = "html网页错误"
                     self.logger.warning(
-                        f"Error during f generation: {f_gen_url}\nres:{api_response.text}")
+                        f"Error during f generation: {f_gen_url}\nres:{error}")
                 else:
                     self.logger.warning(
                         f"Error during f generation: \n{f_gen_url}  status_code:{api_response.status_code}")
