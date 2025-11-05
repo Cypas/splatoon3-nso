@@ -619,7 +619,7 @@ class Splatoon:
 
     async def app_ns_friend_list(self, multiple=False):
         """nso 好友列表"""
-        url = "https://api-lp1.znc.srv.nintendo.net/v3/Friend/List"
+        url = "https://api-lp1.znc.srv.nintendo.net/v4/Friend/List"
         try:
             res = await self._ns_api_request(url, multiple=multiple)
         except Exception as e:
