@@ -698,14 +698,20 @@ class S3S:
             elif "NetConnectTimeout" in res:
                 self.logger.warning(f"{now_f_str} ConnectTimeout，try {next_f_str} again")
             else:
-                self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{res}")
+                error = res
+                if "html" in error:
+                    error = "html网页错误"
+                self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{error}")
 
         self.f_gen_url = next_f_url
         res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id, coral_user_id)
         if isinstance(res, tuple):
             return res
         else:
-            self.logger.warning(f"{next_f_str} Both Error: {res}")
+            error = res
+            if "html" in error:
+                error = "html网页错误"
+            self.logger.warning(f"{next_f_str} Both Error: {error}")
             return None
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
