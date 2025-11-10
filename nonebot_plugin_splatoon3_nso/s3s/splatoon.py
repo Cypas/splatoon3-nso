@@ -430,7 +430,7 @@ class Splatoon:
             else:
                 return res
 
-    async def _ns_api_request(self, url, multiple=False) -> bool | None:
+    async def _ns_api_request(self, url, multiple=False) -> dict | None:
         """ns接口层操作，如ns好友列表，我的 页面"""
         # 跨线程重载token
         self.reload_tokens()
@@ -600,7 +600,7 @@ class Splatoon:
     def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
         graphql_head = {
-            'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/7.1.2)',
+            'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/12)',
             'Accept-Encoding': 'gzip',
             'Accept': 'application/json',
             'Connection': 'Keep-Alive',
