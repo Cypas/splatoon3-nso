@@ -7,6 +7,9 @@ from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_p
 from ..utils.bot import *
 from ..config import plugin_config
 
+require("nonebot_plugin_htmlrender")
+from nonebot_plugin_htmlrender import md_to_pic
+
 
 async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type='job'):
     """stat同步 和 report 通知到频道"""
@@ -129,8 +132,6 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
     """综合发信函数
     QQ_md的值应该为一个字典{"md_type":"last","user_id":"111"}
     """
-    require("nonebot_plugin_htmlrender")
-    from nonebot_plugin_htmlrender import md_to_pic
 
     img_data = ''
     if isinstance(message, str):
