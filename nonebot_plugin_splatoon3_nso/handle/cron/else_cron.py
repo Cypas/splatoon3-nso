@@ -1,4 +1,5 @@
 import asyncio
+import gc
 import json
 import os
 import shutil
@@ -8,7 +9,7 @@ from datetime import datetime as dt
 
 from ..send_msg import cron_notify_to_channel
 from ...s3s.iksm import GlobalRateLimiter
-from ...s3s.splatnet_image import global_dict_ss_user
+from ...s3s.splatnet_image import global_dict_ss_user, cleanup_browser
 from ...utils.utils import DIR_RESOURCE
 from ...utils.http import global_client_dict, global_cron_client_dict
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict, \
@@ -89,6 +90,9 @@ async def clean_s3s_cache():
 async def clean_global_user_info_dict():
     """清理公共用户字典"""
     await dict_clear_user_info_dict("normal")
+    await dict_clear_user_info_dict("cron")
+    await cleanup_browser()
+    gc.collect()
 
     cron_msg = f"clean_global_user_info_dict end"
     cron_logger.info(cron_msg)

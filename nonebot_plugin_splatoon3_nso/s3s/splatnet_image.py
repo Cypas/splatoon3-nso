@@ -11,7 +11,7 @@ global_browser: Browser = None
 global_playwright = None  # 用于彻底关闭Playwright实例
 global_dict_ss_user: dict = {}
 global_browser_usage_count = 0  # 浏览器使用次数计数
-MAX_BROWSER_USAGE = 50  # 达到阈值后重启浏览器释放内存
+MAX_BROWSER_USAGE = 20  # 达到阈值后重启浏览器释放内存
 
 
 async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=False):
@@ -171,16 +171,17 @@ async def init_browser() -> Browser:
 async def get_browser() -> Browser:
     """获取浏览器实例（优化：定期重启释放内存）"""
     global global_browser, global_browser_usage_count
-    # 关键优化3：达到使用次数阈值或浏览器断开连接时重启
-    if (global_browser is None or not global_browser.is_connected()) or (
-            global_browser_usage_count >= MAX_BROWSER_USAGE):
-        # 先关闭旧浏览器释放资源
-        if global_browser is not None:
-            await global_browser.close()
+    if global_browser is None or not global_browser.is_connected():
+        await cleanup_browser()  # 确保清理旧实例
         global_browser = await init_browser()
-        global_browser_usage_count = 0  # 重置计数
-
+        global_browser_usage_count = 0
     global_browser_usage_count += 1
+
+    # 添加内存使用检查
+    if global_browser_usage_count >= MAX_BROWSER_USAGE:
+        await cleanup_browser()
+        global_browser = await init_browser()
+        global_browser_usage_count = 0
     return global_browser
 
 
@@ -195,3 +196,14 @@ async def init_context(cookies=None, viewport: ViewportSize = None) -> BrowserCo
     if cookies:
         await context.add_cookies(cookies)
     return context
+
+
+# 在 splatnet_image.py 中添加资源清理
+async def cleanup_browser():
+    global global_browser, global_playwright
+    if global_browser:
+        await global_browser.close()
+    if global_playwright:
+        await global_playwright.stop()
+    global_browser = None
+    global_playwright = None

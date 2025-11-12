@@ -108,16 +108,16 @@ async def dict_clear_user_info_dict(_type: str) -> int:
     elif _type == "cron":
         user_dict = global_cron_user_info_dict
 
-    logger.debug(f"开始清理 {_type} 类型，当前用户数: {len(user_dict)}")  # 调试日志
+    logger.info(f"-----开始清理 {_type} 类型，当前用户数: {len(user_dict)}")  # 调试日志
 
     try:
         await ReqClient.close_all(_type)  # 确保await
     except Exception as e:
-        logger.debug(f"关闭client时出错: {e}")  # 捕获异常
+        logger.error(f"关闭client时出错: {e}")  # 捕获异常
 
     count = len(user_dict)
     user_dict.clear()
-    logger.debug(f"清理完成，释放 {count} 个用户")  # 调试日志
+    logger.info(f"-----清理完成，释放 {count} 个用户")  # 调试日志
     return count
 
 
