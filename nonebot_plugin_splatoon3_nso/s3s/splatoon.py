@@ -321,7 +321,8 @@ class Splatoon:
                     # 定时任务各种预期错误
                     raise e
                 except Exception as e:
-                    self.logger.error(f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
+                    self.logger.error(
+                        f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
                     return False
             self.logger.error(
                 f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} page test fail,status_code:{test.status_code},res:{test.text}'
@@ -384,7 +385,8 @@ class Splatoon:
                         else:
                             return res
                     except Exception as e:
-                        self.logger.error(f'{self.user_db_info.db_id},{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
+                        self.logger.error(
+                            f'{self.user_db_info.db_id},{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
                         try:
                             res = await self.req_client.post(GRAPHQL_URL, data=data,
                                                              headers=self.head_bullet(),
@@ -439,9 +441,14 @@ class Splatoon:
         try:
             t = time.time()
             json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
-            res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
+            if self.access_token:
+                res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
+            else:
+                success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
+                res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
+            self.logger.info(f"ns请求res为{res.text}")
             status = res.json()["status"]
             if status == 9404:
                 # 更新token提醒一下用户
@@ -449,7 +456,7 @@ class Splatoon:
                     await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                 try:
                     self.logger.info(f'{self.user_db_info.db_id},{msg_id}  tokens expired,start refresh tokens soon')
-                    success = await self.refresh_gtoken_and_bullettoken()
+                    success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
                     if success:
                         self.logger.info(f'{self.user_db_info.db_id},{msg_id} refresh tokens complete，try again')
                     else:
