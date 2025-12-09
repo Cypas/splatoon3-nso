@@ -698,14 +698,20 @@ class S3S:
             elif "NetConnectTimeout" in res:
                 self.logger.warning(f"{now_f_str} ConnectTimeout，try {next_f_str} again")
             else:
-                self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{res}")
+                error = res
+                if "html" in error:
+                    error = "html网页错误"
+                self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{error}")
 
         self.f_gen_url = next_f_url
         res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id, coral_user_id)
         if isinstance(res, tuple):
             return res
         else:
-            self.logger.warning(f"{next_f_str} Both Error: {res}")
+            error = res
+            if "html" in error:
+                error = "html网页错误"
+            self.logger.warning(f"{next_f_str} Both Error: {error}")
             return None
 
     async def call_f_api(self, access_token, step, f_gen_url, r_user_id, coral_user_id=None):
@@ -722,7 +728,7 @@ class S3S:
                 'Content-Type': 'application/json; charset=utf-8',
                 'X-znca-Platform': 'Android',
                 'X-znca-Version': NSOAPP_VERSION,
-                'X-znca-Client-Version': NSOAPP_VERSION,
+                'X-znca-Client-Version': '3.0.3',
                 'Authorization': 'Bearer ' + self.oauth_token,
 
             }
@@ -763,8 +769,11 @@ class S3S:
             # self.logger.error(f"Error during f generation: Error {e}.")
             try:  # if api_response never gets set
                 if api_response and api_response.text:
+                    error = api_response.text
+                    if "html" in error:
+                        error = "html网页错误"
                     self.logger.warning(
-                        f"Error during f generation: {f_gen_url}\nres:{api_response.text}")
+                        f"Error during f generation: {f_gen_url}\nres:{error}")
                 else:
                     self.logger.warning(
                         f"Error during f generation: \n{f_gen_url}  status_code:{api_response.status_code}")

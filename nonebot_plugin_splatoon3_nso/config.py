@@ -31,6 +31,7 @@ class Config(BaseModel):
     splatoon3_notify_kk_bot_id: str | int = ""
     splatoon3_kk_channel_msg_chat_id: str | int = ""
     splatoon3_kk_channel_job_chat_id: str | int = ""
+    splatoon3_kk_channel_waste_chat_id: str | int = ""
     # # deno_path  需要先在系统下安装deno，参考https://www.denojs.cn/ 此处填写安装路径，具体到deno文件，如"/home/ubuntu/.deno/bin/deno"
     # splatoon3_deno_path: str = ""
     # redis_ip

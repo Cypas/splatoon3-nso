@@ -321,7 +321,8 @@ class Splatoon:
                     # 定时任务各种预期错误
                     raise e
                 except Exception as e:
-                    self.logger.error(f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
+                    self.logger.error(
+                        f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} refresh tokens fail,reason:{e}')
                     return False
             self.logger.error(
                 f'{self.user_db_info.db_id},{msg_id},{self.user_name},{self.user_db_info.game_name} page test fail,status_code:{test.status_code},res:{test.text}'
@@ -384,7 +385,8 @@ class Splatoon:
                         else:
                             return res
                     except Exception as e:
-                        self.logger.error(f'{self.user_db_info.db_id},{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
+                        self.logger.error(
+                            f'{self.user_db_info.db_id},{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
                         try:
                             res = await self.req_client.post(GRAPHQL_URL, data=data,
                                                              headers=self.head_bullet(),
@@ -430,7 +432,7 @@ class Splatoon:
             else:
                 return res
 
-    async def _ns_api_request(self, url, multiple=False) -> bool | None:
+    async def _ns_api_request(self, url, multiple=False) -> dict | None:
         """ns接口层操作，如ns好友列表，我的 页面"""
         # 跨线程重载token
         self.reload_tokens()
@@ -439,9 +441,14 @@ class Splatoon:
         try:
             t = time.time()
             json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
-            res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
+            if self.access_token:
+                res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
+            else:
+                success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
+                res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
+            self.logger.info(f"ns请求res为{res.text}")
             status = res.json()["status"]
             if status == 9404:
                 # 更新token提醒一下用户
@@ -449,7 +456,7 @@ class Splatoon:
                     await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                 try:
                     self.logger.info(f'{self.user_db_info.db_id},{msg_id}  tokens expired,start refresh tokens soon')
-                    success = await self.refresh_gtoken_and_bullettoken()
+                    success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
                     if success:
                         self.logger.info(f'{self.user_db_info.db_id},{msg_id} refresh tokens complete，try again')
                     else:
@@ -600,7 +607,7 @@ class Splatoon:
     def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
         graphql_head = {
-            'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/7.1.2)',
+            'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/12)',
             'Accept-Encoding': 'gzip',
             'Accept': 'application/json',
             'Connection': 'Keep-Alive',
@@ -619,7 +626,7 @@ class Splatoon:
 
     async def app_ns_friend_list(self, multiple=False):
         """nso 好友列表"""
-        url = "https://api-lp1.znc.srv.nintendo.net/v3/Friend/List"
+        url = "https://api-lp1.znc.srv.nintendo.net/v4/Friend/List"
         try:
             res = await self._ns_api_request(url, multiple=multiple)
         except Exception as e:

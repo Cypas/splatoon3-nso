@@ -267,10 +267,11 @@ async def get_ns_friends_md(splatoon: Splatoon):
         msg = "bot网络错误，请稍后再试"
         return msg
 
-    res = res.get('result')
     if not res:
-        logger.info(f"get_ns_friends result error,res: {res}")
-        return 'No friends found!'
+        logger.error(f"{msg_id} get ns_friends error")
+        msg = "bot网络错误，请稍后再试"
+        return msg
+    res = res.get('result')
 
     get_sp3 = False
 

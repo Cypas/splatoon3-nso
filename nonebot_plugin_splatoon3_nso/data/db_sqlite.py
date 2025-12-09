@@ -1,3 +1,6 @@
+from contextlib import contextmanager
+
+from nonebot import logger
 from sqlalchemy import Column, String, create_engine, Integer, Text, DateTime, func, Float, \
     UniqueConstraint
 from sqlalchemy.orm import sessionmaker
@@ -11,10 +14,24 @@ database_uri_friends = f"sqlite:///{DIR_RESOURCE}/data_friend.sqlite"
 DIR_TEMP_IMAGE = f"{DIR_RESOURCE}/temp_image"
 
 Base_Main = declarative_base()
-engine = create_engine(database_uri_main)  # 加上, echo=True可以输出sql语句
+engine = create_engine(
+    database_uri_main,
+    pool_size=20,  # 连接池大小
+    max_overflow=5,  # 超出连接池大小外最多创建的连接
+    pool_timeout=30,  # 获取连接的超时时间
+    pool_recycle=3600,  # 连接回收时间（秒）
+    pool_pre_ping=True,  # 连接前检查连接是否有效
+)  # 加上, echo=True可以输出sql语句
 
 Base_Friends = declarative_base()
-engine_friends = create_engine(database_uri_friends)
+engine_friends = create_engine(
+    database_uri_friends,
+    pool_size=10,
+    max_overflow=5,
+    pool_timeout=30,
+    pool_recycle=3600,
+    pool_pre_ping=True
+)
 
 
 # Table

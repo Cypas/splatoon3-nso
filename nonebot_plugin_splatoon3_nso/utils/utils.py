@@ -1,6 +1,7 @@
 import os
+import random
 
-BOT_VERSION = "2.8.1"
+BOT_VERSION = "2.9.2"
 DIR_RESOURCE = f"{os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))}/resource"
 plugin_release_time = "2024-06-24 04:35:58"  # 预留  2.0.0重构版nso插件发布时间，预计发布时对全部用户先显示一周，之后再判断用户创建时间
 
@@ -23,6 +24,17 @@ def get_msg_id(platform, user_id):
     msg_id = f"{platform}-{user_id}"
     return msg_id
 
+def trigger_with_probability():
+    """
+    该函数有30/1000的概率返回True（触发），970/1000的概率返回False（不触发）
+
+    返回:
+        bool: 触发状态，True表示触发，False表示未触发
+    """
+    # 生成0到999之间的随机整数（包含0和999）
+    random_number = random.randint(0, 999)
+    # 如果随机数是0、1或2，则触发（3种情况）
+    return random_number < 30
 
 
 

@@ -3,10 +3,12 @@ import io
 from PIL import Image
 
 from .qq_md import last_md, login_md, url_md, c2c_login_md
-from .. import trigger_with_probability
-from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china
+from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability
 from ..utils.bot import *
 from ..config import plugin_config
+
+require("nonebot_plugin_htmlrender")
+from nonebot_plugin_htmlrender import md_to_pic
 
 
 async def report_notify_to_channel(platform: str, user_id: str, msg: str, _type='job'):
@@ -130,8 +132,6 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
     """综合发信函数
     QQ_md的值应该为一个字典{"md_type":"last","user_id":"111"}
     """
-    require("nonebot_plugin_htmlrender")
-    from nonebot_plugin_htmlrender import md_to_pic
 
     img_data = ''
     if isinstance(message, str):
@@ -216,8 +216,6 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
     # 指定回复模式
     reply_mode = plugin_config.splatoon3_reply_mode
     ad_msg = "如果小鱿鱿帮助到了你，请帮忙去github仓库点个star吧~谢谢~\nhttps://github.com/Cypas/splatoon3-nso"
-    if isinstance(bot, QQ_Bot):
-        ad_msg = ad_msg.replace(".", "点")
 
     if isinstance(msg, str):
         # 文字消息
@@ -265,15 +263,14 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
                 await bot.send(event, Tg_File.photo(img))
         elif isinstance(bot, Kook_Bot):
             url = await bot.upload_file(img)
+            logger.info("url:" + url)
             await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
             try:
-                if isinstance(event, (QQ_GME, QQ_C2CME)):
-                    url = await get_image_url(img)
-                    if url:
-                        await bot.send(event, message=QQ_MsgSeg.image(url))
-                else:
-                    await bot.send(event, message=QQ_MsgSeg.file_image(img))
+                url = await get_image_url(img)
+                logger.info("url:" + url)
+                if url:
+                    await bot.send(event, message=QQ_MsgSeg.image(url))
             except QQ_ActionFailed as e:
                 if "消息被去重" in str(e):
                     pass
@@ -281,17 +278,27 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
                     logger.warning(f"QQ send msg error: {e}")
 
     if not is_ad and trigger_with_probability():
+        if isinstance(bot, QQ_Bot):
+            ad_msg = ad_msg.replace(".", "点")
         await send_msg(bot, event, ad_msg, is_ad=True)
 
 
 async def get_image_url(img: bytes) -> str:
     """通过kook获取图片url"""
+    kook_bot = None
     bots = nonebot.get_bots()
-    kook_bot = bots.get(notify_kk_bot_id)
+    for k, b in bots.items():
+        if isinstance(b, Kook_Bot):
+            kook_bot = b
+            break
     url = ""
     if kook_bot is not None:
         # 使用kook的接口传图片
         url = await kook_bot.upload_file(img)
+        channel_id = plugin_config.splatoon3_kk_channel_waste_chat_id
+        await kook_bot.send_channel_msg(
+            channel_id=channel_id, message=Kook_MsgSeg.image(url)
+        )
     return url
 
 
