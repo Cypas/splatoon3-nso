@@ -58,3 +58,9 @@ class Config(BaseModel):
 driver = get_driver()
 global_config = driver.config
 plugin_config = get_plugin_config(Config)
+
+## 测试需要改为下列变量
+# driver = None
+# global_config = Config()
+# plugin_config = Config()
+# plugin_config.splatoon3_proxy_address = "127.0.0.1:7890"
