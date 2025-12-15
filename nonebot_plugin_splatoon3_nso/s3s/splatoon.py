@@ -1,3 +1,5 @@
+import base64
+import json
 import time
 import uuid
 
@@ -440,16 +442,30 @@ class Splatoon:
         msg_id = get_msg_id(self.platform, self.user_id)
         try:
             t = time.time()
-            json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
-            if self.access_token:
-                res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
-            else:
+            json_body = {'parameter': {}}
+            s3s = self.s3s
+            if not self.access_token:
                 success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
-                res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
+
+            await s3s.f_api_clent_auth2_register()
+            # 加密参数
+            encrypt_request = await s3s.f_encrypt_request(api_url=url, body_data=json_body,
+                                                           access_token=self.access_token)
+            encrypt_json = encrypt_request.json()
+            encrypt_data = encrypt_json["data"]
+            body_bytes = base64.b64decode(encrypt_data)
+            # 请求nxapi
+            encrypt_resp = await self.req_client.post(url, headers=self._head_access(self.access_token), data=body_bytes)
+            # 解密响应
+            decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
+            decrypt_data = decrypt_resp.json()["data"]
+            decrypt_json = json.loads(decrypt_data)
+            # self.logger.info(f'decrypt_json:{json.dumps(decrypt_json)}')
+            # self.logger.info(f"ns请求res为{decrypt_resp.text}")
+
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
-            self.logger.info(f"ns请求res为{res.text}")
-            status = res.json()["status"]
+            status = decrypt_json["status"]
             if status == 9404:
                 # 更新token提醒一下用户
                 if not multiple and self.bot and self.event:
@@ -465,19 +481,32 @@ class Splatoon:
                 except Exception as e:
                     self.logger.info(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail,reason:{e}')
                 # 再次请求
-                json_body = {'parameter': {}, 'requestId': str(uuid.uuid4())}
                 t = time.time()
-                res = await self.req_client.post(url, headers=self._head_access(self.access_token), json=json_body)
+
+                # 加密参数
+                encrypt_request = await s3s.f_encrypt_request(api_url=url, body_data=json_body,
+                                                              access_token=self.access_token)
+                encrypt_json = encrypt_request.json()
+                encrypt_data = encrypt_json['data']
+                body_bytes = base64.b64decode(encrypt_data)
+                # 请求nxapi
+                encrypt_resp = await self.req_client.post(url, headers=self._head_access(self.access_token),
+                                                          data=body_bytes)
+                # 解密响应
+                decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
+                decrypt_data = decrypt_resp.json()["data"]
+                decrypt_json = json.loads(decrypt_data)
+
                 t2 = f'{time.time() - t:.3f}'
                 self.logger.debug(f'_request: {t2}s')
 
-                status = res.json()["status"] or ""
+                status = decrypt_json["status"]
                 if status == 9404:
                     return None
                 else:
-                    return res.json()
+                    return decrypt_json
             else:
-                return res.json()
+                return decrypt_json
         except httpx.ConnectError:
             self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _ns_api_request error: connectError')
             raise ValueError('NetConnectError')
@@ -488,8 +517,8 @@ class Splatoon:
             raise e
         except Exception as e:
             self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _request error: {e}')
-            self.logger.warning(f'data:{url}')
-            self.logger.warning(f'res:{res}')
+            self.logger.warning(f'url:{url}')
+            self.logger.warning(f'res:{decrypt_resp.text}')
             # if res:
             #     self.logger.warning(f'res:{res}')
             #     self.logger.warning(f'res:{res.status_code}')
@@ -606,17 +635,20 @@ class Splatoon:
 
     def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
-        graphql_head = {
+        coral_head = {
             'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/12)',
             'Accept-Encoding': 'gzip',
-            'Accept': 'application/json',
             'Connection': 'Keep-Alive',
             'Host': 'api-lp1.znc.srv.nintendo.net',
             'X-ProductVersion': self.nso_app_version,
-            'Content-Type': 'application/json; charset=utf-8',
-            'Authorization': f"Bearer {app_access_token}", 'X-Platform': 'Android'
+            "Content-Type": "application/octet-stream",
+            "Accept": "application/octet-stream, application/json",
+            'Authorization': f"Bearer {app_access_token}",
+            'X-Platform': 'Android',
+            'Pragma': 'no-cache',
+            'Cache-Control': 'no-cache',
         }
-        return graphql_head
+        return coral_head
 
     async def get_friends(self, multiple=False):
         """获取sp3好友"""
