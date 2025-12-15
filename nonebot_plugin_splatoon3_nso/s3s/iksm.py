@@ -442,7 +442,7 @@ class S3S:
             content = base64.b64decode(encrypt_result)  # 加密数据还原为二进制
             znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
             # 解密返回数据
-            decrypt_data = await self.f_decrypt_response(self.f_gen_url, znc_encrypt_data.content)
+            decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
             decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
             splatoon_token = json.loads(decrypt_json["data"])
         except httpx.ConnectError:
@@ -477,7 +477,7 @@ class S3S:
                 content = base64.b64decode(encrypt_result)
                 znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
                 # 解密返回数据
-                decrypt_data = await self.f_decrypt_response(self.f_gen_url, znc_encrypt_data.content)
+                decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
                 decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
                 splatoon_token = json.loads(decrypt_json["data"])
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
@@ -528,7 +528,7 @@ class S3S:
             content = base64.b64decode(encrypt_result)  # 加密数据还原为二进制
             znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
             # 解密返回数据
-            decrypt_data = await self.f_decrypt_response(self.f_gen_url, znc_encrypt_data.content)
+            decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
             decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
             web_service_resp = json.loads(decrypt_json["data"])
         except httpx.ConnectError:
@@ -825,53 +825,53 @@ class S3S:
                 # 一般是status_code都获取不到
                 return None
 
-    async def f_encrypt_token_request(self, f_gen_url, api_url, f_data) -> bytes | None:
+    async def f_encrypt_request(self, api_url: str, access_token: str, body_data: dict,
+                                f_gen_url: str = F_GEN_URL) -> httpx.Response | None:
         """nxapi 加密数据"""
         api_head = {
             'User-Agent': F_USER_AGENT,
             'Content-Type': 'application/json; charset=utf-8',
-            'Accept': 'application/octet-stream' if F_GEN_is_encrypt else 'application/json; charset=utf-8',
+            'Accept': 'application/json; charset=utf-8',
             'X-znca-Platform': 'Android',
-            'X-znca-Version': NSOAPP_VERSION,
+            'X-znca-Version': self.get_nsoapp_version(),
             'X-znca-Client-Version': F_GEN_X_znca_Client_Version,
         }
         if self.oauth_token:
             api_head['Authorization'] = f"Bearer {self.oauth_token}"
         api_body = {
             'url': api_url,
-            'token': None,
-            'data': json.dumps(f_data)
+            'token': access_token,
+            'data': json.dumps(body_data)
         }
         url = f_gen_url.replace("/f", "/encrypt-request")
 
         try:
             api_response = await self.req_client.post(url, json=api_body, headers=api_head)
-            try:
-                if isinstance(api_response.content, bytes):
-                    return api_response.content
-                elif api_response and api_response.text:
-                    error = api_response.text
-                    if "html" in error:
-                        error = "html网页错误"
-                        self.logger.warning(f"Error during f generation decrypt: {f_gen_url}\nres:{error}")
-                    else:
-                        self.logger.warning(
-                            f"Error during f generation decrypt: \n{f_gen_url}  status_code:{api_response.status_code}")
-                    return f"resp error:{api_response.text}"
-                else:
-                    return api_response.text
-            except Exception as e:
-                self.logger.error(f"Error during f generation decrypt: Error {e}.")
-                # 一般是status_code都获取不到
-                return None
-
+            return api_response
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             if isinstance(e, httpx.ConnectError):
                 return "NetConnectError"
             elif isinstance(e, httpx.ConnectTimeout):
                 return "NetConnectTimeout"
+        except Exception as e:
+            # self.logger.error(f"Error during f generation: Error {e}.")
+            try:  # if api_response never gets set
+                if api_response and api_response.text:
+                    error = api_response.text
+                    if "html" in error:
+                        error = "html网页错误"
+                    self.logger.warning(
+                        f"Error during f generation encrypt: {f_gen_url}\nres:{error}")
+                else:
+                    self.logger.warning(
+                        f"Error during f generation encrypt: \n{f_gen_url}  status_code:{api_response.status_code}")
+                return f"resp error:{api_response.text}"
+            except Exception as e:
+                self.logger.error(f"Error during f generation encrypt: Error {e}.")
+                # 一般是status_code都获取不到
+                return None
 
-    async def f_decrypt_response(self, f_gen_url, encrypted_data: bytes):
+    async def f_decrypt_response(self, encrypted_data: bytes, f_gen_url: str = F_GEN_URL):
         """nxapi 解密数据"""
         api_body = {
             "data": base64.b64encode(encrypted_data).decode("utf-8")  # 必传：Base64编码的密文
