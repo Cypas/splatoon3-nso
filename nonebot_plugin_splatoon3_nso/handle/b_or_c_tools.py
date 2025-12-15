@@ -149,7 +149,13 @@ async def get_x_username(name, icon, player_code):
     if not top_user:
         return name, icon, 0
 
-    _x = 'x' if ':8:' in top_user.top_type else 'X'
+    # 计算当前是第几赛季
+    d1 = dt.utcnow()
+    d2 = dt(2022, 3, 1)
+    diff_month = (d1.year - d2.year) * 12 + d1.month - d2.month
+    _season = diff_month // 3 - 1
+
+    _x = 'x' if f':{_season}:' in top_user.top_type else 'X'
     if '-a:' in top_user.top_type:
         # 美服
         color = "#fc0390"
