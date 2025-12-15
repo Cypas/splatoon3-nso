@@ -129,6 +129,22 @@ async def get_top_all_username(name, icon, player_code):
 
 async def get_x_username(name, icon, player_code):
     """对x榜单上有名的玩家额外渲染name"""
+    # 哄小孩yuki代码  25年12月26号前有效
+    current_date = dt.now().date()
+    target_date = dt(2025, 12, 26).date()
+    if player_code == "q4g6433x4p6xjqoqzomm" and current_date < target_date:
+        name = name.replace('`', '&#96;').replace('|', '&#124;')
+        name = name.strip() + f'</br><span style="color:red">X666(500)</span>'
+        # 武器图片
+        weapon_name = "公升4K"
+        img_type = "battle_weapon_main"
+        weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
+        if weapon_main_img:
+            # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
+            icon = f"<img height='36px' src='{weapon_main_img}'/>"
+        _power = 500
+        return name, icon, _power
+
     top_user = model_get_top_player(player_code)
     if not top_user:
         return name, icon, 0
