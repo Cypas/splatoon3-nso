@@ -25,21 +25,22 @@ async def get_event_top():
     splatoon = Splatoon(None, None, user)
     # 执行任务
     try:
-        await get_event_top_player_task(splatoon)
+        add_cnt = await get_event_top_player_task(splatoon)
     except Exception as e:
         cron_logger.info(f"get_event_top error:{e}")
     # 耗时
     str_time = convert_td(dt.utcnow() - t)
-    cron_msg = f"get_event_top end {str_time}"
+    cron_msg = f"get_event_top end {str_time}，add_cnt:{add_cnt}"
     cron_logger.info(cron_msg)
-    await cron_notify_to_channel("get_event_top", "end", f"耗时:{str_time}")
+    await cron_notify_to_channel("get_event_top", "end", f"耗时:{str_time}，add_cnt:{add_cnt}")
 
 
 async def get_event_top_player_task(splatoon):
     """任务:获取活动排行榜"""
+    add_cnt = 0
     res = await splatoon.get_event_list()
     if not res:
-        return
+        return add_cnt
     edges = res['data']['leagueMatchRankingSeasons']['edges']
     for n in edges[::-1]:
         in_ed = n['node']['leagueMatchRankingTimePeriodGroups']['edges']
@@ -50,18 +51,21 @@ async def get_event_top_player_task(splatoon):
                 top_type = base64.b64decode(top_id).decode('utf-8')
                 _, search_type = top_type.split('TimePeriod-')
                 count = model_get_top_all_count_by_top_type(search_type)
-                cron_logger.debug(f'top_all.type search {search_type}, {count or 0}')
+                cron_logger.info(f'top_all.type search {search_type}, {count or 0}')
                 if count:
                     continue
                 res = await splatoon.get_event_items(top_id, multiple=True)
-                parse_league(res)
+                cnt = parse_league(res)
+                add_cnt += cnt
+    return add_cnt
 
 
 def parse_league(league):
     """解析活动榜单并写入数据"""
+    add_cnt = 0
     if not league:
         cron_logger.debug('no league')
-        return
+        return add_cnt
 
     play_time = league['data']['rankingPeriod']['endTime'].replace('T', ' ').replace('Z', '')
     play_time = dt.strptime(play_time, '%Y-%m-%d %H:%M:%S')
@@ -71,6 +75,7 @@ def parse_league(league):
         top_id = team['id']
         cron_logger.debug(f'saving top_id: {top_id}')
         model_delete_top_all(top_id)
+
         top_type = base64.b64decode(top_id).decode('utf-8')
         for n in team['details']['nodes']:
             for player in n['players']:
@@ -81,3 +86,6 @@ def parse_league(league):
                 db_row = [top_id, top_type, n['rank'], n['power'], player['name'], player['nameId'], player_code,
                           player['byname'], weapon_id, weapon, play_time]
                 model_add_top_all(db_row)
+                add_cnt += 1
+    return add_cnt
+

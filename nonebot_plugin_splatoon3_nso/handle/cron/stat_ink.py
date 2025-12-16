@@ -155,7 +155,7 @@ async def sync_stat_ink_func(db_user: UserTable):
         is_error = True
         if "status: 500" in error_msg:
             is_battle_error = True
-        if "Membership required" in error_msg:
+        if "Membership required" in error_msg or "Membership_required" in error_msg:
             is_membership_error = True
         if "invalid_grant" in error_msg:
             is_invalid_grant = True
@@ -194,7 +194,7 @@ async def get_post_stat_msg(db_user):
             # await splatoon.test_page()
             await splatoon.refresh_gtoken_and_bullettoken()
         except ValueError as e:
-            if 'invalid_grant' in str(e) or 'Membership required' in str(e) or "has be banned" in str(e):
+            if 'invalid_grant' in str(e) or 'Membership required' in str(e) or 'Membership_required' in str(e) or "has be banned" in str(e):
                 # 无效登录或会员过期 或被封禁
                 return "", str(e), battle_cnt, coop_cnt
         except Exception as e:
@@ -214,7 +214,7 @@ async def get_post_stat_msg(db_user):
     res = await exported_to_stat_ink(splatoon=splatoon, config_data=config_data)
 
     if not isinstance(res, tuple):
-        return
+        return res
     battle_cnt, coop_cnt, url, error_msg = res
 
     flag_need_retry = True
@@ -239,7 +239,7 @@ async def get_post_stat_msg(db_user):
             res = await exported_to_stat_ink(splatoon=splatoon, config_data=config_data)
 
             if not isinstance(res, tuple):
-                return
+                return res
             battle_cnt, coop_cnt, url, error_msg = res
 
     msg = ""
@@ -262,52 +262,52 @@ async def get_post_stat_msg(db_user):
     return msg, error_msg, battle_cnt, coop_cnt
 
 
-async def update_s3si_ts():
-    # 更新 s3si_ts 上传脚本
-    cron_msg = f"update_s3si_ts start"
-    cron_logger.info(cron_msg)
-    await cron_notify_to_channel("update_s3si_ts", "start")
-    t = dt.utcnow()
-
-    path_folder = DIR_RESOURCE
-    init_path(path_folder)
-    os.chdir(path_folder)
-
-    # 取消原有git代理
-    os.system("git config --global --unset http.proxy")
-    if proxy_address:
-        # 设置git代理
-        os.system(f"git config --global http.proxy {proxy_address}")
-
-    # get s3s code
-    s3s_folder = f"{path_folder}/s3sits_git"
-    if not os.path.exists(s3s_folder):
-        cmd = f"git clone https://github.com/Cypas/s3si.ts {s3s_folder}"
-        rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-        cron_logger.info(f"cli: {rtn}")
-        os.chdir(s3s_folder)
-    else:
-        os.chdir(s3s_folder)
-        os.system("git restore .")
-        cmd = f"git pull"
-        rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
-        cron_logger.info(f'cli: {rtn}')
-
-    # edit agent
-    cmd_list = [
-        """sed -i "1,5s/s3si.ts/s3si.ts - t.me\/splatoon3_bot/g" ./src/constant.ts""",
-    ]
-    for cmd in cmd_list:
-        cron_logger.debug(f'cli: {cmd}')
-        os.system(cmd)
-
-    dir_user_configs = f'{s3s_folder}/user_configs'
-    init_path(dir_user_configs)
-    # 耗时
-    str_time = f"{(dt.utcnow() - t).seconds}s"
-    cron_msg = f"update_s3si_ts end, {str_time}"
-    cron_logger.info(cron_msg)
-    await cron_notify_to_channel("update_s3si_ts", "end", f"耗时:{str_time}")
+# async def update_s3si_ts():
+#     # 更新 s3si_ts 上传脚本
+#     cron_msg = f"update_s3si_ts start"
+#     cron_logger.info(cron_msg)
+#     await cron_notify_to_channel("update_s3si_ts", "start")
+#     t = dt.utcnow()
+#
+#     path_folder = DIR_RESOURCE
+#     init_path(path_folder)
+#     os.chdir(path_folder)
+#
+#     # 取消原有git代理
+#     os.system("git config --global --unset http.proxy")
+#     if proxy_address:
+#         # 设置git代理
+#         os.system(f"git config --global http.proxy {proxy_address}")
+#
+#     # get s3s code
+#     s3s_folder = f"{path_folder}/s3sits_git"
+#     if not os.path.exists(s3s_folder):
+#         cmd = f"git clone https://github.com/Cypas/s3si.ts {s3s_folder}"
+#         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
+#         cron_logger.info(f"cli: {rtn}")
+#         os.chdir(s3s_folder)
+#     else:
+#         os.chdir(s3s_folder)
+#         os.system("git restore .")
+#         cmd = f"git pull"
+#         rtn = subprocess.run(cmd.split(' '), stdout=subprocess.PIPE).stdout.decode('utf-8')
+#         cron_logger.info(f'cli: {rtn}')
+#
+#     # edit agent
+#     cmd_list = [
+#         """sed -i "1,5s/s3si.ts/s3si.ts - t.me\/splatoon3_bot/g" ./src/constant.ts""",
+#     ]
+#     for cmd in cmd_list:
+#         cron_logger.debug(f'cli: {cmd}')
+#         os.system(cmd)
+#
+#     dir_user_configs = f'{s3s_folder}/user_configs'
+#     init_path(dir_user_configs)
+#     # 耗时
+#     str_time = f"{(dt.utcnow() - t).seconds}s"
+#     cron_msg = f"update_s3si_ts end, {str_time}"
+#     cron_logger.info(cron_msg)
+#     await cron_notify_to_channel("update_s3si_ts", "end", f"耗时:{str_time}")
 
 
 # def old_exported_to_stat_ink(user_id, session_token, api_key, f_gen_url, user_lang="zh-CN", g_token="",

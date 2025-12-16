@@ -3,7 +3,7 @@ import threading
 import time
 
 from .cron import create_get_user_friends_tasks, get_x_player, create_set_report_tasks, sync_stat_ink, send_report_task, \
-    create_refresh_token_tasks, update_s3si_ts, clean_s3s_cache, clean_global_user_info_dict, get_event_top, \
+    create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, get_event_top, \
     show_dict_status
 from .cron.else_cron import get_dict_status
 from .push import close_push
@@ -66,9 +66,9 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await bot_send(bot, event, message="即将开始refresh_token")
             await create_refresh_token_tasks()
 
-        case "update_s3si_ts":
-            await bot_send(bot, event, message="即将开始update_s3si_ts")
-            await update_s3si_ts()
+        # case "update_s3si_ts":
+        #     await bot_send(bot, event, message="即将开始update_s3si_ts")
+        #     await update_s3si_ts()
 
         case "sync_stat_ink":
             await bot_send(bot, event, message="即将开始sync_stat_ink")

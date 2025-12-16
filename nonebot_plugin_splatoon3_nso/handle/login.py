@@ -5,7 +5,6 @@ import threading
 import time
 from datetime import datetime as dt
 
-from .cron import update_s3si_ts
 from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, get_event_info, get_game_sp_id
 from .send_msg import bot_send, notify_to_channel, bot_send_login_md, bot_send_login_url_md

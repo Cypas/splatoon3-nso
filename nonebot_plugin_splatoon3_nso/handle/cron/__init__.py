@@ -6,7 +6,7 @@ from nonebot import require, logger
 from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, show_dict_status, \
     init_nso_version
 from .event_top import get_event_top
-from .stat_ink import update_s3si_ts, sync_stat_ink
+from .stat_ink import sync_stat_ink
 from .report import create_set_report_tasks, send_report_task
 from .user_friends import create_get_user_friends_tasks
 from .x_player import get_x_player
@@ -93,8 +93,8 @@ async def cron(_type):
             await create_get_user_friends_tasks()
         case "refresh_token":
             await create_refresh_token_tasks()
-        case "update_s3si_ts":
-            await update_s3si_ts()
+        # case "update_s3si_ts":
+        #     await update_s3si_ts()
         case "sync_stat_ink":
             threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
         case "clean_s3s_cache":
