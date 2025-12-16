@@ -442,7 +442,7 @@ class S3S:
             content = base64.b64decode(encrypt_result)  # 加密数据还原为二进制
             znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
             # 解密返回数据
-            decrypt_data = await self.f_decrypt_response(self.f_gen_url, znc_encrypt_data.content)
+            decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
             decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
             splatoon_token = json.loads(decrypt_json["data"])
         except httpx.ConnectError:
@@ -477,7 +477,7 @@ class S3S:
                 content = base64.b64decode(encrypt_result)
                 znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
                 # 解密返回数据
-                decrypt_data = await self.f_decrypt_response(self.f_gen_url, znc_encrypt_data.content)
+                decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
                 decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
                 splatoon_token = json.loads(decrypt_json["data"])
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
@@ -528,7 +528,7 @@ class S3S:
             content = base64.b64decode(encrypt_result)  # 加密数据还原为二进制
             znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
             # 解密返回数据
-            decrypt_data = await self.f_decrypt_response(self.f_gen_url, znc_encrypt_data.content)
+            decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
             decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
             web_service_resp = json.loads(decrypt_json["data"])
         except httpx.ConnectError:

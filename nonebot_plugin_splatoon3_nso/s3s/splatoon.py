@@ -1,4 +1,5 @@
 import base64
+import json
 import time
 import uuid
 
@@ -446,21 +447,24 @@ class Splatoon:
             if not self.access_token:
                 success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
 
+            await s3s.f_api_clent_auth2_register()
             # 加密参数
             encrypt_request = await s3s.f_encrypt_request(api_url=url, body_data=json_body,
                                                            access_token=self.access_token)
             encrypt_json = encrypt_request.json()
-            encrypt_data = encrypt_json['data']
+            encrypt_data = encrypt_json["data"]
             body_bytes = base64.b64decode(encrypt_data)
             # 请求nxapi
             encrypt_resp = await self.req_client.post(url, headers=self._head_access(self.access_token), data=body_bytes)
             # 解密响应
             decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
-            decrypt_json = decrypt_resp.json()['data']
+            decrypt_data = decrypt_resp.json()["data"]
+            decrypt_json = json.loads(decrypt_data)
+            # self.logger.info(f'decrypt_json:{json.dumps(decrypt_json)}')
+            # self.logger.info(f"ns请求res为{decrypt_resp.text}")
 
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
-            self.logger.info(f"ns请求res为{decrypt_resp.text}")
             status = decrypt_json["status"]
             if status == 9404:
                 # 更新token提醒一下用户
@@ -490,7 +494,8 @@ class Splatoon:
                                                           data=body_bytes)
                 # 解密响应
                 decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
-                decrypt_json = decrypt_resp.json()['data']
+                decrypt_data = decrypt_resp.json()["data"]
+                decrypt_json = json.loads(decrypt_data)
 
                 t2 = f'{time.time() - t:.3f}'
                 self.logger.debug(f'_request: {t2}s')
@@ -512,7 +517,7 @@ class Splatoon:
             raise e
         except Exception as e:
             self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _request error: {e}')
-            self.logger.warning(f'data:{url}')
+            self.logger.warning(f'url:{url}')
             self.logger.warning(f'res:{decrypt_resp.text}')
             # if res:
             #     self.logger.warning(f'res:{res}')
