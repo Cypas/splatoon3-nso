@@ -547,7 +547,8 @@ class S3S:
             self.logger.debug(f"retry once if code 9403/9599 error from nintendo")
             try:
                 f, uuid, timestamp = await self.f_api(access_token, 2, self.f_gen_url, self.r_user_id,
-                                                      coral_user_id=coral_user_id)
+                                                      coral_user_id=coral_user_id,
+                                                      encrypt_token_request=encrypt_token_request)
                 body["parameter"]["f"] = f
                 body["parameter"]["requestId"] = uuid
                 body["parameter"]["timestamp"] = timestamp

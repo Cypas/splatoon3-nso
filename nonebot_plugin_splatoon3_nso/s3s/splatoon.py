@@ -445,6 +445,7 @@ class Splatoon:
             json_body = {'parameter': {}}
             s3s = self.s3s
             if not self.access_token:
+                await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                 success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
 
             await s3s.f_api_clent_auth2_register()
