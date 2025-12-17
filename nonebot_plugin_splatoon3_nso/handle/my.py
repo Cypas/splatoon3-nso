@@ -202,6 +202,7 @@ async def get_friends_md(splatoon, lang='zh-CN'):
     msg = f'''#### 在线好友 HKT {dt.now():%Y-%m-%d %H:%M:%S}
 ||||||
 |---:|---|:---|:---|---|
+|ns好友名|ns头像|sp3好友名|状态|数量|
 '''
     _dict = defaultdict(int)
     for f in res['data']['friends']['nodes']:
@@ -300,6 +301,7 @@ async def get_ns_friends_md(splatoon: Splatoon):
     msg = f'''#### NS在线好友 HKT {dt.now():%Y-%m-%d %H:%M:%S}
 |||||
 |---:|---|---|:---|
+|ns好友名|ns头像|游戏名|数量|
 '''
     _dict = defaultdict(int)
     for f in res.get('friends') or []:
