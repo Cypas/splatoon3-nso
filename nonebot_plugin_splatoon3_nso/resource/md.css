@@ -2,10 +2,12 @@ body {
   display: block;
   margin: 0 !important;
   font-size: 20px;
+  font-family: "Noto Sans CJK", sans-serif;
 }
 
 h4, h5 {
   margin: 10px 0;
+  font-family: inherit;
 }
 
 .markdown-body table {
@@ -15,11 +17,13 @@ h4, h5 {
   width: max-content;
   max-width: 100%;
   overflow: auto;
+  font-family: inherit;
 }
 
 .markdown-body td,
 .markdown-body th {
   padding: 0;
+  font-family: inherit;
 }
 
 .markdown-body table th,

@@ -517,7 +517,7 @@ class Splatoon:
         except ValueError as e:
             raise e
         except Exception as e:
-            self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _request error: {e}')
+            self.logger.warning(f'{self.user_db_info.db_id},{msg_id} _ns_api_request error: {e}')
             self.logger.warning(f'url:{url}')
             self.logger.warning(f'res:{decrypt_resp.text}')
             # if res:

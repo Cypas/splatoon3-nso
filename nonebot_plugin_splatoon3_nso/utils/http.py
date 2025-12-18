@@ -13,10 +13,8 @@ from ..config import plugin_config
 
 HTTP_TIME_OUT = 60.0  # 请求超时，秒
 proxy_address = plugin_config.splatoon3_proxy_address
-if proxy_address:
-    global_proxies = f"http://{proxy_address}"
-else:
-    global_proxies = None
+
+global_proxies = f"http://{proxy_address}" if proxy_address else None
 
 # 需要代理访问的地址
 proxy_host_list = plugin_config.splatoon3_proxy_list
@@ -74,7 +72,7 @@ class ReqClient:
     def _init_client(self) -> None:
         """初始化或重建 AsyncClient"""
         self.client = httpx.AsyncClient(
-            proxies=global_proxies if self.with_proxy else None,
+            proxy=global_proxies if self.with_proxy else None,
             timeout=HTTP_TIME_OUT  # 统一超时设置
         )
 
@@ -109,7 +107,7 @@ class ReqClient:
         host = urllib.parse.urlparse(url).hostname
         if not self.with_proxy and host in proxy_host_list:
             # 临时使用代理的独立请求（避免污染主 Client）
-            async with httpx.AsyncClient(proxies=global_proxies) as tmp_client:
+            async with httpx.AsyncClient(proxy=global_proxies) as tmp_client:
                 return await tmp_client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
         return await self._request_with_fallback("GET", url, **kwargs)
 
@@ -117,7 +115,7 @@ class ReqClient:
         """自动恢复连接的 POST 请求"""
         host = urllib.parse.urlparse(url).hostname
         if not self.with_proxy and host in proxy_host_list:
-            async with httpx.AsyncClient(proxies=global_proxies) as tmp_client:
+            async with httpx.AsyncClient(proxy=global_proxies) as tmp_client:
                 return await tmp_client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
         return await self._request_with_fallback("POST", url, **kwargs)
 
@@ -169,7 +167,7 @@ class HttpReq(object):
         proxies = global_proxies if with_proxy else None
 
         # 使用同步 Client 并启用 HTTP/2.0
-        with httpx.Client(proxies=proxies, http2=True) as client:
+        with httpx.Client(proxy=proxies, http2=True) as client:
             response = client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
         return response
 
@@ -181,7 +179,7 @@ class HttpReq(object):
         proxies = global_proxies if with_proxy else None
 
         # 使用同步 Client 并启用 HTTP/2.0
-        with httpx.Client(proxies=proxies, http2=True) as client:
+        with httpx.Client(proxy=proxies, http2=True) as client:
             response = client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
         return response
 
@@ -198,7 +196,7 @@ class AsHttpReq(object):
             proxies = global_proxies
         else:
             proxies = None
-        async with httpx.AsyncClient(proxies=proxies, http2=True) as client:
+        async with httpx.AsyncClient(proxy=proxies, http2=True) as client:
             response = await client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
             return response
 
@@ -211,7 +209,7 @@ class AsHttpReq(object):
             proxies = global_proxies
         else:
             proxies = None
-        async with httpx.AsyncClient(proxies=proxies, http2=True) as client:
+        async with httpx.AsyncClient(proxy=proxies, http2=True) as client:
             response = await client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
             return response
 
