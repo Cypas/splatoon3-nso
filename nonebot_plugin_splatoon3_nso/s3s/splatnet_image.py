@@ -151,6 +151,11 @@ async def init_browser() -> Browser:
     # 重新启动Playwright
     global_playwright = await async_playwright().start()
 
+    browser_args = [
+        # 设置默认字体
+        '--default-font-family="Noto Sans CJK"',
+    ]
+
     proxy = None
     # 代理
     if global_proxies:
@@ -158,13 +163,13 @@ async def init_browser() -> Browser:
             # bypass 忽略部分域名
             proxy = {"server": global_proxies,
                      "bypass": "api.lp1.av5ja.srv.nintendo.net"}
-            global_browser = await global_playwright.chromium.launch(proxy=proxy)
+            global_browser = await global_playwright.chromium.launch(proxy=proxy, args=browser_args)
         else:
             # 全局代理访问
             proxy = {"server": global_proxies}
-            global_browser = await global_playwright.chromium.launch(proxy=proxy)
+            global_browser = await global_playwright.chromium.launch(proxy=proxy, args=browser_args)
     else:
-        global_browser = await global_playwright.chromium.launch()
+        global_browser = await global_playwright.chromium.launch(args=browser_args)
     return global_browser
 
 
