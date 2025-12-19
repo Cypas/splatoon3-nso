@@ -4,7 +4,7 @@ from playwright.async_api import async_playwright, Browser, BrowserContext, View
 from .iksm import S3S
 from .splatoon import Splatoon
 from .utils import SPLATNET3_URL
-from .. import plugin_config, bot_send
+from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
 from ..utils import global_proxies, get_msg_id
 
@@ -24,10 +24,6 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
 
     user = dict_get_or_set_user_info(splatoon.platform, splatoon.user_id)
     g_token = user.g_token
-    if not S3S.is_jwt_token_valid(g_token):
-        # 发送等待文本
-        await bot_send(splatoon.bot, splatoon.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
-        suss = await splatoon.refresh_gtoken_and_bullettoken()
 
     msg_id = get_msg_id(splatoon.platform, splatoon.user_id)
     logger.info(f'get_app_screenshot： {msg_id}, {key}, {url}')

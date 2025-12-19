@@ -1,6 +1,7 @@
 from .send_msg import bot_send
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info
+from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
 from ..s3s.splatnet_image import get_app_screenshot, ss_url_trans, global_dict_ss_user
 from ..s3s.utils import SPLATNET3_URL
@@ -58,6 +59,12 @@ async def get_screenshot_image(bot, event, platform, user_id, key=None):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     msg_id = get_msg_id(platform, user_id)
+
+    if not S3S.is_jwt_token_valid(splatoon.g_token):
+        # 发送等待文本
+        await bot_send(splatoon.bot, splatoon.event,
+                       "本次nso截图需要刷新token，请求耗时会比平时更长一些，请稍等...")
+        suss = await splatoon.refresh_gtoken_and_bullettoken()
 
     img = await get_app_screenshot(splatoon, key)
     return img

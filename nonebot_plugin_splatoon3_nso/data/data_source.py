@@ -194,7 +194,7 @@ def model_delete_user(platform, user_id):
 def model_get_all_user() -> list[UserTable]:
     """获取全部session_token不为空用户"""
     session = DBSession()
-    users = session.query(UserTable).filter(UserTable.session_token.isnot(None), UserTable.user_agreement == 1).all()
+    users = session.query(UserTable).filter(UserTable.session_token.isnot(None), UserTable.user_agreement == 1).limit(300).all()
     session.close()
     return users
 

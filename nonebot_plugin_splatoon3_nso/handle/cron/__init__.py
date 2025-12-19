@@ -4,7 +4,7 @@ import threading
 from nonebot import require, logger
 
 from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, show_dict_status, \
-    init_nso_version
+    init_nso_version, clean_expired_clients
 from .event_top import get_event_top
 from .stat_ink import sync_stat_ink
 from .report import create_set_report_tasks, send_report_task
@@ -76,6 +76,7 @@ def scheduler_controller():
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
         # 每3小时自动显示status
         # add_scheduler("show_status", trigger='interval', hours=3)
+        add_scheduler("clean_expired_clients", trigger='interval', minutes=5)
 
 
 async def cron(_type):
@@ -105,6 +106,8 @@ async def cron(_type):
             await init_nso_version()
         case "show_status":
             await show_dict_status()
+        case "clean_expired_clients":
+            await clean_expired_clients()
 
 
 def remove_all_scheduler():

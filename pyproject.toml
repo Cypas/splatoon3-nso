@@ -22,6 +22,7 @@ nonebot_plugin_htmlrender = "^0.6.7"
 SQLAlchemy = "^2.0.25"
 playwright = "^1.40.0"
 redis = "^5.2.0"
+Pillow = "^11.3.0"
 
 
 [tool.poetry.group.test.dependencies]

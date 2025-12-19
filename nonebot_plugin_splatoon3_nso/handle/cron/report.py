@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import gc
 import time
 
 from .utils import cron_logger, user_remove_duplicates
@@ -13,7 +14,7 @@ from ...data.data_source import model_add_report, model_get_all_user, dict_get_o
     model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict, \
     dict_get_all_global_users
 from ...s3s.splatoon import Splatoon
-from ...utils import get_msg_id, convert_td
+from ...utils import get_msg_id, convert_td, ReqClient
 from ...utils.bot import *
 
 
@@ -77,10 +78,16 @@ async def create_set_report_tasks():
 
     async def process_phase2(splatoon: Splatoon):
         async with phase2_semaphore:
+            if splatoon is None:
+                return
             result = await set_user_report_task(
                 (splatoon.platform, splatoon.user_id),
                 splatoon
             )
+            await splatoon.close()
+            del splatoon  # 解除强引用
+            gc.collect()  # 即时回收
+
             if result:
                 if result == "refresh_tokens fail":
                     counters["refresh_tokens_fail_count"] += 1
@@ -110,8 +117,11 @@ async def create_set_report_tasks():
                                  f"有效用户:{len(valid_splatoons)}\n"
                                  f"刷新成功: {len(valid_splatoons)}\n"
                                  f"成功写日报:{counters['set_report_count']}\n")
+    # 清理临时任务对象
+    await ReqClient.close_all(_type="cron")
+
     # 发信
-    await send_report_task()
+    # await send_report_task()
 
 
 async def set_user_report_task(p_and_id, splatoon: Splatoon):

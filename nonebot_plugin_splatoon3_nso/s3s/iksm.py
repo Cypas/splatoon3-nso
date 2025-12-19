@@ -138,6 +138,14 @@ class S3S:
         if _type == "cron":
             self.logger = nb_logger.bind(cron=True)
 
+    def close(self):
+        self.req_client = None
+        self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
+        self.user_nickname = ""
+        self.user_lang = "zh-CN"
+        self.user_country = "JP"
+        self.oauth_token = None
+
     @staticmethod
     def get_nsoapp_version(f_gen_url=None):
         """Fetches the current Nintendo Switch Online app version from f API or the Apple App Store and sets it globally."""

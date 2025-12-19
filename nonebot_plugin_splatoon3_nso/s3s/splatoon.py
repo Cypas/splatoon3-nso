@@ -1,7 +1,10 @@
+import asyncio
 import base64
+import gc
 import json
 import time
 import uuid
+import weakref
 
 import httpx
 from nonebot import Bot, logger as nb_logger
@@ -467,6 +470,7 @@ class Splatoon:
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
             status = decrypt_json["status"]
+            self.logger.info(f"ns api请求satus为{status}")
             if status == 9404:
                 # 更新token提醒一下用户
                 if not multiple and self.bot and self.event:
@@ -682,3 +686,47 @@ class Splatoon:
             'code': my_sw_code,
             'icon': icon
         }
+
+    async def close(self):
+        """显式释放所有资源（核心：打破所有强引用链）"""
+        # 1. 关闭req_client
+        if hasattr(self, 'req_client') and self.req_client:
+            try:
+                await self.req_client.close()
+            except Exception as e:
+                self.logger.warning(f"关闭req_client失败: {e}")
+            self.req_client = None
+
+        # 2. 关闭S3S（如果有close方法）
+        if hasattr(self, 's3s') and self.s3s:
+            if hasattr(self.s3s, 'close') and callable(self.s3s.close):
+                try:
+                    if asyncio.iscoroutinefunction(self.s3s.close):
+                        await self.s3s.close()
+                    else:
+                        self.s3s.close()
+                except Exception as e:
+                    self.logger.warning(f"关闭S3S失败: {e}")
+            self.s3s = None
+
+        # 3. 清空所有属性（打破强引用链）
+        self.bot = None
+        self.event = None
+        self.platform = None
+        self.user_id = None
+        self.user_name = None
+        self.nsa_id = None
+        self.ns_name = None
+        self.ns_friend_code = None
+        self.session_token = None
+        self.user_lang = None
+        self.user_country = None
+        self.bullet_token = None
+        self.g_token = None
+        self.access_token = None
+        self.nso_app_version = None
+        self.dict_type = None
+        self.logger = None
+        print("开始执行sp.close()")
+        # 4. 触发GC
+        gc.collect()

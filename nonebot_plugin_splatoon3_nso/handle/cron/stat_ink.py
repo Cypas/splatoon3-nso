@@ -208,7 +208,8 @@ async def get_post_stat_msg(db_user):
                               stat_key=db_user.stat_key, g_token=u.g_token, bullet_token=u.bullet_token,
                               session_token=u.session_token)
 
-    res = await exported_to_stat_ink(splatoon=splatoon, config_data=config_data)
+    # res = await exported_to_stat_ink(splatoon=splatoon, config_data=config_data)
+    res = 0,0,"",""
 
     if not isinstance(res, tuple):
         return res
