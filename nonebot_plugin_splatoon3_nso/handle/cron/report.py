@@ -117,6 +117,9 @@ async def create_set_report_tasks():
                                  f"有效用户:{len(valid_splatoons)}\n"
                                  f"刷新成功: {len(valid_splatoons)}\n"
                                  f"成功写日报:{counters['set_report_count']}\n")
+    # 清理临时任务对象
+    await ReqClient.close_all(_type="cron")
+
     # 发信
     # await send_report_task()
 
