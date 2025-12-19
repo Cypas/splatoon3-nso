@@ -31,9 +31,6 @@ async def sync_stat_ink():
     await cron_notify_to_channel("sync_stat_ink", "start")
     t = dt.utcnow()
 
-    # # 更新s3sti脚本
-    # await update_s3si_ts()
-
     db_users = model_get_all_stat_user()
     # 去重
     db_users = user_remove_duplicates(db_users)

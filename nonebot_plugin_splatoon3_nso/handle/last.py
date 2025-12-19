@@ -261,7 +261,7 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             if get_screenshot:
                 try:
                     url = f"{SPLATNET3_URL}/history/detail/{_id}?lang=zh-CN"
-                    pic = await get_app_screenshot(splatoon.platform, splatoon.user_id, url=url, mask=mask)
+                    pic = await get_app_screenshot(splatoon, url=url, mask=mask)
                 except Exception as e:
                     logger.exception(e)
                     pic = None
@@ -309,7 +309,7 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             if get_screenshot:
                 try:
                     url = f"{SPLATNET3_URL}/coop/{_id}?lang=zh-CN"
-                    pic = await get_app_screenshot(splatoon.platform, splatoon.user_id, url=url, mask=mask)
+                    pic = await get_app_screenshot(splatoon, url=url, mask=mask)
                 except Exception as e:
                     logger.exception(e)
                     pic = None

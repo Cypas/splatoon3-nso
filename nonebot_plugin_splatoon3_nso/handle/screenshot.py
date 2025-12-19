@@ -59,12 +59,5 @@ async def get_screenshot_image(bot, event, platform, user_id, key=None):
     splatoon = Splatoon(bot, event, user)
     msg_id = get_msg_id(platform, user_id)
 
-    # 只有第一次使用ss时需要测试token是否有效，后续加入了token定时维护便不再需要测试
-    # ok = global_dict_ss_user.get(msg_id)
-    # if not ok:
-    # 测试token是否有效
-    success = await splatoon.test_page()
-    if not success:
-        raise ValueError(f"{msg_id} get_screenshot_image error: test_page fail")
-    img = await get_app_screenshot(platform, user_id, key)
+    img = await get_app_screenshot(splatoon, key)
     return img

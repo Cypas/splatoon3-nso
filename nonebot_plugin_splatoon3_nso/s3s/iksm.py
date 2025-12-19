@@ -12,10 +12,12 @@ import threading
 import urllib
 import random
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 import httpx
+import jwt
 from bs4 import BeautifulSoup
+from jwt import ExpiredSignatureError, DecodeError, InvalidTokenError
 from nonebot import logger as nb_logger
 from weakref import WeakKeyDictionary
 
@@ -914,6 +916,52 @@ class S3S:
                 self.logger.error(f"Error during f generation decrypt: Error {e}.")
                 # 一般是status_code都获取不到
                 return None
+
+    @staticmethod
+    def is_jwt_token_valid(token: str, leeway: int = 0) -> bool:
+        """
+        仅校验 JWT Token 是否格式有效且未过期（不验证签名，无需 secret）
+
+        Args:
+            token: 待校验的 JWT Token 字符串
+            leeway: 时间误差容忍值（秒），解决客户端/服务器时间不一致问题
+
+        Returns:
+            bool: Token 格式有效 + 未过期 → 返回 True；过期/格式无效 → 返回 False
+        """
+        # 空 Token 直接判定无效
+        if not token or not isinstance(token, str):
+            return False
+
+        try:
+            # 核心逻辑：关闭签名验证（verify_signature=False），仅解析 payload 并校验过期
+            # options 配置：
+            # - verify_signature=False：跳过签名验证（无需 secret）
+            # - verify_exp=True：强制校验过期时间（默认开启，显式声明更清晰）
+            jwt.decode(
+                jwt=token,
+                key="",  # 无 secret 时传空字符串即可（签名验证已关闭）
+                algorithms=["HS256", "RS256", "ES256"],  # 兼容常见算法（无需匹配实际算法）
+                leeway=leeway,
+                options={
+                    "verify_signature": False,
+                    "verify_exp": True
+                }
+            )
+            return True
+
+        except ExpiredSignatureError:
+            # Token 已过期
+            return False
+        except DecodeError:
+            # Token 格式错误（如不是 JWT 格式、缺少 . 分隔符、base64 解码失败等）
+            return False
+        except InvalidTokenError:
+            # 其他无效场景（如 payload 无 exp 字段但开启了过期校验、字段格式错误等）
+            return False
+        except Exception:
+            # 兜底：任何未预期的异常都判定为无效
+            return False
 
 
 def init_global_nso_version_and_web_view_version():

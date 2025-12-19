@@ -1,9 +1,11 @@
 from nonebot import logger
 from playwright.async_api import async_playwright, Browser, BrowserContext, ViewportSize
 
+from .iksm import S3S
+from .splatoon import Splatoon
 from .utils import SPLATNET3_URL
-from .. import plugin_config
-from ..data.data_source import dict_get_or_set_user_info
+from .. import plugin_config, bot_send
+from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
 from ..utils import global_proxies, get_msg_id
 
 # 全局浏览器及管理变量（新增内存管理相关）
@@ -14,16 +16,26 @@ global_browser_usage_count = 0  # 浏览器使用次数计数
 MAX_BROWSER_USAGE = 20  # 达到阈值后重启浏览器释放内存
 
 
-async def get_app_screenshot(platform, user_id, key: str = "", url="", mask=False):
+async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=False):
     """获取app页面截图（仅优化内存释放版本）"""
-    user = dict_get_or_set_user_info(platform, user_id)
-    msg_id = get_msg_id(platform, user_id)
+    ### nso截图需要的是gtoken(3h)，home页面校验的是bullet_token(2h)
+    # 就会存在说g_token已过期，但home页面校验通过的情况，此时截图nso仍会无数据(可能gtoken未正确刷新，或redis跳过了gtoken获取)
+    # 稳定验证 需要去校验gtoken的jwt是否过期
+
+    user = dict_get_or_set_user_info(splatoon.platform, splatoon.user_id)
+    g_token = user.g_token
+    if not S3S.is_jwt_token_valid(g_token):
+        # 发送等待文本
+        await bot_send(splatoon.bot, splatoon.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
+        suss = await splatoon.refresh_gtoken_and_bullettoken()
+
+    msg_id = get_msg_id(splatoon.platform, splatoon.user_id)
     logger.info(f'get_app_screenshot： {msg_id}, {key}, {url}')
 
     COOKIES = [{'name': '_gtoken', 'value': 'undefined', 'domain': 'api.lp1.av5ja.srv.nintendo.net', 'path': '/',
                 'expires': -1, 'httpOnly': False, 'secure': False, 'sameSite': 'Lax'}]
     cookies = COOKIES[:]
-    cookies[0]['value'] = user.g_token
+    cookies[0]['value'] = g_token
     height = 1000
     _type = "default"
 
@@ -162,7 +174,8 @@ async def init_browser() -> Browser:
         if plugin_config.splatoon3_proxy_list_mode:
             # bypass 忽略部分域名
             proxy = {"server": global_proxies,
-                     "bypass": "api.lp1.av5ja.srv.nintendo.net"}
+                     "bypass": "api.lp1.av5ja.srv.nintendo.net"
+                     }
             global_browser = await global_playwright.chromium.launch(proxy=proxy, args=browser_args)
         else:
             # 全局代理访问
