@@ -1,4 +1,6 @@
+import asyncio
 import base64
+import gc
 import json
 import time
 import uuid
@@ -467,6 +469,7 @@ class Splatoon:
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
             status = decrypt_json["status"]
+            self.logger.info(f"ns api请求satus为{status}")
             if status == 9404:
                 # 更新token提醒一下用户
                 if not multiple and self.bot and self.event:
