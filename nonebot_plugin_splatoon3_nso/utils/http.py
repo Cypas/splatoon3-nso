@@ -145,6 +145,32 @@ class ReqClient:
                 return await tmp_client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
         return await self._request_with_fallback("POST", url, **kwargs)
 
+    @staticmethod
+    async def close_and_remove(platform: str, user_id: str, _type: str = "normal"):
+        """关闭客户端并从全局字典中移除（彻底释放引用）"""
+        msg_id = get_msg_id(platform, user_id)
+        client_dict = global_client_dict if _type == "normal" else global_cron_client_dict
+
+        # 1. 取出并关闭客户端
+        req_client = None
+        if _type == "normal":
+            entry = client_dict.pop(msg_id, None)
+            if entry:
+                req_client, _ = entry
+        else:
+            req_client = client_dict.pop(msg_id, None)
+
+        # 2. 关闭连接
+        if req_client:
+            try:
+                await req_client.close()
+            except Exception as e:
+                logger.warning(f"关闭客户端 {msg_id} 失败: {e}")
+
+        # 3. 解除引用（关键）
+        del req_client
+        gc.collect()
+
     async def close(self) -> None:
         """安全关闭 Client"""
         if not self.client.is_closed:
@@ -152,29 +178,69 @@ class ReqClient:
 
     @staticmethod
     async def close_all(_type: str) -> None:
-        """安全关闭某一类型的全部client（修复弱引用处理）"""
+        """
+        安全关闭某一类型的全部client（关闭连接 + 彻底解除引用 + 触发GC）
+        整合 close_and_remove 逻辑，确保内存被真正回收
+        """
         global global_client_dict, global_cron_client_dict
 
-        # 处理普通客户端
-        if _type == "normal":
-            client_items = list(global_client_dict.values())
-            global_client_dict.clear()
-            for client, _ in client_items:
-                try:
-                    await client.close()
-                except Exception as e:
-                    logger.warning(f"关闭普通客户端失败: {e}")
-        # 处理定时任务客户端（弱引用无需clear）
-        elif _type == "cron":
-            for msg_id in list(global_cron_client_dict.keys()):
-                client = global_cron_client_dict.get(msg_id)
-                if client:
-                    try:
-                        await client.close()
-                    except Exception as e:
-                        logger.warning(f"关闭定时任务客户端 {msg_id} 失败: {e}")
+        try:
+            if _type == "normal":
+                # ========== 处理普通客户端（强引用字典） ==========
+                # 1. 先复制并清空全局字典（彻底解除强引用）
+                client_items = list(global_client_dict.values())  # 备份待关闭的客户端
+                global_client_dict.clear()  # 立即移除所有强引用
 
-            gc.collect()  # 手动触发GC，立即回收
+                # 2. 逐个关闭客户端连接
+                closed_count = 0
+                failed_count = 0
+                for client, _ in client_items:
+                    try:
+                        if client and hasattr(client, "close") and callable(client.close):
+                            await client.close()
+                            closed_count += 1
+                    except Exception as e:
+                        logger.warning(f"关闭普通客户端失败: {e}")
+                        failed_count += 1
+
+                # 3. 解除列表中对客户端的强引用（关键）
+                del client_items  # 移除备份列表的引用
+
+                logger.info(f"普通客户端批量关闭完成：成功{closed_count}个，失败{failed_count}个")
+
+            elif _type == "cron":
+                # ========== 处理定时任务客户端（弱引用字典） ==========
+                # 1. 遍历并关闭所有有效客户端
+                closed_count = 0
+                failed_count = 0
+                # 先复制key列表，避免遍历中字典变化
+                msg_ids = list(global_cron_client_dict.keys())
+
+                for msg_id in msg_ids:
+                    client = global_cron_client_dict.get(msg_id)
+                    if client:
+                        try:
+                            if hasattr(client, "close") and callable(client.close):
+                                await client.close()
+                                closed_count += 1
+                        except Exception as e:
+                            logger.warning(f"关闭定时任务客户端 {msg_id} 失败: {e}")
+                            failed_count += 1
+                        finally:
+                            # 主动移除弱引用字典中的键（加速回收）
+                            if msg_id in global_cron_client_dict:
+                                del global_cron_client_dict[msg_id]
+
+                logger.info(f"定时任务客户端批量关闭完成：成功{closed_count}个，失败{failed_count}个")
+
+            # ========== 全局清理：解除所有临时引用 + 触发GC ==========
+            # 强制触发垃圾回收，回收无引用的客户端实例
+            collected_count = gc.collect()
+            logger.info(f"客户端批量关闭后触发GC，回收垃圾对象数量: {collected_count}")
+
+        except Exception as e:
+            logger.error(f"批量关闭{_type}类型客户端时发生异常: {e}", exc_info=True)
+            raise  # 抛出异常，让上层感知错误
 
 
 # ===================== 全局变量  =====================
