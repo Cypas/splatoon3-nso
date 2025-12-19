@@ -170,7 +170,7 @@ async def init_browser() -> Browser:
         if plugin_config.splatoon3_proxy_list_mode:
             # bypass 忽略部分域名
             proxy = {"server": global_proxies,
-                     "bypass": "api.lp1.av5ja.srv.nintendo.net"
+                     # "bypass": "api.lp1.av5ja.srv.nintendo.net"
                      }
             global_browser = await global_playwright.chromium.launch(proxy=proxy, args=browser_args)
         else:
