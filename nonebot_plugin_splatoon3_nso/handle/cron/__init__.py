@@ -4,7 +4,7 @@ import threading
 from nonebot import require, logger
 
 from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, show_dict_status, \
-    init_nso_version
+    init_nso_version, clean_expired_clients
 from .event_top import get_event_top
 from .stat_ink import sync_stat_ink
 from .report import create_set_report_tasks, send_report_task
@@ -71,11 +71,12 @@ def scheduler_controller():
         # sync_stat_ink 在指定时间进行同步
         add_scheduler("sync_stat_ink", trigger='cron', hour="0,3,6,9,12,15,18,20,22", minute=4)
         # 每周一周四清理一次公共用户字典
-        add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
+        # add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
         # 每天23:59分将 NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
         # 每3小时自动显示status
         # add_scheduler("show_status", trigger='interval', hours=3)
+        add_scheduler("clean_expired_clients", trigger='interval', minutes=5)
 
 
 async def cron(_type):
@@ -105,6 +106,8 @@ async def cron(_type):
             await init_nso_version()
         case "show_status":
             await show_dict_status()
+        case "clean_expired_clients":
+            await clean_expired_clients()
 
 
 def remove_all_scheduler():

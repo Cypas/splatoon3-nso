@@ -3,15 +3,18 @@ import gc
 import json
 import os
 import shutil
+import time
+
+from nonebot import logger
 
 from .utils import cron_logger
 from datetime import datetime as dt
 
 from ..send_msg import cron_notify_to_channel
-from ...s3s.iksm import GlobalRateLimiter
+from ...s3s.iksm import GlobalRateLimiter, init_global_nso_version_and_web_view_version
 from ...s3s.splatnet_image import global_dict_ss_user, cleanup_browser
 from ...utils.utils import DIR_RESOURCE
-from ...utils.http import global_client_dict, global_cron_client_dict
+from ...utils.http import global_client_dict, global_cron_client_dict, CLIENT_TIMEOUT
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict, \
     global_user_info_dict, global_cron_user_info_dict
 from ...s3s.splatoon import Splatoon
@@ -124,5 +127,28 @@ async def get_dict_status():
 
 async def init_nso_version():
     """将NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空"""
-    from ...s3s.iksm import init_global_nso_version_and_web_view_version
     init_global_nso_version_and_web_view_version()
+
+
+async def clean_expired_clients():
+    """定时清理过期的客户端（后台任务）"""
+    try:
+        current_time = time.time()
+        expired_keys = []
+
+        # 清理普通客户端字典
+        for msg_id, (client, create_time) in global_client_dict.items():
+            if current_time - create_time > CLIENT_TIMEOUT:
+                expired_keys.append(msg_id)
+
+        # 关闭并移除过期客户端
+        for msg_id in expired_keys:
+            client, _ = global_client_dict.pop(msg_id)
+            try:
+                await client.close()
+                logger.debug(f"清理过期客户端: {msg_id}")
+            except Exception as e:
+                logger.warning(f"清理客户端 {msg_id} 失败: {e}")
+
+    except Exception as e:
+        logger.error(f"定时清理客户端出错: {e}")

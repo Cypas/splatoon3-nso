@@ -1,3 +1,5 @@
+import gc
+import time
 import urllib.parse
 import weakref
 import httpx
@@ -11,6 +13,7 @@ from nonebot import logger
 from .utils import get_msg_id
 from ..config import plugin_config
 
+# ===================== 基础配置 =====================
 HTTP_TIME_OUT = 60.0  # 请求超时，秒
 proxy_address = plugin_config.splatoon3_proxy_address
 
@@ -30,6 +33,13 @@ async def get_file_url(url):
     except Exception as e:
         logger.warning(f"http get file_data error,{e}")
         return None
+    finally:
+        # 确保响应体被关闭（释放连接）
+        if resp:
+            try:
+                await resp.close()
+            except:
+                pass
 
 
 def get_or_init_client(platform, user_id, _type="normal", with_proxy=False):
@@ -47,15 +57,32 @@ def get_or_init_client(platform, user_id, _type="normal", with_proxy=False):
         # 定时任务
         client_dict = global_cron_client_dict
 
-    req_client = client_dict.get(msg_id)
+    # 获取客户端（处理不同字典结构）
+    req_client = None
+    if _type == "normal":
+        entry = client_dict.get(msg_id)
+        if entry:
+            req_client, _ = entry
+    else:
+        req_client = client_dict.get(msg_id)
+
     if req_client:
+        # 更新最后使用时间
+        if _type == "normal":
+            global_client_dict[msg_id] = (req_client, time.time())
         return req_client
     else:
         # 配置项是否全部代理
         if not plugin_config.splatoon3_proxy_list_mode:
             with_proxy = True
         req_client = ReqClient(msg_id, _type, with_proxy=with_proxy)
-        client_dict.update({msg_id: req_client})
+
+        # 存储客户端（不同结构）
+        if _type == "normal":
+            global_client_dict[msg_id] = (req_client, time.time())
+        else:
+            client_dict[msg_id] = req_client
+
         return req_client
 
 
@@ -83,24 +110,23 @@ class ReqClient:
             self._init_client()
 
     async def _request_with_fallback(self, method: str, url: str, **kwargs) -> httpx.Response:
-        """带自动恢复的请求核心方法"""
-        try:
-            await self._ensure_client_active()
-            response = await self.client.request(method, url, **kwargs)
-            return response
-        except (httpx.TransportError, httpx.RemoteProtocolError) as e:
-            # 底层连接异常时，重建 Client 并重试一次
-            await self.client.aclose()
-            self._init_client()
-            response = await self.client.request(method, url, **kwargs)
-            return response
-        except RuntimeError as e:
-            if "the handler is closed" in str(e):
+        """带自动恢复的请求核心方法（增加异常上限）"""
+        retry_count = 0
+        max_retry = 1  # 最多重试1次
+        while retry_count <= max_retry:
+            try:
+                await self._ensure_client_active()
+                response = await self.client.request(method, url, **kwargs)
+                return response
+            except (httpx.TransportError, httpx.RemoteProtocolError, RuntimeError) as e:
+                retry_count += 1
+                if retry_count > max_retry:
+                    raise  # 超过重试次数，抛出异常
                 # 重建客户端并重试
                 await self.client.aclose()
                 self._init_client()
-                response = await self.client.request(method, url, **kwargs)
-                return response
+                logger.warning(f"请求 {url} 失败，重试({retry_count}/{max_retry}): {e}")
+        raise httpx.TransportError(f"请求 {url} 重试{max_retry}次后仍失败")
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
         """自动恢复连接的 GET 请求"""
@@ -126,36 +152,43 @@ class ReqClient:
 
     @staticmethod
     async def close_all(_type: str) -> None:
-        """安全关闭某一类型的全部client"""
+        """安全关闭某一类型的全部client（修复弱引用处理）"""
         global global_client_dict, global_cron_client_dict
 
-        client_dict = {}
+        # 处理普通客户端
         if _type == "normal":
-            client_dict = global_client_dict.copy()  # 避免遍历时修改
-        elif _type == "cron":
-            client_dict = global_cron_client_dict.copy()
-
-        for req_client in list(client_dict.values()):  # 转换为list避免迭代问题
-            try:
-                if hasattr(req_client, "close") and callable(req_client.close):
-                    await req_client.close()  # 确保await异步关闭
-            except Exception as e:
-                logger.warning(f"关闭全部{_type} client失败: {e}")  # 记录日志，避免中断其他关闭
-
-        # 清空字典
-        if _type == "normal":
+            client_items = list(global_client_dict.values())
             global_client_dict.clear()
+            for client, _ in client_items:
+                try:
+                    await client.close()
+                except Exception as e:
+                    logger.warning(f"关闭普通客户端失败: {e}")
+        # 处理定时任务客户端（弱引用无需clear）
         elif _type == "cron":
-            global_cron_client_dict.clear()
+            for msg_id in list(global_cron_client_dict.keys()):
+                client = global_cron_client_dict.get(msg_id)
+                if client:
+                    try:
+                        await client.close()
+                    except Exception as e:
+                        logger.warning(f"关闭定时任务客户端 {msg_id} 失败: {e}")
+
+            gc.collect()  # 手动触发GC，立即回收
 
 
-global_client_dict: dict[str, ReqClient] = {}
+# ===================== 全局变量  =====================
+# 1. 普通客户端使用带超时清理的字典
+global_client_dict: dict[str, tuple[ReqClient, float]] = {}
 # 登录涉及函数login in和login_2需要保持一段时间浏览器状态，在输入npf码完成登录后需要关闭client
 # 普通请求也可以共用这个结构体，有利于加速网页请求，仅首次请求需要3s左右，后续只需要0.7s
-
+# 2. 定时任务客户端保留弱引用
 global_cron_client_dict = weakref.WeakValueDictionary()
+# 3. 普通客户端超时时间（48h未使用则清理）
+CLIENT_TIMEOUT = 60 * 60 * 48
 
 
+# ===================== 简易请求封装 =====================
 class HttpReq(object):
     """httpx 同步请求封装（支持 HTTP/2.0）"""
 
@@ -165,10 +198,13 @@ class HttpReq(object):
         if not plugin_config.splatoon3_proxy_list_mode:
             with_proxy = True
         proxies = global_proxies if with_proxy else None
-
-        # 使用同步 Client 并启用 HTTP/2.0
-        with httpx.Client(proxy=proxies, http2=True) as client:
-            response = client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
+        with httpx.Client(
+                proxy=proxies,
+                http2=True,
+                timeout=HTTP_TIME_OUT,
+                limits=httpx.Limits(max_connections=5)
+        ) as client:
+            response = client.get(url, **kwargs)
         return response
 
     @staticmethod
@@ -177,10 +213,13 @@ class HttpReq(object):
         if not plugin_config.splatoon3_proxy_list_mode:
             with_proxy = True
         proxies = global_proxies if with_proxy else None
-
-        # 使用同步 Client 并启用 HTTP/2.0
-        with httpx.Client(proxy=proxies, http2=True) as client:
-            response = client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
+        with httpx.Client(
+                proxy=proxies,
+                http2=True,
+                timeout=HTTP_TIME_OUT,
+                limits=httpx.Limits(max_connections=5)
+        ) as client:
+            response = client.post(url, **kwargs)
         return response
 
 
@@ -192,12 +231,14 @@ class AsHttpReq(object):
         # 配置项是否全部代理
         if not plugin_config.splatoon3_proxy_list_mode:
             with_proxy = True
-        if with_proxy:
-            proxies = global_proxies
-        else:
-            proxies = None
-        async with httpx.AsyncClient(proxy=proxies, http2=True) as client:
-            response = await client.get(url, timeout=HTTP_TIME_OUT, **kwargs)
+        proxies = global_proxies if with_proxy else None
+        async with httpx.AsyncClient(
+                proxy=proxies,
+                http2=True,
+                timeout=HTTP_TIME_OUT,
+                limits=httpx.Limits(max_connections=5)
+        ) as client:
+            response = await client.get(url, **kwargs)
             return response
 
     @staticmethod
@@ -205,11 +246,13 @@ class AsHttpReq(object):
         # 配置项是否全部代理
         if not plugin_config.splatoon3_proxy_list_mode:
             with_proxy = True
-        if with_proxy:
-            proxies = global_proxies
-        else:
-            proxies = None
-        async with httpx.AsyncClient(proxy=proxies, http2=True) as client:
-            response = await client.post(url, timeout=HTTP_TIME_OUT, **kwargs)
+        proxies = global_proxies if with_proxy else None
+        async with httpx.AsyncClient(
+                proxy=proxies,
+                http2=True,
+                timeout=HTTP_TIME_OUT,
+                limits=httpx.Limits(max_connections=5)
+        ) as client:
+            response = await client.post(url, **kwargs)
             return response
 
