@@ -97,7 +97,8 @@ async def cron(_type):
         # case "update_s3si_ts":
         #     await update_s3si_ts()
         case "sync_stat_ink":
-            threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
+            # threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
+            await sync_stat_ink()
         case "clean_s3s_cache":
             await clean_s3s_cache()
         case "clean_global_user_info_dict":

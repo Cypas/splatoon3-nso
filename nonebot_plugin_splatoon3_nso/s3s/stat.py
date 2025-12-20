@@ -13,7 +13,7 @@ from nonebot import logger as nb_logger
 
 from . import utils, iksm
 from .splatoon import Splatoon
-from ..utils import get_msg_id
+from ..utils import get_msg_id, AsHttpReq
 
 thread_pool = ThreadPoolExecutor(max_workers=4)
 
@@ -96,12 +96,12 @@ class STAT:
             if url is not None:
                 printed = False
                 auth = {'Authorization': f'Bearer {self.stat_key}'}
-                resp = await self.splatoon.req_client.get(url, headers=auth)
+                resp = await AsHttpReq.get(url, headers=auth)
                 try:
                     statink_uploads = json.loads(resp.text)
                 except:
                     # retry once
-                    resp = await self.splatoon.req_client.get(url, headers=auth)
+                    resp = await AsHttpReq.get(url, headers=auth)
                     try:
                         statink_uploads = json.loads(resp.text)
                     except Exception as e:
@@ -353,9 +353,9 @@ class STAT:
                 combined = ink_list + salmon_list
                 return combined
 
-    def _headbutt(self, force_lang=None, force_country=None):
+    async def _headbutt(self, force_lang=None, force_country=None):
         """Returns a (dynamic!) header used for GraphQL requests."""
-        return self.splatoon.head_bullet(force_lang, force_country)
+        return await self.splatoon.head_bullet(force_lang, force_country)
 
     def _request(self, data, multiple=False, force_lang=None, force_country=None, return_json=False):
         """sp3 整合请求"""
@@ -1146,7 +1146,7 @@ class STAT:
             elif which == "salmon":
                 url += "/salmon"
             auth = {'Authorization': f'Bearer {self.stat_key}', 'Content-Type': 'application/x-msgpack'}
-            postbattle = await self.splatoon.req_client.post(url, headers=auth, data=msgpack.packb(payload),
+            postbattle = await AsHttpReq.post(url, headers=auth, data=msgpack.packb(payload),
                                                              follow_redirects=False)
             ##### allow_redirects是request的参数，httpx参数名为 follow_redirects
 
@@ -1158,7 +1158,7 @@ class STAT:
             except KeyError:
                 time_uploaded = None
             except json.decoder.JSONDecodeError:  # retry once
-                postbattle = await self.splatoon.req_client.post(url, headers=auth, data=msgpack.packb(payload),
+                postbattle = await AsHttpReq.post(url, headers=auth, data=msgpack.packb(payload),
                                                                  follow_redirects=False)
                 headerloc = postbattle.headers.get('location')
                 time_now = int(time.time())
