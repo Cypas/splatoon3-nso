@@ -229,7 +229,7 @@ async def get_post_stat_msg(db_user):
             splatoon = Splatoon(None, None, u)
         else:
             # 新建cron任务对象
-            u = dict_get_or_set_user_info(platform, user_id)
+            u = dict_get_or_set_user_info(platform, user_id, _type="cron")
             if not u or not u.session_token:
                 return "", "", 0, 0
             splatoon = Splatoon(None, None, u, _type="cron")
@@ -270,7 +270,7 @@ async def get_post_stat_msg(db_user):
         battle_cnt, coop_cnt, url, error_msg = res
 
         # f-api重试逻辑
-        flag_need_retry = True
+        flag_need_retry = False
         if error_msg:
             # 排除预期错误
             for expected_str in expected_str_list:
