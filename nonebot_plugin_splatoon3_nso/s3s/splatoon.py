@@ -456,7 +456,7 @@ class Splatoon:
             encrypt_data = encrypt_json["data"]
             body_bytes = base64.b64decode(encrypt_data)
             # 请求nxapi
-            encrypt_resp = await AsHttpReq.post(url, headers=self._head_access(self.access_token), data=body_bytes)
+            encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token), data=body_bytes)
             # 解密响应
             decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
             decrypt_data = decrypt_resp.json()["data"]
@@ -492,7 +492,7 @@ class Splatoon:
                 encrypt_data = encrypt_json['data']
                 body_bytes = base64.b64decode(encrypt_data)
                 # 请求nxapi
-                encrypt_resp = await AsHttpReq.post(url, headers=self._head_access(self.access_token),
+                encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token),
                                                           data=body_bytes)
                 # 解密响应
                 decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
@@ -635,14 +635,14 @@ class Splatoon:
         res = await self.request(data, multiple=multiple)
         return res
 
-    def _head_access(self, app_access_token):
+    async def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
         coral_head = {
-            'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/12)',
+            'User-Agent': f'com.nintendo.znca/{await S3S.get_nsoapp_version()} (Android/12)',
             'Accept-Encoding': 'gzip',
             'Connection': 'Keep-Alive',
             'Host': 'api-lp1.znc.srv.nintendo.net',
-            'X-ProductVersion': self.nso_app_version,
+            'X-ProductVersion': await S3S.get_nsoapp_version(),
             "Content-Type": "application/octet-stream",
             "Accept": "application/octet-stream, application/json",
             'Authorization': f"Bearer {app_access_token}",
