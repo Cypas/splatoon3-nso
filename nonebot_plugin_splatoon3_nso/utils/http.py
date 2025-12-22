@@ -344,182 +344,67 @@ class HttpReq(object):
 
 
 class AsHttpReq(object):
-    """httpx 异步请求封装（信号量版：修复cls不存在错误）"""
+    """httpx 异步请求封装（支持 HTTP/2.0 + 连接错误重试）"""
 
-    # 1. 线程隔离存储（每个线程独立的信号量和Client池）
-    _thread_local = threading.local()
-    # 2. 全局关闭标记（同步锁保护）
-    _global_closed = False
-    _global_lock = threading.Lock()
-    # 3. 全局跨线程信号量（限制总请求并发数）
-    _global_semaphore = threading.Semaphore(20)  # 最多20个线程同时请求
+    @staticmethod
+    async def _request(method: str, url: str, with_proxy: bool = False, **kwargs) -> None | str | Response:
+        """
+        核心请求方法（抽离重复逻辑）
+        :param method: 请求方法（get/post）
+        :param url: 请求地址
+        :param with_proxy: 是否使用代理
+        :param kwargs: 其他请求参数
+        :return: 成功返回Response，失败返回错误标识字符串
+        """
+        # 1. 代理逻辑处理
+        if not proxy_list_mode:
+            with_proxy = True
 
-    @classmethod
-    def _get_thread_semaphore(cls) -> asyncio.Semaphore:
-        """获取当前线程的异步信号量（控制协程并发）"""
-        if not hasattr(cls._thread_local, "semaphore"):
-            # 每个线程最多同时创建10个Client（可根据服务器配置调整）
-            cls._thread_local.semaphore = asyncio.Semaphore(10)
-        return cls._thread_local.semaphore
-
-    @classmethod
-    def _get_thread_client_pool(cls) -> Dict[str, httpx.AsyncClient]:
-        """获取当前线程的Client池"""
-        if not hasattr(cls._thread_local, "client_pool"):
-            cls._thread_local.client_pool = {}
-        return cls._thread_local.client_pool
-
-    @classmethod
-    def _create_client(cls, with_proxy: bool, host: str) -> httpx.AsyncClient:
-        """创建Client实例"""
         proxies = None
+        host = urllib.parse.urlparse(url).hostname
         if not with_proxy and host in proxy_host_list:
             proxies = global_proxies
 
-        return httpx.AsyncClient(
-            proxy=proxies,
-            http2=True,
-            timeout=HTTP_TIME_OUT,
-            limits=httpx.Limits(
-                max_connections=15,
-                max_keepalive_connections=10,
-                keepalive_expiry=30.0
-            ),
-            follow_redirects=True,
-        )
+        # 2. 定义请求执行函数（用于重试）
+        async def _do_request():
+            async with httpx.AsyncClient(
+                    proxy=proxies,
+                    http2=True,
+                    timeout=HTTP_TIME_OUT,
+                    limits=httpx.Limits(max_connections=5)
+            ) as client:
+                if method.lower() == "get":
+                    return await client.get(url, **kwargs)
+                elif method.lower() == "post":
+                    return await client.post(url, **kwargs)
+                else:
+                    raise ValueError(f"不支持的请求方法: {method}")
 
-    @staticmethod
-    async def _request(method: str, url: str, with_proxy: bool = False, **kwargs) -> Optional[Response]:
-        """核心请求方法（信号量版：修复cls不存在错误）"""
-        # 1. 全局关闭检查（同步信号量保护）
-        with AsHttpReq._global_semaphore:
-            with AsHttpReq._global_lock:
-                if AsHttpReq._global_closed:
-                    raise RuntimeError("全局已关闭，无法发起请求")
-
-            host = urllib.parse.urlparse(url).hostname
-            client = None
-            is_temp_client = False
-            thread_sem = AsHttpReq._get_thread_semaphore()
-            client_pool = AsHttpReq._get_thread_client_pool()
-            proxy_key = f"proxy_{with_proxy}_{host}" if host else f"proxy_{with_proxy}"
-
-            # 初始化信号量获取状态
-            acquired = False
-
+        # 3. 执行请求 + 重试逻辑（最多重试1次）
+        max_retries = 1
+        for attempt in range(max_retries + 1):
             try:
-                # 2. 异步信号量控制（最多10个协程同时创建Client）
-                # 设置超时：避免循环关闭时一直等待
-                acquired = await asyncio.wait_for(thread_sem.acquire(), timeout=5.0)
-                if not acquired:
-                    raise RuntimeError("获取异步信号量超时")
-
-                # 3. 获取/创建Client
-                if proxy_key in client_pool and not client_pool[proxy_key].is_closed:
-                    client = client_pool[proxy_key]
-                else:
-                    # 创建新Client（信号量已限制并发数）
-                    client = AsHttpReq._create_client(with_proxy, host)
-                    client_pool[proxy_key] = client
-
-                # 4. 执行POST/GET请求（重试逻辑）
-                max_retries = 1
-                for attempt in range(max_retries + 1):
-                    try:
-                        if method.lower() == "post":
-                            response = await client.post(url,** kwargs)
-                        elif method.lower() == "get":
-                            response = await client.get(url, **kwargs)
-                        else:
-                            raise ValueError(f"不支持的请求方法: {method}")
-
-                        await response.aread()
-                        return response
-
-                    except (ConnectError, ConnectTimeout) as e:
-                        if attempt == max_retries:
-                            raise e
-                        # 重试前重置Client（避免无效连接）
-                        if client:
-                            await AsHttpReq._safe_close_client(client)
-                            del client_pool[proxy_key]
-                        client = AsHttpReq._create_client(with_proxy, host)
-                        client_pool[proxy_key] = client
-                        print(f"[{threading.current_thread().name}] 请求 {url} 重试: {e}")
-
-            except asyncio.TimeoutError:
-                # 信号量等待超时 → 创建临时Client兜底
-                client = AsHttpReq._create_temp_client(with_proxy, host)
-                is_temp_client = True
-                if method.lower() == "post":
-                    response = await client.post(url, **kwargs)
-                else:
-                    response = await client.get(url, **kwargs)
-                await response.aread()
-                return response
-            except RuntimeError as e:
-                if "Event loop is closed" in str(e):
-                    print(f"[{threading.current_thread().name}] 请求 {url} 失败: 事件循环已关闭")
-                    return None
-                raise
-            finally:
-                # 5. 释放信号量 + 清理临时Client
-                if acquired:
-                    thread_sem.release()
-                if client and is_temp_client:
-                    await AsHttpReq._safe_close_client(client)
-
-    # ========== 辅助方法 ==========
-    @classmethod
-    def _create_temp_client(cls, with_proxy: bool, host: str) -> httpx.AsyncClient:
-        """创建临时Client（信号量超时兜底）"""
-        proxies = None
-        if not with_proxy and host in proxy_host_list:
-            proxies = global_proxies
-        return httpx.AsyncClient(
-            proxy=proxies,
-            http2=True,
-            timeout=HTTP_TIME_OUT,
-            follow_redirects=True,
-            limits=httpx.Limits(max_connections=5)
-        )
+                return await _do_request()
+            except (ConnectError, ConnectTimeout) as e:
+                # 最后一次重试失败，返回错误标识
+                if attempt == max_retries:
+                    # if isinstance(e, ConnectError):
+                    #     return "NetConnectError"
+                    # elif isinstance(e, ConnectTimeout):
+                    #     return "NetConnectTimeout"
+                    raise e
+                # 非最后一次，打印重试日志（可选）
+                print(f"请求 {url} 失败（{type(e).__name__}），第 {attempt + 1} 次重试...")
+            except Exception as e:
+                # 其他异常直接抛出（或根据需求处理）
+                raise e
 
     @staticmethod
-    async def _safe_close_client(client: httpx.AsyncClient):
-        """安全关闭Client"""
-        if client.is_closed:
-            return
-        await client.aclose()
-
-
-    # ========== 对外接口 ==========
-    @staticmethod
-    async def post(url: str, with_proxy: bool = False, **kwargs) -> Response:
-        """异步POST请求（信号量版，核心修复）"""
-        response = await AsHttpReq._request("post", url, with_proxy, **kwargs)
-        return response
+    async def get(url: str, with_proxy: bool = False, **kwargs) -> Response | str:
+        """异步GET请求，支持基于域名的代理过滤 + 连接错误重试"""
+        return await AsHttpReq._request("get", url, with_proxy, **kwargs)
 
     @staticmethod
-    async def get(url: str, with_proxy: bool = False, **kwargs) -> Response:
-        """异步GET请求（信号量版）"""
-        response = await AsHttpReq._request("get", url, with_proxy, **kwargs)
-        return response
-
-    # ========== 清理方法 ==========
-    @classmethod
-    async def close_current_thread_clients(cls):
-        """关闭当前线程的Client池"""
-        client_pool = cls._get_thread_client_pool()
-        for client in client_pool.values():
-            await cls._safe_close_client(client)
-        client_pool.clear()
-        gc.collect()
-
-    @classmethod
-    def close_all_clients(cls):
-        """全局关闭（同步方法，无循环依赖）"""
-        with cls._global_lock:
-            cls._global_closed = True
-        # 清理所有线程的Client池（简化版：直接清空）
-        cls._thread_local.__dict__.clear()
-        gc.collect()
+    async def post(url: str, with_proxy: bool = False, **kwargs) -> Response | str:
+        """异步POST请求，支持基于域名的代理过滤 + 连接错误重试"""
+        return await AsHttpReq._request("post", url, with_proxy, **kwargs)
