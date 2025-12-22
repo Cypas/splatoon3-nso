@@ -3,9 +3,11 @@ import gc
 import json
 import os
 import shutil
+import sys
 import time
 
 from nonebot import logger
+from pympler import muppy, asizeof, summary
 
 from .utils import cron_logger
 from datetime import datetime as dt
@@ -94,7 +96,6 @@ async def clean_global_user_info_dict():
     """清理公共用户字典"""
     await dict_clear_user_info_dict("normal")
     await dict_clear_user_info_dict("cron")
-    await cleanup_browser()
     gc.collect()
 
     cron_msg = f"clean_global_user_info_dict end"
@@ -115,15 +116,76 @@ async def get_dict_status():
 
     # 获取状态
     # limiter_dict = await limiter.get_serializable_state()
+
+    # Python内部的内存
+    gc_stats = gc.get_stats()
+    gen0 = gc_stats[0]['collections']
+    gen1 = gc_stats[1]['collections']
+    gen2 = gc_stats[2]['collections']
+
     cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
                 f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
                 f"global_client_cnt:{len(global_client_dict)}\n"
                 f"cron_client_cnt:{len(global_cron_client_dict)}\n"
+                f"Python GC统计 - 0代:{gen0}次, 1代:{gen1}次, 2代:{gen2}次"
                 # f"limiter:{json.dumps(limiter_dict)}\n"
                 # f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
+    get_python_internal_memory()
     return cron_msg
 
+
+def get_python_internal_memory():
+    """获取Python内部的内存占用（兼容Pydantic 2.x版本）"""
+    # 第一步：执行深度GC，清理垃圾对象
+    gc.collect(2)
+
+    # 第二步：获取Python内部所有存活对象，并过滤掉Pydantic的Mock对象
+    all_live_objects = []
+    for obj in gc.get_objects():
+        # 过滤掉会触发Pydantic错误的对象类型
+        try:
+            # 跳过Pydantic的MockValSer对象
+            if str(type(obj)).find("MockValSer") != -1:
+                continue
+            # 跳过Pydantic的内部mock相关对象
+            if hasattr(obj, '_error_message') and hasattr(obj, '_code'):
+                continue
+            all_live_objects.append(obj)
+        except:
+            # 跳过任何无法访问的对象
+            continue
+
+    # 第三步：统计总内存（递归计算所有引用对象）
+    try:
+        total_memory_bytes = asizeof.asizeof(all_live_objects)
+        total_memory_mb = total_memory_bytes / 1024 / 1024
+    except Exception as e:
+        # 降级方案：使用sys模块统计基础内存
+        total_memory_mb = 0.0
+        for obj in all_live_objects[:10000]:  # 限制数量避免超时
+            try:
+                total_memory_mb += sys.getsizeof(obj) / 1024 / 1024
+            except:
+                continue
+        print(f"asizeof统计失败，使用降级方案: {e}")
+
+    # 第四步：按类型统计内存分布（跳过Pydantic相关类型）
+    try:
+        sum1 = summary.summarize(all_live_objects)
+        # 过滤Pydantic相关的统计项
+        filtered_sum = []
+        for item in sum1:
+            type_name = str(item[0])
+            if "pydantic" not in type_name and "MockValSer" not in type_name:
+                filtered_sum.append(item)
+
+        print("=== Python内部内存分布（按对象类型） ===")
+        summary.print_(filtered_sum, limit=10)  # 显示前10个内存占用最多的对象类型
+    except Exception as e:
+        print(f"内存分布统计失败: {e}")
+
+    return total_memory_mb
 
 async def init_nso_version():
     """将NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空"""

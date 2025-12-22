@@ -121,7 +121,7 @@ async def create_set_report_tasks():
     await ReqClient.close_all(_type="cron")
 
     # 发信
-    # await send_report_task()
+    await send_report_task()
 
 
 async def set_user_report_task(p_and_id, splatoon: Splatoon):

@@ -46,6 +46,15 @@ class STAT:
         self.coop_cnt = 0
         self.stat_url = ""
 
+    def close(self):
+        self.logger = None
+        self.config_data = None
+        self.splatoon = None
+        self.stat_key = None
+        self.battle_cnt = 0
+        self.coop_cnt = 0
+        self.stat_url = ""
+
     @property
     def session_token(self):
         return self.splatoon.session_token

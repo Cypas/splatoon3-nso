@@ -47,8 +47,7 @@ class Splatoon:
         self.bullet_token = ""
         self.g_token = ""
         self.access_token = ""
-        s3s = S3S(self.platform, self.user_id, _type=_type)
-        self.s3s = s3s
+        self.s3s = S3S(self.platform, self.user_id, _type=_type)
         self.dict_type = _type
         # self.req_client = user_info.req_client or get_or_init_client(self.platform, self.user_id, _type=_type)
         self.logger = nb_logger
@@ -697,14 +696,10 @@ class Splatoon:
 
         # 2. 关闭S3S（如果有close方法）
         if hasattr(self, 's3s') and self.s3s:
-            if hasattr(self.s3s, 'close') and callable(self.s3s.close):
-                try:
-                    if asyncio.iscoroutinefunction(self.s3s.close):
-                        await self.s3s.close()
-                    else:
-                        self.s3s.close()
-                except Exception as e:
-                    self.logger.warning(f"关闭S3S失败: {e}")
+            try:
+                self.s3s.close()
+            except Exception as e:
+                self.logger.warning(f"关闭S3S失败: {e}")
             self.s3s = None
 
         # 3. 清空所有属性（打破强引用链）
@@ -725,5 +720,3 @@ class Splatoon:
         self.nso_app_version = None
         self.dict_type = None
         self.logger = None
-        # 4. 触发GC
-        gc.collect()

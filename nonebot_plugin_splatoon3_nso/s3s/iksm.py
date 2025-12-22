@@ -131,7 +131,7 @@ class S3S:
 
         # 负载均衡初始化
         f_url_lst = [F_GEN_URL, F_GEN_URL_2]
-        random.shuffle(f_url_lst)
+        # random.shuffle(f_url_lst)
         self.f_gen_url = f_url_lst[0]
 
         self.logger = nb_logger

@@ -105,9 +105,6 @@ async def sync_stat_ink():
     tasks = [process_user(db_user) for db_user in db_users]
     await asyncio.gather(*tasks)
 
-    # 批量处理完成后：清理全局缓存 + 关闭所有定时任务客户端 + 强制GC
-    await dict_clear_user_info_dict(_type="cron")  # 清空用户信息缓存
-    await ReqClient.close_all("cron")  # 关闭所有定时任务客户端
     gc.collect()  # 强制回收所有无引用对象
 
     # 耗时
@@ -248,7 +245,7 @@ async def get_post_stat_msg(db_user):
 
         # 两个f_api 负载均衡
         f_url_lst = [F_GEN_URL, F_GEN_URL_2]
-        random.shuffle(f_url_lst)
+        # random.shuffle(f_url_lst)
         f_gen_url = f_url_lst[0]
 
         config_data = CONFIG_DATA(
@@ -322,7 +319,6 @@ async def get_post_stat_msg(db_user):
             except Exception as e:
                 cron_logger.warning(f"关闭用户 {db_user.id} 的Splatoon实例失败: {e}")
             del splatoon  # 解除强引用
-            gc.collect()  # 轻量GC
 
     return msg, error_msg, battle_cnt, coop_cnt
 
@@ -355,15 +351,13 @@ async def exported_to_stat_ink(splatoon: Splatoon, config_data: CONFIG_DATA):
                           exc_info=True)
         error_msg = str(e)
     finally:
-        # 清理STAT相关资源（如果有close方法）
-        if 'stat' in locals() and hasattr(stat, 'close') and callable(stat.close):
+        # 清理STAT相关资源
+        if 'stat' in locals():
             try:
-                if asyncio.iscoroutinefunction(stat.close):
-                    await stat.close()
-                else:
-                    stat.close()
+                stat.close()
             except Exception as e:
                 cron_logger.warning(f"关闭STAT实例失败: {e}")
+            del stat
 
     cron_logger.info(
         f'upload stat success,user_db_id:{splatoon.user_db_info.db_id},{splatoon.user_db_info.game_name} result: {battle_cnt}, {coop_cnt}, {url}')
