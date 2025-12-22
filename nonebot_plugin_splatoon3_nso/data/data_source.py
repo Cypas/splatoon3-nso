@@ -225,7 +225,7 @@ def model_get_another_account_user(platform, user_id) -> list[Type[UserTable]]:
 def model_get_newest_user() -> UserTable:
     """获取最新登录的一个用户，没那么容易出问题"""
     session = DBSession()
-    user = session.query(UserTable).order_by(UserTable.create_time.desc()).first()
+    user = session.query(UserTable).order_by(UserTable.update_time.desc()).first()
     session.close()
     return user
 
