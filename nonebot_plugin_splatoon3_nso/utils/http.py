@@ -5,7 +5,7 @@ import time
 import urllib.parse
 import weakref
 import httpx
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from httpx import Response, ConnectError, ConnectTimeout, ReadTimeout
 from nonebot import logger
 
@@ -119,7 +119,8 @@ class ReqClient:
                 await self._ensure_client_active()
                 response = await self.client.request(method, url, **kwargs)
                 return response
-            except (httpx.TransportError, httpx.RemoteProtocolError, RuntimeError, httpx.ConnectTimeout, httpx.ConnectTimeout) as e:
+            except (httpx.TransportError, httpx.RemoteProtocolError, RuntimeError, httpx.ConnectTimeout,
+                    httpx.ConnectTimeout) as e:
                 retry_count += 1
                 if retry_count > max_retry:
                     raise
@@ -343,74 +344,133 @@ class HttpReq(object):
         return response
 
 
-class AsHttpReq(object):
-    """httpx 异步请求封装（支持 HTTP/2.0 + 连接错误重试）"""
+# AsyncClient 全局配置（复用核心）
+CLIENT_CONFIG: Dict[str, Any] = {
+    "http2": True,
+    "timeout": httpx.Timeout(connect=HTTP_TIME_OUT, read=10.0, write=10.0, pool=30.0),
+    "limits": httpx.Limits(max_connections=100, max_keepalive_connections=20),
+}
 
-    @staticmethod
-    async def _request(method: str, url: str, with_proxy: bool = False, **kwargs) -> None | str | Response:
+
+class AsHttpReq:
+    """
+    按「域名+代理标识」分组复用 AsyncClient
+    - 同时维护带代理/不带代理的双实例
+    - 根据 with_proxy + url 自动匹配对应实例
+    """
+    # 存储分组Client：Key = "域名_代理标识"（如 "google.com_True"），Value = AsyncClient实例
+    _clients: Dict[str, httpx.AsyncClient] = {}
+    # 异步锁：避免并发创建Client
+    _client_lock = asyncio.Lock()
+
+    @classmethod
+    async def _get_client(cls, url: str, with_proxy: bool = False) -> httpx.AsyncClient:
         """
-        核心请求方法（抽离重复逻辑）
-        :param method: 请求方法（get/post）
-        :param url: 请求地址
-        :param with_proxy: 是否使用代理
-        :param kwargs: 其他请求参数
-        :return: 成功返回Response，失败返回错误标识字符串
+        按「域名+代理标识」获取/创建Client实例
+        :param url: 请求URL（解析域名用）
+        :param with_proxy: 是否使用代理（显式指定）
+        :return: 复用的AsyncClient实例
         """
-        # 1. 代理逻辑处理
-        if not proxy_list_mode:
-            with_proxy = True
+        # 1. 解析URL域名（核心：按域名分组）
+        parsed_url = urllib.parse.urlparse(url)
+        domain = parsed_url.hostname  # 无域名则用default
 
-        proxies = None
-        host = urllib.parse.urlparse(url).hostname
-        if not with_proxy and host in proxy_host_list:
-            proxies = global_proxies
+        # 2. 确定最终是否使用代理（结合显式参数+域名白名单）
+        # 规则：with_proxy=True 或 域名在代理白名单中 → 使用代理
+        use_proxy = with_proxy or (domain in proxy_host_list)
 
-        # 2. 定义请求执行函数（用于重试）
-        async def _do_request():
-            async with httpx.AsyncClient(
+        # 3. 生成分组Key（域名 + 代理标识）
+        client_key = f"{domain}_{use_proxy}"
+
+        async with cls._client_lock:
+            # 4. 无实例/实例已关闭 → 创建新Client
+            if client_key not in cls._clients or cls._clients[client_key].is_closed:
+                # 配置代理（仅use_proxy=True时生效）
+                proxies = global_proxies if use_proxy else None
+
+                # 创建分组专属Client
+                cls._clients[client_key] = httpx.AsyncClient(
                     proxy=proxies,
-                    http2=True,
-                    timeout=httpx.Timeout(connect=HTTP_TIME_OUT, read=10.0, write=10.0, pool=5.0),  # 细分超时
-                    limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),  # 增大连接池
-            ) as client:
-                if method.lower() == "get":
-                    return await client.get(url, **kwargs)
-                elif method.lower() == "post":
-                    return await client.post(url, **kwargs)
-                else:
-                    raise ValueError(f"不支持的请求方法: {method}")
+                    **CLIENT_CONFIG
+                )
+                logger.info(f"创建分组Client：{client_key}（代理：{use_proxy}）")
 
-        # 3. 执行请求 + 重试逻辑（最多重试1次）
+            # 5. 返回复用的Client实例
+            return cls._clients[client_key]
+
+    @classmethod
+    async def _close_all_clients(cls):
+        """关闭所有分组Client（应用退出时调用，避免资源泄漏）"""
+        async with cls._client_lock:
+            for client_key, client in cls._clients.items():
+                if not client.is_closed:
+                    await client.aclose()
+                    logger.info(f"关闭分组Client：{client_key}")
+            cls._clients.clear()
+
+    @classmethod
+    async def _request(cls, method: str, url: str, with_proxy: bool = False, **kwargs) -> Optional[str] | Response:
+        """
+        核心请求方法：自动匹配Client + 重试 + 异常处理
+        :param method: get/post/put等
+        :param url: 请求URL
+        :param with_proxy: 是否显式指定使用代理
+        :param kwargs: 其他请求参数（headers/json/data等）
+        :return: Response | 错误标识字符串 | None
+        """
+        # 1. 获取匹配的Client实例（自动判断是否用代理）
+        client = await cls._get_client(url, with_proxy)
+
+        # 2. 定义请求执行函数
+        async def _do_request():
+            method_lower = method.lower()
+            if method_lower == "get":
+                return await client.get(url, **kwargs)
+            elif method_lower == "post":
+                return await client.post(url, **kwargs)
+            elif method_lower == "put":
+                return await client.put(url, **kwargs)
+            elif method_lower == "delete":
+                return await client.delete(url, **kwargs)
+            else:
+                raise ValueError(f"不支持的请求方法: {method}")
+
+        # 3. 指数退避重试（最多1次）
         max_retries = 1
         for attempt in range(max_retries + 1):
             try:
                 return await _do_request()
             except (ConnectError, ConnectTimeout, ReadTimeout) as e:
-                # 最后一次重试失败，返回错误标识
+                # 最后一次重试失败 → 返回错误标识
                 if attempt == max_retries:
-                    if isinstance(e, ConnectError):
-                        error_flag = "NetConnectError"
-                    elif isinstance(e, ConnectTimeout):
-                        error_flag = "NetConnectTimeout"
-                    else:
-                        error_flag = "NetReadTimeout"
-                    logger.error(f"请求 {url} 失败（{error_flag}），达到重试上限: {str(e)}")
+                    error_flag = {
+                        ConnectError: "NetConnectError",
+                        ConnectTimeout: "NetConnectTimeout",
+                        ReadTimeout: "NetReadTimeout"
+                    }.get(type(e), "NetError")
+                    logger.error(f"请求 {url} 失败（{error_flag}），重试上限: {str(e)}")
                     return error_flag
-                # 非最后一次，指数退避后重试
-                delay = 1 * (2 ** attempt)
+                # 指数退避延迟后重试
+                delay = 0.5 * (2 ** attempt)
                 await asyncio.sleep(delay)
-                logger.info(f"请求 {url} 失败（{type(e).__name__}），{delay}s 后第 {attempt + 1} 次重试: {str(e)}")
+                logger.info(f"请求 {url} 失败，{delay}s 后第 {attempt+1} 次重试: {str(e)}")
             except Exception as e:
-                # 非连接/超时异常，直接抛出（如4xx/5xx响应）
-                logger.error(f"请求 {url} 发生非预期异常: {str(e)}")
+                logger.error(f"请求 {url} 非预期异常: {str(e)}", exc_info=True)
                 raise e
 
-    @staticmethod
-    async def get(url: str, with_proxy: bool = False, **kwargs) -> Response | str:
-        """异步GET请求，支持基于域名的代理过滤 + 连接错误重试"""
-        return await AsHttpReq._request("get", url, with_proxy, **kwargs)
+    # ========== 对外暴露的请求方法 ==========
+    @classmethod
+    async def get(cls, url: str, with_proxy: bool = False, **kwargs) -> Response | str | None:
+        return await cls._request("get", url, with_proxy, **kwargs)
 
-    @staticmethod
-    async def post(url: str, with_proxy: bool = False, **kwargs) -> Response | str:
-        """异步POST请求，支持基于域名的代理过滤 + 连接错误重试"""
-        return await AsHttpReq._request("post", url, with_proxy, **kwargs)
+    @classmethod
+    async def post(cls, url: str, with_proxy: bool = False, **kwargs) -> Response | str | None:
+        return await cls._request("post", url, with_proxy, **kwargs)
+
+    @classmethod
+    async def put(cls, url: str, with_proxy: bool = False, **kwargs) -> Response | str | None:
+        return await cls._request("put", url, with_proxy, **kwargs)
+
+    @classmethod
+    async def delete(cls, url: str, with_proxy: bool = False, **kwargs) -> Response | str | None:
+        return await cls._request("delete", url, with_proxy, **kwargs)
