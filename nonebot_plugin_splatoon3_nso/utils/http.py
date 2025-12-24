@@ -392,9 +392,14 @@ class AsHttpReq(object):
                     #     return "NetConnectError"
                     # elif isinstance(e, ConnectTimeout):
                     #     return "NetConnectTimeout"
+                    msg = f"请求 {url} 失败（{type(e).__name__}），达到重试上限..."
+                    print(msg)
+                    logger.info(msg)
                     raise e
                 # 非最后一次，打印重试日志（可选）
-                print(f"请求 {url} 失败（{type(e).__name__}），第 {attempt + 1} 次重试...")
+                msg = f"请求 {url} 失败（{type(e).__name__}），第 {attempt + 1} 次重试..."
+                print(msg)
+                logger.info(msg)
             except Exception as e:
                 # 其他异常直接抛出（或根据需求处理）
                 raise e
