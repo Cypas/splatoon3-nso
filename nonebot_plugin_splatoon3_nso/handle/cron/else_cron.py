@@ -295,7 +295,7 @@ async def clean_expired_clients():
             client, _ = global_client_dict.pop(msg_id)
             try:
                 await client.close()
-                logger.debug(f"清理过期客户端: {msg_id}")
+                logger.info(f"清理过期客户端: {msg_id}")
             except Exception as e:
                 logger.warning(f"清理客户端 {msg_id} 失败: {e}")
 

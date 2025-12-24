@@ -98,8 +98,6 @@ async def sync_stat_ink():
             if coop_cnt:
                 counters["coop_total"] += coop_cnt
 
-            # 单个用户处理完立即触发GC（轻量化回收）
-            gc.collect()
 
     # 动态提交所有任务
     tasks = [process_user(db_user) for db_user in db_users]

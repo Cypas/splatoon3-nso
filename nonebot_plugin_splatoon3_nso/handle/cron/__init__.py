@@ -71,12 +71,13 @@ def scheduler_controller():
         # sync_stat_ink 在指定时间进行同步
         add_scheduler("sync_stat_ink", trigger='cron', hour="0,3,6,9,12,15,18,20,22", minute=4)
         # 每周一周四清理一次公共用户字典
-        add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
+        # add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
         # 每天23:59分将 NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
         # 每3小时自动显示status
         # add_scheduler("show_status", trigger='interval', hours=3)
-        add_scheduler("clean_expired_clients", trigger='interval', minutes=5)
+        # 每20分钟检测一次过期的已缓存客户端
+        add_scheduler("clean_expired_clients", trigger='interval', minutes=20)
 
 
 async def cron(_type):
