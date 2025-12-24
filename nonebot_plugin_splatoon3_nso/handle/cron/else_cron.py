@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 import time
+import traceback
 
 from nonebot import logger
 from pympler import muppy, asizeof, summary
@@ -25,7 +26,7 @@ from ...utils import get_msg_id, convert_td
 
 async def create_refresh_token_tasks():
     """创建刷新token任务"""
-    cron_msg = f"create_refresh_token_tasks start"
+    cron_msg = f"create_refresh_token_tasks start".center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("refresh_token", "start")
 
@@ -87,7 +88,7 @@ async def clean_s3s_cache():
     if os.path.exists(dir_s3s_cache):
         shutil.rmtree(dir_s3s_cache)
 
-    cron_msg = f"clean_s3s_cache end"
+    cron_msg = f"clean_s3s_cache end".center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("clean_s3s_cache", "end")
 
@@ -98,7 +99,7 @@ async def clean_global_user_info_dict():
     await dict_clear_user_info_dict("cron")
     gc.collect()
 
-    cron_msg = f"clean_global_user_info_dict end"
+    cron_msg = f"clean_global_user_info_dict end".center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("clean_user_info_dict", "end")
 
@@ -118,74 +119,160 @@ async def get_dict_status():
     # limiter_dict = await limiter.get_serializable_state()
 
     # Python内部的内存
+    # 开始统计
+    get_python_internal_memory()
     gc_stats = gc.get_stats()
     gen0 = gc_stats[0]['collections']
     gen1 = gc_stats[1]['collections']
     gen2 = gc_stats[2]['collections']
+    gc_before = f"Python GC统计(清理前) - 0代:{gen0}次, 1代:{gen1}次, 2代:{gen2}次"
+
+    # 进行清理
+    gc.collect(0)
+    gc.collect(1)
+    gc.collect(2)
+    # 再次统计
+    get_python_internal_memory()
+    gc_stats = gc.get_stats()
+    gen0 = gc_stats[0]['collections']
+    gen1 = gc_stats[1]['collections']
+    gen2 = gc_stats[2]['collections']
+    gc_after = f"Python GC统计(清理后) - 0代:{gen0}次, 1代:{gen1}次, 2代:{gen2}次"
 
     cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
                 f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
                 f"global_client_cnt:{len(global_client_dict)}\n"
                 f"cron_client_cnt:{len(global_cron_client_dict)}\n"
-                f"Python GC统计 - 0代:{gen0}次, 1代:{gen1}次, 2代:{gen2}次"
+                f"{gc_before}\n"
+                f"{gc_after}\n"
                 # f"limiter:{json.dumps(limiter_dict)}\n"
                 # f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
-    get_python_internal_memory()
     return cron_msg
 
 
 def get_python_internal_memory():
-    """获取Python内部的内存占用（兼容Pydantic 2.x版本）"""
-    # 第一步：执行深度GC，清理垃圾对象
-    gc.collect(2)
+    """
+    获取Python内部的内存占用（兼容Pydantic 2.x版本，规避BaseModel实例化报错）
+    核心优化：
+    1. 彻底过滤Pydantic相关风险对象，避免触发BaseModel报错
+    2. 降级方案改用分段统计+浅内存补偿，提升准确性
+    3. 完善异常捕获和日志输出
+    """
+    # 第一步：执行深度GC，清理垃圾对象（分3代清理）
+    # gc.collect(0)
+    # gc.collect(1)
+    # gc.collect(2)
 
-    # 第二步：获取Python内部所有存活对象，并过滤掉Pydantic的Mock对象
+    # 第二步：获取Python内部所有存活对象，严格过滤Pydantic相关对象
     all_live_objects = []
+    # 预定义需要过滤的Pydantic相关类型关键词
+    pydantic_filter_keywords = [
+        "pydantic", "BaseModel", "MockValSer", "ValidationError",
+        "ModelMetaclass", "FieldInfo", "MockValidator", "V8"  # Pydantic 2.x 内部类型
+    ]
+
     for obj in gc.get_objects():
-        # 过滤掉会触发Pydantic错误的对象类型
         try:
-            # 跳过Pydantic的MockValSer对象
-            if str(type(obj)).find("MockValSer") != -1:
+            # 跳过None对象（无统计意义）
+            if obj is None:
                 continue
-            # 跳过Pydantic的内部mock相关对象
-            if hasattr(obj, '_error_message') and hasattr(obj, '_code'):
+
+            # 1. 过滤Pydantic相关对象（核心：避免触发BaseModel报错）
+            obj_type = type(obj)
+            type_name = str(obj_type).lower()
+            if any(keyword.lower() in type_name for keyword in pydantic_filter_keywords):
                 continue
+
+            # 2. 过滤Pydantic的异常/内部mock对象
+            if hasattr(obj, '__module__') and 'pydantic' in obj.__module__:
+                continue
+            if hasattr(obj, '_error_message') or hasattr(obj, '_code'):
+                continue
+
+            # 3. 过滤无法安全访问的特殊对象
+            if isinstance(obj, (type, lambda: None).__class__):  # 过滤类/函数/方法
+                continue
+
             all_live_objects.append(obj)
-        except:
-            # 跳过任何无法访问的对象
+        except (AttributeError, TypeError, RuntimeError):
+            # 跳过任何属性访问/类型判断异常的对象
+            continue
+        except Exception:
+            # 兜底跳过所有异常对象
             continue
 
     # 第三步：统计总内存（递归计算所有引用对象）
+    total_memory_mb = 0.0
     try:
-        total_memory_bytes = asizeof.asizeof(all_live_objects)
+        # 临时禁用Pydantic相关警告（避免干扰asizeof）
+        import warnings
+        warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
+        # 统计时跳过Pydantic对象（asizeof的过滤参数）
+        total_memory_bytes = asizeof.asizeof(
+            all_live_objects,
+            filter=lambda o: not any(kw in str(type(o)).lower() for kw in pydantic_filter_keywords)
+        )
         total_memory_mb = total_memory_bytes / 1024 / 1024
+        warnings.resetwarnings()
     except Exception as e:
-        # 降级方案：使用sys模块统计基础内存
-        total_memory_mb = 0.0
-        for obj in all_live_objects[:10000]:  # 限制数量避免超时
-            try:
-                total_memory_mb += sys.getsizeof(obj) / 1024 / 1024
-            except:
-                continue
-        print(f"asizeof统计失败，使用降级方案: {e}")
+        # 降级方案：sys.getsizeof + 分段统计（避免硬编码数量限制）
+        error_detail = traceback.format_exc()  # 捕获完整异常栈
+        print(f"asizeof统计失败，使用降级方案: {e}\n详细错误: {error_detail}")
 
-    # 第四步：按类型统计内存分布（跳过Pydantic相关类型）
+        # 分段统计（每1000个对象一批，避免内存峰值）
+        batch_size = 1000
+        total_objects = len(all_live_objects)
+        total_memory_bytes = 0
+
+        for i in range(0, total_objects, batch_size):
+            batch = all_live_objects[i:i + batch_size]
+            for obj in batch:
+                try:
+                    # sys.getsizeof仅统计浅内存，补充简单递归（提升准确性）
+                    def get_deep_size(o, seen=None):
+                        if seen is None:
+                            seen = set()
+                        if id(o) in seen:
+                            return 0
+                        seen.add(id(o))
+                        size = sys.getsizeof(o)
+                        # 仅递归常见容器类型（避免无限递归）
+                        if isinstance(o, (list, tuple, set, frozenset)):
+                            size += sum(get_deep_size(item, seen) for item in o)
+                        elif isinstance(o, dict):
+                            size += sum(get_deep_size(k, seen) + get_deep_size(v, seen) for k, v in o.items())
+                        return size
+
+                    total_memory_bytes += get_deep_size(obj)
+                except:
+                    continue
+
+        total_memory_mb = total_memory_bytes / 1024 / 1024
+        # 打印降级统计的基础信息
+        print(f"降级统计完成：共统计 {min(total_objects, len(all_live_objects))} 个对象，总内存 {total_memory_mb:.2f} MB")
+
+    # 第四步：按类型统计内存分布（严格过滤Pydantic）
     try:
         sum1 = summary.summarize(all_live_objects)
         # 过滤Pydantic相关的统计项
         filtered_sum = []
         for item in sum1:
-            type_name = str(item[0])
-            if "pydantic" not in type_name and "MockValSer" not in type_name:
+            type_str = str(item[0]).lower()
+            if not any(kw.lower() in type_str for kw in pydantic_filter_keywords):
                 filtered_sum.append(item)
 
-        print("=== Python内部内存分布（按对象类型） ===")
-        summary.print_(filtered_sum, limit=10)  # 显示前10个内存占用最多的对象类型
-    except Exception as e:
-        print(f"内存分布统计失败: {e}")
+        # 按内存占用降序排序
+        filtered_sum.sort(key=lambda x: x[2], reverse=True)
 
-    return total_memory_mb
+        print("\n=== Python内部内存分布（按对象类型，前10） ===")
+        summary.print_(filtered_sum, limit=10)
+    except Exception as e:
+        error_detail = traceback.format_exc()
+        print(f"内存分布统计失败: {e}\n详细错误: {error_detail}")
+
+    # 第五步：返回结果（保留2位小数）
+    return round(total_memory_mb, 2)
 
 async def init_nso_version():
     """将NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空"""

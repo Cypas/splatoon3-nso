@@ -11,7 +11,7 @@ from ...utils import get_msg_id, convert_td
 
 async def create_get_user_friends_tasks():
     """创建获取好友列表任务"""
-    cron_msg = f"create_get_user_friends_tasks start"
+    cron_msg = f"create_get_user_friends_tasks start".center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("get_user_friends", "start")
 

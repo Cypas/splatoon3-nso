@@ -12,7 +12,7 @@ from ...utils import convert_td
 
 async def get_event_top():
     """获取活动排行榜人员"""
-    cron_msg = f"get_event_top start"
+    cron_msg = f"get_event_top start".center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("get_event_top", "start")
     t = dt.utcnow()

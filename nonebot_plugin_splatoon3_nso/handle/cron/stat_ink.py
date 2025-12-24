@@ -34,7 +34,7 @@ expected_str_list = ["status: 500", "Membership required", "has be banned", "inv
 
 async def sync_stat_ink():
     """同步至stat（内存安全版）"""
-    cron_msg = f"sync_stat_ink start"
+    cron_msg = f"sync_stat_ink start".center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("sync_stat_ink", "start")
     t = dt.utcnow()

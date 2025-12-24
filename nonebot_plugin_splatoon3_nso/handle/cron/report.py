@@ -20,7 +20,7 @@ from ...utils.bot import *
 
 async def create_set_report_tasks():
     """8点时请求并提前写好日报数据"""
-    cron_msg = f'create_set_report_tasks start'
+    cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("set_report", "start")
 
@@ -73,7 +73,38 @@ async def create_set_report_tasks():
     phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
     phase1_splatoons = await asyncio.gather(*phase1_tasks)
 
+    # ================== 等待 UTC 0 点后再执行阶段2 ==================
+    def get_seconds_until_utc_midnight() -> int:
+        """计算当前 UTC 时间距离下一个 UTC 0 点的秒数（纯 datetime 计算，无时区依赖）"""
+        now_utc = dt.utcnow()  # now_utc 是 datetime.datetime 类型（UTC 时间，无时区属性）
+        # 构造当天 UTC 0 点（纯 datetime 对象，无时区）
+        utc_midnight = dt(
+            year=now_utc.year,
+            month=now_utc.month,
+            day=now_utc.day,
+            hour=0,
+            minute=0,
+            second=0
+        )
+        # 情况1：当前 UTC 时间已过当天 0 点 → 无需等待
+        if now_utc >= utc_midnight:
+            return 0
+        # 情况2：当前 UTC 时间还没到当天 0 点（如 UTC 23:50 跨天前）→ 计算等待秒数
+        else:
+            delta = utc_midnight - now_utc
+            return int(delta.total_seconds())
+
+    # 计算需要等待的秒数
+    wait_seconds = get_seconds_until_utc_midnight()
+    if wait_seconds > 0:
+        cron_logger.info(f"阶段2需等待 UTC 0 点，当前等待秒数：{wait_seconds}s")
+        # 异步等待（不阻塞事件循环）
+        await asyncio.sleep(wait_seconds)
+    else:
+        cron_logger.info("当前已过 UTC 0 点，直接执行阶段2")
+
     # ================== 阶段2：报告生成 ==================
+    cron_logger.info("create_set_report_tasks phase2_tasks start".center(60, "="))
     valid_splatoons = [s for s in phase1_splatoons if s is not None]
 
     async def process_phase2(splatoon: Splatoon):
@@ -115,7 +146,7 @@ async def create_set_report_tasks():
                                  f"耗时:{str_time}\n"
                                  f"全部用户: {len(list_user)}\n"
                                  f"有效用户:{len(valid_splatoons)}\n"
-                                 f"刷新成功: {len(valid_splatoons)}\n"
+                                 f"{len(valid_splatoons) - counters['refresh_tokens_fail_count']}\n"
                                  f"成功写日报:{counters['set_report_count']}\n")
     # 清理临时任务对象
     await ReqClient.close_all(_type="cron")
@@ -189,10 +220,6 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             if not res_coop: missing.append("coop")
             if not all_data: missing.append("all_data")
             cron_logger.error(f"数据缺失: {msg_id} 缺失字段: {missing}")
-            # 失败时清理
-            await splatoon.close()
-            del splatoon
-            gc.collect()
             return "data missing"
 
         # ================== 对战数据处理 ==================
@@ -202,9 +229,6 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             game_sp_id = get_game_sp_id(b_info['player']['id'])
         except (KeyError, IndexError) as e:
             cron_logger.error(f"对战数据解析失败: {msg_id} 错误类型: {type(e).__name__}")
-            await splatoon.close()
-            del splatoon
-            gc.collect()
             return "data missing"
 
         # ================== 打工数据处理 ==================
@@ -214,9 +238,6 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             coop_t = get_battle_time_or_coop_time(coop_detail['id'])
         except (KeyError, IndexError) as e:
             cron_logger.error(f"打工数据解析失败: {msg_id} 错误类型: {type(e).__name__}")
-            await splatoon.close()
-            del splatoon
-            gc.collect()
             return "data missing"
 
         # ================== 时间计算 ==================
@@ -230,24 +251,21 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
                 last_play_time, splatoon, game_sp_id, all_data
             )
             cron_logger.info(f'set_user_report_task success: {msg_id}')
-            # 成功后清理
-            await splatoon.close()
-            del splatoon
-            gc.collect()
+            # 成功
             return "success"
 
-        # 无日报时清理
-        await splatoon.close()
-        del splatoon
-        gc.collect()
+        # 无日报
         return "no report"
     except Exception as ex:
         cron_logger.error(f'set_user_report_task error: {msg_id} error:{str(ex)}', exc_info=True)
         # 异常时清理
-        await splatoon.close()
-        del splatoon
-        gc.collect()
+
         return False
+    finally:
+        if 'splatoon' in locals() and splatoon is not None:
+            await splatoon.close()
+            del splatoon
+            gc.collect()
 
 
 async def fetch_with_retry(coro_func, retry_func, **kwargs):
@@ -338,7 +356,7 @@ async def set_user_report(user_db_id, res_summary, res_coop, last_play_time, spl
 async def send_report_task():
     """9点时进行发信"""
     report_logger = logger.bind(report=True)
-    cron_msg = f'create_send_report_tasks start'
+    cron_msg = f'create_send_report_tasks start'.center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("send_report", "start")
     t = dt.utcnow()
@@ -369,7 +387,7 @@ async def send_report_task():
             if msg:
                 # 写日志
                 log_msg = msg.replace('\n', '')
-                report_logger.debug(f"get {msg_id} report：{log_msg}")
+                report_logger.info(f"get db_id:{user.id},msg_id:{msg_id} report：{log_msg}")
                 # # 通知到频道
                 # await report_notify_to_channel(user.platform, user.user_id, msg, _type='job')
                 # 通知到私信
