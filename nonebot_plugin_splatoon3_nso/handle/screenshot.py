@@ -19,9 +19,10 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
     key = ""
     message = ""
     cmd = args.extract_plain_text().strip()
+    all_keys = f"个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器进度 武器分数 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量"
     if not cmd:
         # 没有任何参数
-        await matcher.finish(message="未提供任何页面关键词,全部页面关键词如下: 个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量")
+        await matcher.finish(message=f"未提供任何页面关键词,全部页面关键词如下: {all_keys}")
     else:
         await bot_send(bot, event, message="正在截图nso页面，请稍等...")
     if " " in cmd:
@@ -38,7 +39,7 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
             break
     if not url:
         await matcher.finish(
-            message="页面关键词无效,全部页面关键词如下: 个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量")
+            message=f"页面关键词无效,全部页面关键词如下: {all_keys}")
 
     try:
         # 此处message为bytes

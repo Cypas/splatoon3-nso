@@ -1,5 +1,6 @@
+import playwright
 from nonebot import logger
-from playwright.async_api import async_playwright, Browser, BrowserContext, ViewportSize
+from playwright.async_api import async_playwright, Browser, BrowserContext, ViewportSize, Playwright
 
 from .iksm import S3S
 from .splatoon import Splatoon
@@ -10,13 +11,13 @@ from ..utils import global_proxies, get_msg_id
 
 # 全局浏览器及管理变量（新增内存管理相关）
 global_browser: Browser = None
-global_playwright = None  # 用于彻底关闭Playwright实例
+global_playwright: Playwright = None  # 用于彻底关闭Playwright实例
 global_dict_ss_user: dict = {}
 global_browser_usage_count = 0  # 浏览器使用次数计数
-MAX_BROWSER_USAGE = 20  # 达到阈值后重启浏览器释放内存
+MAX_BROWSER_USAGE = 5  # 达到阈值后重启浏览器释放内存
 
 
-async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=False):
+async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=False) -> str | bytes:
     """获取app页面截图（仅优化内存释放版本）"""
     ### nso截图需要的是gtoken(3h)，home页面校验的是bullet_token(2h)
     # 就会存在说g_token已过期，但home页面校验通过的情况，此时截图nso仍会无数据(可能gtoken未正确刷新，或redis跳过了gtoken获取)
@@ -36,7 +37,7 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
     _type = "default"
 
     # 列表类页面高度设置
-    for _k in ('最近', '涂地', '蛮颓', 'X', 'x', 'X赛', 'x赛', '活动', '私房', '武器', '打工', '鲑鱼跑', '徽章'):
+    for _k in ('最近', '涂地', '蛮颓', 'X', 'x', 'X赛', 'x赛', '活动', '私房', '武器进度', '武器分数', '打工', '鲑鱼跑', '徽章'):
         if _k in key and key != "打工记录":
             height = 2500
             _type = "list"
@@ -111,7 +112,10 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
 
         # 截图
         img_raw = await page.screenshot(full_page=True)
-
+    except playwright.async_api.TimeoutError:
+        return "nso截图超时"
+    except Exception as e:
+        return f"nso截图错误:{e}"
     finally:
         # 关键优化1：确保页面和上下文彻底关闭
         await page.close()  # 先关闭页面释放渲染资源
@@ -135,7 +139,8 @@ ss_url_trans = {
     'x': 'history/xmatch',
     '活动': 'history/event',
     '私房': 'history/private',
-    '武器': 'weapon_record',
+    '武器进度': 'weapon/collection',
+    '武器分数': 'weapon/data',
     '徽章': 'history_record/badge',
     '打工记录': 'coop_record/play_record',
     '打工': 'coop',
@@ -170,7 +175,7 @@ async def init_browser() -> Browser:
         if plugin_config.splatoon3_proxy_list_mode:
             # bypass 忽略部分域名
             proxy = {"server": global_proxies,
-                     # "bypass": "api.lp1.av5ja.srv.nintendo.net"
+                     "bypass": "api.lp1.av5ja.srv.nintendo.net"
                      }
             global_browser = await global_playwright.chromium.launch(proxy=proxy, args=browser_args)
         else:
