@@ -6,7 +6,7 @@ import urllib.parse
 import weakref
 import httpx
 from typing import Optional, Dict
-from httpx import Response, ConnectError, ConnectTimeout
+from httpx import Response, ConnectError, ConnectTimeout, ReadTimeout
 from nonebot import logger
 
 from .utils import get_msg_id
@@ -315,7 +315,7 @@ class HttpReq(object):
                 proxy=proxies,
                 http2=True,
                 timeout=HTTP_TIME_OUT,
-                limits=httpx.Limits(max_connections=5)
+                limits=httpx.Limits(max_connections=20)
         ) as client:
             response = client.get(url, **kwargs)
         return response
@@ -337,7 +337,7 @@ class HttpReq(object):
                 proxy=proxies,
                 http2=True,
                 timeout=HTTP_TIME_OUT,
-                limits=httpx.Limits(max_connections=5)
+                limits=httpx.Limits(max_connections=20)
         ) as client:
             response = client.post(url, **kwargs)
         return response
@@ -370,8 +370,8 @@ class AsHttpReq(object):
             async with httpx.AsyncClient(
                     proxy=proxies,
                     http2=True,
-                    timeout=HTTP_TIME_OUT,
-                    limits=httpx.Limits(max_connections=5)
+                    timeout=httpx.Timeout(connect=HTTP_TIME_OUT, read=10.0, write=10.0, pool=5.0),  # 细分超时
+                    limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),  # 增大连接池
             ) as client:
                 if method.lower() == "get":
                     return await client.get(url, **kwargs)
@@ -385,23 +385,24 @@ class AsHttpReq(object):
         for attempt in range(max_retries + 1):
             try:
                 return await _do_request()
-            except (ConnectError, ConnectTimeout) as e:
+            except (ConnectError, ConnectTimeout, ReadTimeout) as e:
                 # 最后一次重试失败，返回错误标识
                 if attempt == max_retries:
-                    # if isinstance(e, ConnectError):
-                    #     return "NetConnectError"
-                    # elif isinstance(e, ConnectTimeout):
-                    #     return "NetConnectTimeout"
-                    msg = f"请求 {url} 失败（{type(e).__name__}），达到重试上限..."
-                    print(msg)
-                    logger.info(msg)
-                    raise e
-                # 非最后一次，打印重试日志（可选）
-                msg = f"请求 {url} 失败（{type(e).__name__}），第 {attempt + 1} 次重试..."
-                print(msg)
-                logger.info(msg)
+                    if isinstance(e, ConnectError):
+                        error_flag = "NetConnectError"
+                    elif isinstance(e, ConnectTimeout):
+                        error_flag = "NetConnectTimeout"
+                    else:
+                        error_flag = "NetReadTimeout"
+                    logger.error(f"请求 {url} 失败（{error_flag}），达到重试上限: {str(e)}")
+                    return error_flag
+                # 非最后一次，指数退避后重试
+                delay = 1 * (2 ** attempt)
+                await asyncio.sleep(delay)
+                logger.info(f"请求 {url} 失败（{type(e).__name__}），{delay}s 后第 {attempt + 1} 次重试: {str(e)}")
             except Exception as e:
-                # 其他异常直接抛出（或根据需求处理）
+                # 非连接/超时异常，直接抛出（如4xx/5xx响应）
+                logger.error(f"请求 {url} 发生非预期异常: {str(e)}")
                 raise e
 
     @staticmethod
