@@ -22,7 +22,7 @@ from nonebot import logger as nb_logger
 from weakref import WeakKeyDictionary
 
 from .utils import SPLATNET3_URL
-from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient, AsHttpReq
+from ..utils import BOT_VERSION, AsHttpReq
 
 S3S_AGENT = "s3s - github.com/Cypas/splatoon3-nso"  # s3s agent
 S3S_VERSION = "0.7.0"  # s3s脚本版本号
