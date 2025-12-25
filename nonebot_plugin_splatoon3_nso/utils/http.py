@@ -393,7 +393,7 @@ class AsHttpReq:
                     proxy=proxies,
                     **CLIENT_CONFIG
                 )
-                logger.info(f"创建分组Client：{client_key}（代理：{use_proxy}）")
+                logger.info(f"创建分组Client：{domain}（代理：{use_proxy}）")
 
             # 5. 返回复用的Client实例
             return cls._clients[client_key]
@@ -451,7 +451,7 @@ class AsHttpReq:
                     logger.error(f"请求 {url} 失败（{error_flag}），重试上限: {str(e)}")
                     return error_flag
                 # 指数退避延迟后重试
-                delay = 0.5 * (2 ** attempt)
+                delay = 1 * (2 ** attempt)
                 await asyncio.sleep(delay)
                 logger.info(f"请求 {url} 失败，{delay}s 后第 {attempt+1} 次重试: {str(e)}")
             except Exception as e:
