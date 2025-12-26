@@ -152,12 +152,12 @@ def model_clean_db_cache():
     """整理数据库内存碎片"""
     session = DBSession()
     session.execute(text("VACUUM"))
-#     # 修复日报里面错误的数据
-#     sql = f"""UPDATE report
-# SET create_time = datetime(create_time, '+1 hour')
-# WHERE strftime('%H', create_time) = '23'
-# """
-#     session.execute(text(sql))
+    # 修复日报里面错误的数据
+    sql = f"""UPDATE report
+SET create_time = datetime(create_time, '+1 hour')
+WHERE strftime('%H', create_time) = '23'
+"""
+    session.execute(text(sql))
     session.commit()
     session.close()
 

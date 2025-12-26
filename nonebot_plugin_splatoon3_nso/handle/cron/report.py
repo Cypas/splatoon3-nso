@@ -78,21 +78,17 @@ async def create_set_report_tasks():
         """计算当前 UTC 时间距离下一个 UTC 0 点的秒数（纯 datetime 计算，无时区依赖）"""
         now_utc = dt.utcnow()  # now_utc 是 datetime.datetime 类型（UTC 时间，无时区属性）
         # 构造当天 UTC 0 点（纯 datetime 对象，无时区）
-        utc_midnight = dt(
+        next_midnight = dt(
             year=now_utc.year,
             month=now_utc.month,
             day=now_utc.day,
             hour=0,
             minute=0,
             second=0
-        )
-        # 情况1：当前 UTC 时间已过当天 0 点 → 无需等待
-        if now_utc >= utc_midnight:
-            return 0
-        # 情况2：当前 UTC 时间还没到当天 0 点（如 UTC 23:50 跨天前）→ 计算等待秒数
-        else:
-            delta = utc_midnight - now_utc
-            return int(delta.total_seconds())
+        ) + datetime.timedelta(days=1)  # 关键：直接+1天，得到次日0点
+        # 计算当前时间到次日0点的秒数
+        delta = next_midnight - now_utc
+        return int(delta.total_seconds())
 
     # 计算需要等待的秒数
     wait_seconds = get_seconds_until_utc_midnight()
@@ -146,7 +142,8 @@ async def create_set_report_tasks():
                                  f"耗时:{str_time}\n"
                                  f"全部用户: {len(list_user)}\n"
                                  f"有效用户:{len(valid_splatoons)}\n"
-                                 f"{len(valid_splatoons) - counters['refresh_tokens_fail_count']}\n"
+                                 f"刷新成功: {len(valid_splatoons) - counters['refresh_tokens_fail_count']}\n"
+                                 f"无日报: {counters['no_report_count']}\n"
                                  f"成功写日报:{counters['set_report_count']}\n")
     # 清理临时任务对象
     await ReqClient.close_all(_type="cron")
