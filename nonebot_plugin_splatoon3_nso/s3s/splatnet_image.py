@@ -108,7 +108,7 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
             if await locator.count():
                 await locator.nth(0).click()
                 await page.wait_for_load_state(state="networkidle")
-                await page.wait_for_timeout(3000)
+                await page.wait_for_timeout(6000)
 
         # 截图
         img_raw = await page.screenshot(full_page=True)
