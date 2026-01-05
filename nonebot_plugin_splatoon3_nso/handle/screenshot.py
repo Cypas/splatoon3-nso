@@ -66,6 +66,8 @@ async def get_screenshot_image(bot, event, platform, user_id, key=None):
         await bot_send(splatoon.bot, splatoon.event,
                        "本次nso截图需要刷新token，请求耗时会比平时更长一些，请稍等...")
         suss = await splatoon.refresh_gtoken_and_bullettoken()
+        if not suss:
+            return "bot网络错误，请稍后再试"
 
     img = await get_app_screenshot(splatoon, key)
     return img

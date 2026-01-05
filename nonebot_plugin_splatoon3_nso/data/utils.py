@@ -114,7 +114,7 @@ async def get_or_set_plugin_data(key, value=None):
     from nonebot_plugin_datastore import get_plugin_data
 
     global plugin_data
-    if not value:
+    if value is None:
         # 读取配置
         value = await get_plugin_data().config.get(key)
         plugin_data[key] = value

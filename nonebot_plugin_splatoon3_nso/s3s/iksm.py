@@ -676,6 +676,7 @@ class S3S:
 
             access_token = resp.get("access_token")
             self.oauth_token = access_token
+            return True
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             if isinstance(e, httpx.ConnectError):
                 return "NetConnectError"
@@ -686,12 +687,18 @@ class S3S:
             # self.logger.error(f"Error during f generation: Error {e}.")
             try:  # if api_response never gets set
                 if api_response and api_response.text:
+                    if "html" in api_response.text:
+                        error = "html网页错误"
+                    else:
+                        error = api_response.text
                     self.logger.warning(
-                        f"Error during oauth register\nres:{api_response.text}")
+                        f"Error during oauth register\nres:{error}")
+                    return f"resp error:{error}"
                 else:
                     self.logger.warning(
                         f"Error during oauth register status_code:{api_response.status_code}")
-                return f"resp error:{api_response.text}"
+                    return f"resp error:status_code:{api_response.status_code}"
+
             except Exception as e:
                 self.logger.error(f"Error during oauth register: Error {e}.")
                 # 一般是status_code都获取不到

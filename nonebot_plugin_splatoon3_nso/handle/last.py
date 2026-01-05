@@ -267,6 +267,8 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                         await bot_send(splatoon.bot, splatoon.event,
                                        "本次nso截图需要刷新token，请求耗时会比平时更长一些，请稍等...")
                         suss = await splatoon.refresh_gtoken_and_bullettoken()
+                        if not suss:
+                            return "bot网络错误，请稍后再试"
 
                     pic = await get_app_screenshot(splatoon, url=url, mask=mask)
                 except Exception as e:
