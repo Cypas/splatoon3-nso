@@ -165,7 +165,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
                 qq_md_msg = ""
                 match md_type:
                     case "last":
-                        qq_md_msg = last_md(user_id, image_size=(width, height), url=url)
+                        qq_md_msg = await last_md(user_id, image_size=(width, height), url=url)
                 try:
                     await bot.send(event, qq_md_msg)
                 except QQ_ActionFailed as e:
