@@ -346,9 +346,9 @@ class HttpReq(object):
 
 # AsyncClient 全局配置（复用核心）
 CLIENT_CONFIG: Dict[str, Any] = {
-    "http2": True,
-    "timeout": httpx.Timeout(connect=HTTP_TIME_OUT, read=10.0, write=10.0, pool=30.0),
-    "limits": httpx.Limits(max_connections=100, max_keepalive_connections=20),
+    "http2": False,
+    "timeout": httpx.Timeout(connect=HTTP_TIME_OUT, read=10.0, write=10.0, pool=60.0),
+    "limits": httpx.Limits(max_connections=300, max_keepalive_connections=60),
 }
 
 
