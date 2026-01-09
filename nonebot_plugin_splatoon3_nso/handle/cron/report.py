@@ -18,7 +18,7 @@ from ...utils import get_msg_id, convert_td, ReqClient
 from ...utils.bot import *
 
 
-async def create_set_report_tasks():
+async def create_set_report_tasks(is_corn_job=True):
     """8点时请求并提前写好日报数据"""
     cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
     cron_logger.info(cron_msg)
@@ -76,6 +76,9 @@ async def create_set_report_tasks():
     # ================== 等待 UTC 0 点后再执行阶段2 ==================
     def get_seconds_until_utc_midnight() -> int:
         """计算当前 UTC 时间距离下一个 UTC 0 点的秒数（纯 datetime 计算，无时区依赖）"""
+        if not is_corn_job:
+            # 手动触发时，直接继续执行
+            return 0
         now_utc = dt.utcnow()  # now_utc 是 datetime.datetime 类型（UTC 时间，无时区属性）
         # 构造当天 UTC 0 点（纯 datetime 对象，无时区）
         next_midnight = dt(
@@ -221,7 +224,8 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
 
         # ================== 对战数据处理 ==================
         try:
-            b_info = res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
+            b_info = \
+                res_battle['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
             battle_t = get_battle_time_or_coop_time(b_info['id'])
             game_sp_id = get_game_sp_id(b_info['player']['id'])
         except (KeyError, IndexError) as e:
@@ -268,7 +272,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
 async def fetch_with_retry(coro_func, retry_func, **kwargs):
     """带一次重试的通用请求函数（修复闭包引用）"""
     try:
-        result = await coro_func(** kwargs)  # 直接调用方法并传参
+        result = await coro_func(**kwargs)  # 直接调用方法并传参
         if result: return result
     except Exception as e:
         cron_logger.debug(f"首次请求失败: {str(e)}")
