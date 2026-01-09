@@ -116,10 +116,10 @@ async def get_or_set_plugin_data(key, value=None):
     global plugin_data
     if value is None:
         # 读取配置
-        value = await get_plugin_data().config.get(key)
+        value = await get_plugin_data("sp3_xyy_bot").config.get(key)
         plugin_data[key] = value
     else:
         # 存储配置
-        await get_plugin_data().config.set(key, value)
+        await get_plugin_data("sp3_xyy_bot").config.set(key, value)
         plugin_data[key] = value
     return value
