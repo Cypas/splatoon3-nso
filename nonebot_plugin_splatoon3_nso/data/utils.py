@@ -31,7 +31,7 @@ class GlobalUserInfo:
         self.ns_name = kwargs.get('ns_name', None)
         self.ns_friend_code = kwargs.get('ns_friend_code', None)
         self.nsa_id = kwargs.get('nsa_id', None)
-        self.req_client = kwargs.get('req_client', None)
+        # self.req_client = kwargs.get('req_client', None)
 
 
 async def model_get_or_set_temp_image(_type, name: str, link=None, force=False) -> TempImageTable:
@@ -114,12 +114,12 @@ async def get_or_set_plugin_data(key, value=None):
     from nonebot_plugin_datastore import get_plugin_data
 
     global plugin_data
-    if not value:
+    if value is None:
         # 读取配置
-        value = await get_plugin_data().config.get(key)
+        value = await get_plugin_data("sp3_xyy_bot").config.get(key)
         plugin_data[key] = value
     else:
         # 存储配置
-        await get_plugin_data().config.set(key, value)
+        await get_plugin_data("sp3_xyy_bot").config.set(key, value)
         plugin_data[key] = value
     return value

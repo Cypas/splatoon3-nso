@@ -12,15 +12,17 @@ import threading
 import urllib
 import random
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Union
 
 import httpx
+import jwt
 from bs4 import BeautifulSoup
+from jwt import ExpiredSignatureError, DecodeError, InvalidTokenError
 from nonebot import logger as nb_logger
 from weakref import WeakKeyDictionary
 
 from .utils import SPLATNET3_URL
-from ..utils import BOT_VERSION, get_or_init_client, HttpReq, ReqClient
+from ..utils import BOT_VERSION, AsHttpReq
 
 S3S_AGENT = "s3s - github.com/Cypas/splatoon3-nso"  # s3s agent
 S3S_VERSION = "0.7.0"  # s3s脚本版本号
@@ -120,7 +122,7 @@ class S3S:
     _rate_limiter = None  # 延迟初始化
 
     def __init__(self, platform, user_id, _type="normal"):
-        self.req_client = get_or_init_client(platform, user_id, _type)
+        # self.req_client = get_or_init_client(platform, user_id, _type)
         self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
         self.user_nickname = ""
         self.user_lang = "zh-CN"
@@ -129,15 +131,23 @@ class S3S:
 
         # 负载均衡初始化
         f_url_lst = [F_GEN_URL, F_GEN_URL_2]
-        random.shuffle(f_url_lst)
+        # random.shuffle(f_url_lst)
         self.f_gen_url = f_url_lst[0]
 
         self.logger = nb_logger
         if _type == "cron":
             self.logger = nb_logger.bind(cron=True)
 
+    def close(self):
+        # self.req_client = None
+        self.r_user_id = ""  # 请求内部所使用的user_id,不是消息平台的user_id
+        self.user_nickname = ""
+        self.user_lang = "zh-CN"
+        self.user_country = "JP"
+        self.oauth_token = None
+
     @staticmethod
-    def get_nsoapp_version(f_gen_url=None):
+    async def get_nsoapp_version(f_gen_url=None):
         """Fetches the current Nintendo Switch Online app version from f API or the Apple App Store and sets it globally."""
         if not f_gen_url:
             f_gen_url = F_GEN_URL
@@ -148,7 +158,7 @@ class S3S:
             try:  # try to get NSO version from f API
                 f_conf_url = f_gen_url.replace("/f", "") + "/config"  # default endpoint for imink API
                 f_conf_header = {"User-Agent": F_USER_AGENT}
-                f_conf_rsp = HttpReq.get(f_conf_url, headers=f_conf_header)
+                f_conf_rsp = await AsHttpReq.get(f_conf_url, headers=f_conf_header, timeout=10.0)
                 f_conf_json = json.loads(f_conf_rsp.text)
                 ver = f_conf_json["nso_version"]
                 NSOAPP_VERSION = ver
@@ -156,7 +166,7 @@ class S3S:
                 return NSOAPP_VERSION
             except:  # fallback to apple app store
                 try:
-                    page = HttpReq.get("https://apps.apple.com/us/app/nintendo-switch-online/id1234806557")
+                    page = await AsHttpReq.get("https://apps.apple.com/us/app/nintendo-switch-online/id1234806557", timeout=10.0)
                     soup = BeautifulSoup(page.text, 'html.parser')
                     elt = soup.find("p", {"class": "whats-new__latest__version"})
                     ver = elt.get_text().replace("Version ", "").strip()
@@ -169,8 +179,10 @@ class S3S:
                 return NSOAPP_VER_FALLBACK
 
     @staticmethod
-    def get_web_view_ver(bhead=[], gtoken=""):
+    async def get_web_view_ver(bhead=None, gtoken=""):
         """Finds & parses the SplatNet 3 main.js file to fetch the current site version and sets it globally."""
+        if bhead is None:
+            bhead = []
         global WEB_VIEW_VERSION
         if WEB_VIEW_VERSION != "unknown":
             return WEB_VIEW_VERSION
@@ -198,7 +210,7 @@ class S3S:
                 app_cookies["_gtoken"] = gtoken  # X-GameWebToken
 
             try:
-                home = HttpReq.get(SPLATNET3_URL, headers=app_head, cookies=app_cookies)
+                home = await AsHttpReq.get(SPLATNET3_URL, headers=app_head, cookies=app_cookies, timeout=10.0)
             except (httpx.ConnectError, httpx.ConnectTimeout):
                 return WEB_VIEW_VER_FALLBACK
 
@@ -226,7 +238,7 @@ class S3S:
                 app_head["Accept-Encoding"] = bhead.get("Accept-Encoding")
                 app_head["Accept-Language"] = bhead.get("Accept-Language")
 
-            main_js_body = HttpReq.get(main_js_url, headers=app_head, cookies=app_cookies)
+            main_js_body = await AsHttpReq.get(main_js_url, headers=app_head, cookies=app_cookies, timeout=10.0)
             if main_js_body.status_code != 200:
                 return WEB_VIEW_VER_FALLBACK
 
@@ -309,7 +321,7 @@ class S3S:
     async def get_session_token(self, session_token_code, auth_code_verifier):
         """Helper function for log_in_2()."""
 
-        nsoapp_version = self.get_nsoapp_version()
+        nsoapp_version = await self.get_nsoapp_version()
 
         app_head = {
             'User-Agent': f'OnlineLounge/{nsoapp_version} NASDKAPI Android',
@@ -329,7 +341,7 @@ class S3S:
         }
 
         url = 'https://accounts.nintendo.com/connect/1.0.0/api/session_token'
-        r = await self.req_client.post(url, headers=app_head, data=body)
+        r = await AsHttpReq.post(url, headers=app_head, data=body)
         session_token = json.loads(r.text)
 
         return session_token
@@ -352,7 +364,7 @@ class S3S:
         }
         url = "https://accounts.nintendo.com/connect/1.0.0/api/token"
         try:
-            r = await self.req_client.post(url, headers=app_head, json=body)
+            r = await AsHttpReq.post(url, headers=app_head, json=body)
             id_response = json.loads(r.text)
         except httpx.ConnectError:
             raise ValueError("NetConnectError")
@@ -383,7 +395,7 @@ class S3S:
 
         url = "https://api.accounts.nintendo.com/2.0.0/users/me"
         try:
-            r = await self.req_client.get(url, headers=app_head)
+            r = await AsHttpReq.get(url, headers=app_head)
         except httpx.ConnectError:
             raise ValueError("NetConnectError")
         except httpx.ConnectTimeout:
@@ -424,7 +436,7 @@ class S3S:
         except Exception as e:
             raise e
 
-        nsoapp_version = self.get_nsoapp_version()
+        nsoapp_version = await self.get_nsoapp_version()
         app_head = {
             'X-Platform': 'Android',
             'X-ProductVersion': nsoapp_version,
@@ -440,7 +452,7 @@ class S3S:
 
         try:
             content = base64.b64decode(encrypt_result)  # 加密数据还原为二进制
-            znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
+            znc_encrypt_data = await AsHttpReq.post(url, headers=app_head, content=content)
             # 解密返回数据
             decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
             decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
@@ -475,7 +487,7 @@ class S3S:
                 # app_head["Content-Length"] = str(990 + len(f))
                 url = "https://api-lp1.znc.srv.nintendo.net/v4/Account/Login"
                 content = base64.b64decode(encrypt_result)
-                znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
+                znc_encrypt_data = await AsHttpReq.post(url, headers=app_head, content=content)
                 # 解密返回数据
                 decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
                 decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
@@ -494,7 +506,7 @@ class S3S:
     async def _get_g_token(self, access_token, f, uuid, timestamp, coral_user_id):
         """get_gtoken第三步"""
         # get gtoken ,即 web service token
-        nsoapp_version = self.get_nsoapp_version()
+        nsoapp_version = await self.get_nsoapp_version()
         app_head = {
             'X-Platform': 'Android',
             'X-ProductVersion': nsoapp_version,
@@ -526,7 +538,7 @@ class S3S:
             raise e
         try:
             content = base64.b64decode(encrypt_result)  # 加密数据还原为二进制
-            znc_encrypt_data = await self.req_client.post(url, headers=app_head, content=content)
+            znc_encrypt_data = await AsHttpReq.post(url, headers=app_head, content=content)
             # 解密返回数据
             decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
             decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
@@ -553,7 +565,7 @@ class S3S:
                 body["parameter"]["requestId"] = uuid
                 body["parameter"]["timestamp"] = timestamp
                 url = "https://api-lp1.znc.srv.nintendo.net/v4/Game/GetWebServiceToken"
-                r = await self.req_client.post(url, headers=app_head, json=body)
+                r = await AsHttpReq.post(url, headers=app_head, json=body)
                 web_service_resp = json.loads(r.text)
                 web_service_token = web_service_resp["result"]["accessToken"]
             except:
@@ -568,7 +580,7 @@ class S3S:
     async def get_gtoken(self, session_token):
         """Provided the session_token, returns a GameWebToken and account info."""
         # get_id_tokenaccess_token, f, uuid, timestamp, coral_user_id
-        self.get_nsoapp_version()
+        await self.get_nsoapp_version()
         try:
             id_token, user_info = await self._get_id_token_and_user_info(session_token)
             if not user_info or not id_token:
@@ -605,7 +617,7 @@ class S3S:
             'Content-Type': 'application/json',
             'Accept-Language': self.user_lang,
             'User-Agent': APP_USER_AGENT,
-            'X-Web-View-Ver': self.get_web_view_ver(),
+            'X-Web-View-Ver': await self.get_web_view_ver(),
             'X-NACOUNTRY': self.user_country,
             'Accept': '*/*',
             'Origin': SPLATNET3_URL,
@@ -616,7 +628,7 @@ class S3S:
             '_dnt': '1'  # Do Not Track
         }
         url = f'{SPLATNET3_URL}/api/bullet_tokens'
-        r = await self.req_client.post(url, headers=app_head, cookies=app_cookies)
+        r = await AsHttpReq.post(url, headers=app_head, cookies=app_cookies)
         # self.logger.error(f'{user_id} get_bullet error. {r.status_code}，res:{str(r.content.decode("utf-8"))}')
         # self.logger.info(f'url:{url}\nheaders: {json.dumps(app_head)},\ncookies: {json.dumps(app_cookies)}')
 
@@ -657,13 +669,14 @@ class S3S:
             }
 
             # self.logger.info(f"f body:{json.dumps(api_body)}")
-            api_response = await self.req_client.post(F_GEN_OAUTH_URL, data=api_body, headers=api_head)
+            api_response = await AsHttpReq.post(F_GEN_OAUTH_URL, data=api_body, headers=api_head)
             # self.logger.info(f"f res_text:{api_response.text}")
 
             resp: dict = json.loads(api_response.text)
 
             access_token = resp.get("access_token")
             self.oauth_token = access_token
+            return True
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             if isinstance(e, httpx.ConnectError):
                 return "NetConnectError"
@@ -674,12 +687,18 @@ class S3S:
             # self.logger.error(f"Error during f generation: Error {e}.")
             try:  # if api_response never gets set
                 if api_response and api_response.text:
+                    if "html" in api_response.text:
+                        error = "html网页错误"
+                    else:
+                        error = api_response.text
                     self.logger.warning(
-                        f"Error during oauth register\nres:{api_response.text}")
+                        f"Error during oauth register\nres:{error}")
+                    return f"resp error:{error}"
                 else:
                     self.logger.warning(
                         f"Error during oauth register status_code:{api_response.status_code}")
-                return f"resp error:{api_response.text}"
+                    return f"resp error:status_code:{api_response.status_code}"
+
             except Exception as e:
                 self.logger.error(f"Error during oauth register: Error {e}.")
                 # 一般是status_code都获取不到
@@ -706,11 +725,9 @@ class S3S:
                                     encrypt_token_request=encrypt_token_request)
         if isinstance(res, tuple):
             return res
-        # else:
-        # # 4.3日 只有nxapi可用，暂时禁用重试机制 return None
-        # raise ValueError(res)
-        # return None
-        # pass
+        else:
+            # 12.20日 只有nxapi可用，禁用重试机制 return None
+            return None
 
         # 判断重试时的对象名称以及f地址
         if self.f_gen_url == F_GEN_URL:
@@ -782,7 +799,7 @@ class S3S:
                 api_body["coral_user_id"] = str(coral_user_id)
 
             # self.logger.info(f"f body:{json.dumps(api_body)}")
-            api_response = await self.req_client.post(f_gen_url, json=api_body, headers=api_head)
+            api_response = await AsHttpReq.post(f_gen_url, json=api_body, headers=api_head)
             # self.logger.info(f"f res_text:{api_response.text}")
 
             resp: dict = json.loads(api_response.text)
@@ -834,7 +851,7 @@ class S3S:
             'Content-Type': 'application/json; charset=utf-8',
             'Accept': 'application/json; charset=utf-8',
             'X-znca-Platform': 'Android',
-            'X-znca-Version': self.get_nsoapp_version(),
+            'X-znca-Version': await self.get_nsoapp_version(),
             'X-znca-Client-Version': F_GEN_X_znca_Client_Version,
         }
         if self.oauth_token:
@@ -847,7 +864,7 @@ class S3S:
         url = f_gen_url.replace("/f", "/encrypt-request")
 
         try:
-            api_response = await self.req_client.post(url, json=api_body, headers=api_head)
+            api_response = await AsHttpReq.post(url, json=api_body, headers=api_head)
             return api_response
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             if isinstance(e, httpx.ConnectError):
@@ -890,7 +907,7 @@ class S3S:
         url = f_gen_url.replace("/f", "/decrypt-response")
 
         try:
-            api_response = await self.req_client.post(url, json=api_body, headers=api_head)
+            api_response = await AsHttpReq.post(url, json=api_body, headers=api_head)
             return api_response
         except (httpx.ConnectError, httpx.ConnectTimeout) as e:
             if isinstance(e, httpx.ConnectError):
@@ -914,6 +931,52 @@ class S3S:
                 self.logger.error(f"Error during f generation decrypt: Error {e}.")
                 # 一般是status_code都获取不到
                 return None
+
+    @staticmethod
+    def is_jwt_token_valid(token: str, leeway: int = 0) -> bool:
+        """
+        仅校验 JWT Token 是否格式有效且未过期（不验证签名，无需 secret）
+
+        Args:
+            token: 待校验的 JWT Token 字符串
+            leeway: 时间误差容忍值（秒），解决客户端/服务器时间不一致问题
+
+        Returns:
+            bool: Token 格式有效 + 未过期 → 返回 True；过期/格式无效 → 返回 False
+        """
+        # 空 Token 直接判定无效
+        if not token or not isinstance(token, str):
+            return False
+
+        try:
+            # 核心逻辑：关闭签名验证（verify_signature=False），仅解析 payload 并校验过期
+            # options 配置：
+            # - verify_signature=False：跳过签名验证（无需 secret）
+            # - verify_exp=True：强制校验过期时间（默认开启，显式声明更清晰）
+            jwt.decode(
+                jwt=token,
+                key="",  # 无 secret 时传空字符串即可（签名验证已关闭）
+                algorithms=["HS256", "RS256", "ES256"],  # 兼容常见算法（无需匹配实际算法）
+                leeway=leeway,
+                options={
+                    "verify_signature": False,
+                    "verify_exp": True
+                }
+            )
+            return True
+
+        except ExpiredSignatureError:
+            # Token 已过期
+            return False
+        except DecodeError:
+            # Token 格式错误（如不是 JWT 格式、缺少 . 分隔符、base64 解码失败等）
+            return False
+        except InvalidTokenError:
+            # 其他无效场景（如 payload 无 exp 字段但开启了过期校验、字段格式错误等）
+            return False
+        except Exception:
+            # 兜底：任何未预期的异常都判定为无效
+            return False
 
 
 def init_global_nso_version_and_web_view_version():

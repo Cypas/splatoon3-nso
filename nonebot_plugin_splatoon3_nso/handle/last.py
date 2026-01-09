@@ -7,6 +7,7 @@ from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_t
 from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
 from ..data.utils import get_or_set_plugin_data
+from ..s3s.iksm import S3S
 from ..s3s.splatnet_image import get_app_screenshot
 from ..s3s.splatoon import Splatoon
 from ..s3s.utils import SPLATNET3_URL
@@ -261,7 +262,15 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             if get_screenshot:
                 try:
                     url = f"{SPLATNET3_URL}/history/detail/{_id}?lang=zh-CN"
-                    pic = await get_app_screenshot(splatoon.platform, splatoon.user_id, url=url, mask=mask)
+                    if not S3S.is_jwt_token_valid(splatoon.g_token):
+                        # 发送等待文本
+                        await bot_send(splatoon.bot, splatoon.event,
+                                       "本次nso截图需要刷新token，请求耗时会比平时更长一些，请稍等...")
+                        suss = await splatoon.refresh_gtoken_and_bullettoken()
+                        if not suss:
+                            return "bot网络错误，请稍后再试"
+
+                    pic = await get_app_screenshot(splatoon, url=url, mask=mask)
                 except Exception as e:
                     logger.exception(e)
                     pic = None
@@ -309,7 +318,13 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             if get_screenshot:
                 try:
                     url = f"{SPLATNET3_URL}/coop/{_id}?lang=zh-CN"
-                    pic = await get_app_screenshot(splatoon.platform, splatoon.user_id, url=url, mask=mask)
+                    if not S3S.is_jwt_token_valid(splatoon.g_token):
+                        # 发送等待文本
+                        await bot_send(splatoon.bot, splatoon.event,
+                                       "本次nso截图需要刷新token，请求耗时会比平时更长一些，请稍等...")
+                        suss = await splatoon.refresh_gtoken_and_bullettoken()
+
+                    pic = await get_app_screenshot(splatoon, url=url, mask=mask)
                 except Exception as e:
                     logger.exception(e)
                     pic = None

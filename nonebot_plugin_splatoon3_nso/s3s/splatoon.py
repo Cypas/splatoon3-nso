@@ -1,4 +1,6 @@
+import asyncio
 import base64
+import gc
 import json
 import time
 import uuid
@@ -13,7 +15,7 @@ from ..data.utils import GlobalUserInfo
 from ..handle.send_msg import bot_send, notify_to_private, notify_to_channel
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, model_get_another_account_user, \
     global_user_info_dict, global_cron_user_info_dict, model_get_temp_image_path
-from ..utils import get_msg_id, get_or_init_client
+from ..utils import get_msg_id, get_or_init_client, AsHttpReq
 from ..utils.redis import rset_gtoken, rget_gtoken
 
 
@@ -45,11 +47,9 @@ class Splatoon:
         self.bullet_token = ""
         self.g_token = ""
         self.access_token = ""
-        s3s = S3S(self.platform, self.user_id, _type=_type)
-        self.s3s = s3s
-        self.nso_app_version = s3s.get_nsoapp_version()
+        self.s3s = S3S(self.platform, self.user_id, _type=_type)
         self.dict_type = _type
-        self.req_client = user_info.req_client or get_or_init_client(self.platform, self.user_id, _type=_type)
+        # self.req_client = user_info.req_client or get_or_init_client(self.platform, self.user_id, _type=_type)
         self.logger = nb_logger
         if _type == "cron":
             self.logger = nb_logger.bind(cron=True)
@@ -253,7 +253,7 @@ class Splatoon:
                                           nsa_id=self.nsa_id, ns_name=self.ns_name,
                                           ns_friend_code=self.ns_friend_code)
 
-    def head_bullet(self, force_lang=None, force_country=None):
+    async def head_bullet(self, force_lang=None, force_country=None):
         """为含有bullet_token的请求拼装header"""
         if force_lang:
             lang = force_lang
@@ -266,7 +266,7 @@ class Splatoon:
             'Authorization': f'Bearer {self.bullet_token}',
             'Accept-Language': lang,
             'User-Agent': APP_USER_AGENT,
-            'X-Web-View-Ver': S3S.get_web_view_ver(),
+            'X-Web-View-Ver': await S3S.get_web_view_ver(),
             'Content-Type': 'application/json',
             'Accept': '*/*',
             'Origin': SPLATNET3_URL,
@@ -298,9 +298,9 @@ class Splatoon:
                 return False
 
         # t = time.time()
-        headers = self.head_bullet()
+        headers = await self.head_bullet()
         cookies = dict(_gtoken=self.g_token)
-        test = await self.req_client.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
+        test = await AsHttpReq.post(GRAPHQL_URL, data=data, headers=headers, cookies=cookies)
 
         if test.status_code != 200:
             if test.status_code == 401:
@@ -353,8 +353,8 @@ class Splatoon:
                     self.logger.error(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail, return None')
                     return None
             t = time.time()
-            res = await self.req_client.post(GRAPHQL_URL, data=data,
-                                             headers=self.head_bullet(),
+            res = await AsHttpReq.post(GRAPHQL_URL, data=data,
+                                             headers=await self.head_bullet(),
                                              cookies=dict(_gtoken=self.g_token))
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
@@ -377,8 +377,8 @@ class Splatoon:
                         self.logger.error(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail,reason:{e}')
                     try:
                         t = time.time()
-                        res = await self.req_client.post(GRAPHQL_URL, data=data,
-                                                         headers=self.head_bullet(),
+                        res = await AsHttpReq.post(GRAPHQL_URL, data=data,
+                                                         headers=await self.head_bullet(),
                                                          cookies=dict(_gtoken=self.g_token))
                         t2 = f'{time.time() - t:.3f}'
                         self.logger.debug(f'_request: {t2}s')
@@ -390,8 +390,8 @@ class Splatoon:
                         self.logger.error(
                             f'{self.user_db_info.db_id},{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
                         try:
-                            res = await self.req_client.post(GRAPHQL_URL, data=data,
-                                                             headers=self.head_bullet(),
+                            res = await AsHttpReq.post(GRAPHQL_URL, data=data,
+                                                             headers=await self.head_bullet(),
                                                              cookies=dict(_gtoken=self.g_token))
                             if return_json:
                                 return res.json()
@@ -456,7 +456,7 @@ class Splatoon:
             encrypt_data = encrypt_json["data"]
             body_bytes = base64.b64decode(encrypt_data)
             # 请求nxapi
-            encrypt_resp = await self.req_client.post(url, headers=self._head_access(self.access_token), data=body_bytes)
+            encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token), data=body_bytes)
             # 解密响应
             decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
             decrypt_data = decrypt_resp.json()["data"]
@@ -467,6 +467,7 @@ class Splatoon:
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
             status = decrypt_json["status"]
+            self.logger.info(f"ns api请求satus为{status}")
             if status == 9404:
                 # 更新token提醒一下用户
                 if not multiple and self.bot and self.event:
@@ -491,7 +492,7 @@ class Splatoon:
                 encrypt_data = encrypt_json['data']
                 body_bytes = base64.b64decode(encrypt_data)
                 # 请求nxapi
-                encrypt_resp = await self.req_client.post(url, headers=self._head_access(self.access_token),
+                encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token),
                                                           data=body_bytes)
                 # 解密响应
                 decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
@@ -634,14 +635,14 @@ class Splatoon:
         res = await self.request(data, multiple=multiple)
         return res
 
-    def _head_access(self, app_access_token):
+    async def _head_access(self, app_access_token):
         """为含有access_token的请求拼装header"""
         coral_head = {
-            'User-Agent': f'com.nintendo.znca/{self.nso_app_version} (Android/12)',
+            'User-Agent': f'com.nintendo.znca/{await S3S.get_nsoapp_version()} (Android/12)',
             'Accept-Encoding': 'gzip',
             'Connection': 'Keep-Alive',
             'Host': 'api-lp1.znc.srv.nintendo.net',
-            'X-ProductVersion': self.nso_app_version,
+            'X-ProductVersion': await S3S.get_nsoapp_version(),
             "Content-Type": "application/octet-stream",
             "Accept": "application/octet-stream, application/json",
             'Authorization': f"Bearer {app_access_token}",
@@ -682,3 +683,40 @@ class Splatoon:
             'code': my_sw_code,
             'icon': icon
         }
+
+    async def close(self):
+        """显式释放所有资源（核心：打破所有强引用链）"""
+        # 1. 关闭req_client
+        # if hasattr(self, 'req_client') and self.req_client:
+        #     try:
+        #         await self.req_client.close()
+        #     except Exception as e:
+        #         self.logger.warning(f"关闭req_client失败: {e}")
+        #     self.req_client = None
+
+        # 2. 关闭S3S（如果有close方法）
+        if hasattr(self, 's3s') and self.s3s:
+            try:
+                self.s3s.close()
+            except Exception as e:
+                self.logger.warning(f"关闭S3S失败: {e}")
+            self.s3s = None
+
+        # 3. 清空所有属性（打破强引用链）
+        self.bot = None
+        self.event = None
+        self.platform = None
+        self.user_id = None
+        self.user_name = None
+        self.nsa_id = None
+        self.ns_name = None
+        self.ns_friend_code = None
+        self.session_token = None
+        self.user_lang = None
+        self.user_country = None
+        self.bullet_token = None
+        self.g_token = None
+        self.access_token = None
+        self.nso_app_version = None
+        self.dict_type = None
+        self.logger = None

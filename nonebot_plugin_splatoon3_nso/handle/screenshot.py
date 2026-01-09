@@ -1,6 +1,7 @@
 from .send_msg import bot_send
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info
+from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
 from ..s3s.splatnet_image import get_app_screenshot, ss_url_trans, global_dict_ss_user
 from ..s3s.utils import SPLATNET3_URL
@@ -18,9 +19,10 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
     key = ""
     message = ""
     cmd = args.extract_plain_text().strip()
+    all_keys = f"个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器进度 武器分数 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量"
     if not cmd:
         # 没有任何参数
-        await matcher.finish(message="未提供任何页面关键词,全部页面关键词如下: 个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量")
+        await matcher.finish(message=f"未提供任何页面关键词,全部页面关键词如下: {all_keys}")
     else:
         await bot_send(bot, event, message="正在截图nso页面，请稍等...")
     if " " in cmd:
@@ -37,7 +39,7 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
             break
     if not url:
         await matcher.finish(
-            message="页面关键词无效,全部页面关键词如下: 个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量")
+            message=f"页面关键词无效,全部页面关键词如下: {all_keys}")
 
     try:
         # 此处message为bytes
@@ -59,12 +61,13 @@ async def get_screenshot_image(bot, event, platform, user_id, key=None):
     splatoon = Splatoon(bot, event, user)
     msg_id = get_msg_id(platform, user_id)
 
-    # 只有第一次使用ss时需要测试token是否有效，后续加入了token定时维护便不再需要测试
-    # ok = global_dict_ss_user.get(msg_id)
-    # if not ok:
-    # 测试token是否有效
-    success = await splatoon.test_page()
-    if not success:
-        raise ValueError(f"{msg_id} get_screenshot_image error: test_page fail")
-    img = await get_app_screenshot(platform, user_id, key)
+    if not S3S.is_jwt_token_valid(splatoon.g_token):
+        # 发送等待文本
+        await bot_send(splatoon.bot, splatoon.event,
+                       "本次nso截图需要刷新token，请求耗时会比平时更长一些，请稍等...")
+        suss = await splatoon.refresh_gtoken_and_bullettoken()
+        if not suss:
+            return "bot网络错误，请稍后再试"
+
+    img = await get_app_screenshot(splatoon, key)
     return img

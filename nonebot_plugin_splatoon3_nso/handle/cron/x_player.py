@@ -14,7 +14,7 @@ from ...utils import convert_td
 
 async def get_x_player():
     """获取x赛数据"""
-    cron_msg = f"get_x_player start"
+    cron_msg = f"get_x_player start".center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("get_x_player", "start")
     t = datetime.datetime.utcnow()

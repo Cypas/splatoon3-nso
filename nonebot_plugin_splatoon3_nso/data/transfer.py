@@ -1,7 +1,7 @@
 import shutil
 from typing import Type
 
-from sqlalchemy import Column, String, create_engine, Integer, Boolean, Text, DateTime, func
+from sqlalchemy import Column, String, create_engine, Integer, Boolean, Text, DateTime, func, and_
 from sqlalchemy.sql import text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
@@ -79,7 +79,8 @@ def transfer_user_db():
     old_session = DBSession_Old_User()
     # 读取全部session_token不为空的旧用户
     list_users: list[Type[oldUserTable]] = old_session.query(oldUserTable).filter(
-        oldUserTable.session_token.isnot(None)).all()
+        and_(oldUserTable.session_token.isnot(None), oldUserTable.session_token != "")
+        ).all()
     _pool = 100
     new_list_u: list = []
     for i in range(0, len(list_users), _pool):

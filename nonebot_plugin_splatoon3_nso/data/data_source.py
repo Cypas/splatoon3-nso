@@ -152,6 +152,12 @@ def model_clean_db_cache():
     """整理数据库内存碎片"""
     session = DBSession()
     session.execute(text("VACUUM"))
+    # 修复日报里面错误的数据
+    sql = f"""UPDATE report
+SET create_time = datetime(create_time, '+1 hour')
+WHERE strftime('%H', create_time) = '23'
+"""
+    session.execute(text(sql))
     session.commit()
     session.close()
 
@@ -194,7 +200,7 @@ def model_delete_user(platform, user_id):
 def model_get_all_user() -> list[UserTable]:
     """获取全部session_token不为空用户"""
     session = DBSession()
-    users = session.query(UserTable).filter(UserTable.session_token.isnot(None), UserTable.user_agreement == 1).all()
+    users = session.query(UserTable).filter(and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.user_agreement == 1)).all()
     session.close()
     return users
 
@@ -203,7 +209,7 @@ def model_get_all_stat_user() -> list[UserTable]:
     """获取全部session_token不为空,且stat key不为空用户"""
     session = DBSession()
     users = session.query(UserTable).filter(
-        and_(UserTable.session_token.isnot(None), UserTable.stat_key.isnot(None), UserTable.user_agreement == 1)).all()
+        and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.stat_key.isnot(None), UserTable.stat_key != "", UserTable.user_agreement == 1)).all()
     session.close()
     return users
 
@@ -216,7 +222,7 @@ def model_get_another_account_user(platform, user_id) -> list[Type[UserTable]]:
         and_(UserTable.platform == platform, UserTable.user_id == user_id)).subquery()
     # 查找sp_id但非本账号id
     users = session.query(UserTable).filter(
-        and_(UserTable.game_sp_id.isnot(None), UserTable.game_sp_id == subq.c.sub_game_sp_id,
+        and_(UserTable.game_sp_id.isnot(None), UserTable.game_sp_id != "", UserTable.game_sp_id == subq.c.sub_game_sp_id,
              UserTable.id != subq.c.sub_id)).all()
     session.close()
     return users
@@ -225,7 +231,7 @@ def model_get_another_account_user(platform, user_id) -> list[Type[UserTable]]:
 def model_get_newest_user() -> UserTable:
     """获取最新登录的一个用户，没那么容易出问题"""
     session = DBSession()
-    user = session.query(UserTable).order_by(UserTable.create_time.desc()).first()
+    user = session.query(UserTable).order_by(UserTable.update_time.desc()).first()
     session.close()
     return user
 
@@ -234,7 +240,7 @@ def model_get_login_user_by_sp_code(player_code):
     """获取登录用户信息"""
     session = DBSession()
     user = session.query(UserTable).filter(
-        and_(UserTable.game_sp_id == player_code, UserTable.game_sp_id.isnot(None))).first()
+        and_(UserTable.game_sp_id == player_code, UserTable.game_sp_id.isnot(None), UserTable.game_sp_id != "")).first()
     session.close()
     return user
 
