@@ -11,7 +11,7 @@ from ..utils.bot import *
 async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     """为/last查询拼装md结构"""
     template_id = "102083290_1705920931"
-    keyboard_template_id = "102083290_1720695986"
+    keyboard_template_id = "102083290_1767589971"
     image_width, image_height = image_size
     text_start = "发送/nso帮助查看详细用法"
     # text_end作为公告消息
