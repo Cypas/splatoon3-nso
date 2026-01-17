@@ -1,4 +1,5 @@
 from nonebot.adapters.qq.message import Attachment
+from nonebot.internal.rule import Rule
 from nonebot.message import event_preprocessor
 from nonebot.plugin import PluginMetadata
 from nonebot.rule import is_type, to_me
@@ -61,27 +62,30 @@ async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
     await matcher.finish(msg)
 
 
-@on_message(rule=is_type(QQ_C2CME), priority=50, block=True).handle()
+# rule函数
+async def qq_is_my_face_img(event: Event) -> bool:
+    plain_text = event.get_message().extract_plain_text()
+    if "faceType=6" in plain_text:
+        return True
+    else:
+        return False
+
+
+rule_is_type_qq_c2cme = Rule(qq_is_my_face_img)
+
+
+@on_message(rule=is_type(QQ_C2CME) & rule_is_type_qq_c2cme, priority=50, block=True).handle()
 async def c2c_face_image_command(bot: Bot, event: Event, matcher: Matcher):
     """为qq c2c 下表情导出"""
-
-    def qq_is_my_face_img(_event):
-        plain_text = _event.get_message().extract_plain_text()
-        if "faceType=6" in plain_text:
-            return True
-        else:
-            return False
-
     massage = event.get_message()
     # massage结构为 [Text(type='text', data={'text': '<faceType=6,faceId="0",ext="eyJ0ZXh0IjoiIn0=">'}),Attachment(type='image', data={'url': "https: //multimedia.nt.qq.com.cn"})]  list列表内填充了两个不同的obj类型
-    if qq_is_my_face_img(event):
-        logger.info(f'检测为qq表情，进行图片转发')
-        if len(massage) >= 2:
-            attachment: Attachment = massage[1]
-            url = attachment.data.get("url") or ""
-            if url:
-                await bot.send(event, message=await get_qq_face_md(user_id="", url=url))
-                matcher.stop_propagation()
+    logger.info(f'检测为qq表情，进行图片转发')
+    if len(massage) >= 2:
+        attachment: Attachment = massage[1]
+        url = attachment.data.get("url") or ""
+        if url:
+            await bot.send(event, message=await get_qq_face_md(user_id="", url=url))
+            matcher.stop_propagation()
 
 
 @on_command("help", aliases={"h", "帮助", "说明", "文档"}, priority=10).handle()
