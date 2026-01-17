@@ -6,6 +6,7 @@ from .qq_md import last_md, login_md, url_md, c2c_login_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
 from ..config import plugin_config
+from ..utils.cos_upload import cos_uploader, simple_upload_file
 
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
@@ -282,13 +283,19 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
 
 async def get_image_url(img: bytes) -> str:
     """通过kook获取图片url"""
+    url = ""
+    # 优先使用腾讯cos上传
+    if plugin_config.splatoon3_cos_config.enabled and cos_uploader.client is not None:
+        url = simple_upload_file(img)
+        if url:
+            return url
+
     kook_bot = None
     bots = nonebot.get_bots()
     for k, b in bots.items():
         if isinstance(b, Kook_Bot):
             kook_bot = b
             break
-    url = ""
     if kook_bot is not None:
         # 使用kook的接口传图片
         url = await kook_bot.upload_file(img)
