@@ -52,17 +52,30 @@ rate_limiter = None
 class GlobalRateLimiter:
     """全局限流器"""
     _instance = None
-    _lock = asyncio.Lock()
+    _lock = None  # 延迟初始化，避免事件循环绑定问题
     _semaphores: Dict[asyncio.AbstractEventLoop, asyncio.BoundedSemaphore] = WeakKeyDictionary()
 
     def __init__(self, rate: int = fapi_rate):
         self.rate = rate
-        self._loop_lock = asyncio.Lock()  # 单独保护_semaphores
+        self._loop_lock = None  # 延迟初始化，避免事件循环绑定问题
+
+    def _get_lock(self):
+        """获取或创建当前事件循环的锁"""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    def _get_loop_lock(self):
+        """获取或创建当前事件循环的锁"""
+        if self._loop_lock is None:
+            self._loop_lock = asyncio.Lock()
+        return self._loop_lock
 
     async def acquire(self):
         """获取令牌，支持等待"""
         loop = asyncio.get_running_loop()
-        async with self._loop_lock:
+        loop_lock = self._get_loop_lock()
+        async with loop_lock:
             if loop not in self._semaphores:
                 # 使用BoundedSemaphore防止release次数过多
                 self._semaphores[loop] = asyncio.BoundedSemaphore(self.rate)
@@ -79,7 +92,8 @@ class GlobalRateLimiter:
     async def release(self):
         """释放令牌"""
         loop = asyncio.get_running_loop()
-        async with self._loop_lock:
+        loop_lock = self._get_loop_lock()
+        async with loop_lock:
             if loop in self._semaphores:
                 try:
                     self._semaphores[loop].release()
@@ -90,7 +104,8 @@ class GlobalRateLimiter:
 
     async def get_serializable_state(self) -> Dict[str, Any]:
         """获取可序列化的状态信息"""
-        async with self._loop_lock:
+        loop_lock = self._get_loop_lock()
+        async with loop_lock:
             used = sum(self.rate - sem._value for sem in self._semaphores.values())
             return {
                 "max_rate": self.rate,
@@ -112,7 +127,9 @@ class GlobalRateLimiter:
     async def get_instance(cls, rate: int = fapi_rate) -> 'GlobalRateLimiter':
         """获取单例"""
         if cls._instance is None:
-            async with cls._lock:  # 双检锁保证线程安全
+            # 使用线程锁确保线程安全
+            import threading
+            with threading.Lock():
                 if cls._instance is None:
                     cls._instance = cls(rate)
         return cls._instance
