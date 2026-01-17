@@ -390,7 +390,8 @@ async def get_set_api_key(bot: Bot, event: Event):
 
     # await update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
-    threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
+    # 使用 asyncio.create_task 在当前事件循环中运行，避免事件循环绑定问题
+    asyncio.create_task(sync_stat_ink_func(db_user))
 
 
 @on_command("sync_now", aliases={'sync', 'syncnow', 'syncstat'}, priority=10, block=True).handle(
@@ -416,5 +417,6 @@ async def sync_now(bot: Bot, event: Event):
     db_user = model_get_or_set_user(platform, user_id)
     if db_user:
         await bot_send(bot, event, msg)
-        threading.Thread(target=asyncio.run, args=(sync_stat_ink_func(db_user),)).start()
+        # 使用 asyncio.create_task 在当前事件循环中运行，避免事件循环绑定问题
+        asyncio.create_task(sync_stat_ink_func(db_user))
     return

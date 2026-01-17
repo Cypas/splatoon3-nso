@@ -72,7 +72,8 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
         case "sync_stat_ink":
             await bot_send(bot, event, message="即将开始sync_stat_ink")
-            threading.Thread(target=asyncio.run, args=(sync_stat_ink(),)).start()
+            # 使用 asyncio.create_task 在当前事件循环中运行，避免事件循环绑定问题
+            asyncio.create_task(sync_stat_ink())
 
         case "clean_user_info_dict":
             await bot_send(bot, event, message="即将开始clean_global_user_info_dict")
