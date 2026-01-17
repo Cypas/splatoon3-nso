@@ -263,12 +263,12 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
                 await bot.send(event, Tg_File.photo(img))
         elif isinstance(bot, Kook_Bot):
             url = await bot.upload_file(img)
-            logger.info("url:" + url)
+            # logger.info("url:" + url)
             await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
             try:
                 url = await get_image_url(img)
-                logger.info("url:" + url)
+                # logger.info("url:" + url)
                 if url:
                     await bot.send(event, message=QQ_MsgSeg.image(url))
             except QQ_ActionFailed as e:
