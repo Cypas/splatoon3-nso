@@ -114,9 +114,9 @@ _✨ splatoon3 nso查询插件 ✨_
 |        splatoon3_notify_kk_bot_id        | 否  | str  |                                                    ""                                                    |                日志消息将由该bot发送至kook频道，不填就不会发送                |
 |     splatoon3_kk_channel_msg_chat_id     | 否  | str  |                                                    ""                                                    |                      msg消息的kook通知频道                       |
 |     splatoon3_kk_channel_job_chat_id     | 否  | str  |                                                    ""                                                    |                      job消息的kook通知频道                       |
-|            splatoon3_redis_ip            | 否  | str  |                                                    ""                                                    |                redis用于缓存用户token数据，redis ip                |
-|           splatoon3_redis_port           | 否  | str  |                                                    ""                                                    |                         redis 端口                          |
-|           splatoon3_redis_psw            | 否  | str  |                                                    ""                                                    |                         redis 密码                          |
+|            splatoon3_redis_ip            | 是  | str  |                                                    ""                                                    |                redis用于缓存用户token数据，redis ip                |
+|           splatoon3_redis_port           | 是  | str  |                                                    ""                                                    |                         redis 端口                          |
+|           splatoon3_redis_psw            | 是  | str  |                                                    ""                                                    |                         redis 密码                          |
 
 <details>
 <summary>示例配置</summary>
