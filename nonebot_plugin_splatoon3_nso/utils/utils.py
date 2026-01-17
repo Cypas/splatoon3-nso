@@ -1,5 +1,8 @@
+import io
 import os
 import random
+
+from PIL import Image
 
 BOT_VERSION = "3.1.0"
 DIR_RESOURCE = f"{os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))}/resource"
@@ -24,12 +27,20 @@ def get_msg_id(platform, user_id):
     msg_id = f"{platform}-{user_id}"
     return msg_id
 
+
 def trigger_with_probability():
     """
     该函数有2/100的概率返回True（触发）
     """
     return random.random() < 0.02
 
+
+def get_image_size(img_data):
+    # 通过pillow库获取图片宽高数据
+    image = Image.open(io.BytesIO(img_data))
+    width, height = image.size
+    image.close()
+    return width, height
 
 
 MSG_HELP = f"""
