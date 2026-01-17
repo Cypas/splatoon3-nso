@@ -72,10 +72,10 @@ async def c2c_face_image_command(bot: Bot, event: Event, matcher: Matcher):
         else:
             return False
 
-    logger.info(f'检测为qq表情，进行图片转发')
     massage = event.get_message()
     # massage结构为 [Text(type='text', data={'text': '<faceType=6,faceId="0",ext="eyJ0ZXh0IjoiIn0=">'}),Attachment(type='image', data={'url': "https: //multimedia.nt.qq.com.cn"})]  list列表内填充了两个不同的obj类型
     if qq_is_my_face_img(event):
+        logger.info(f'检测为qq表情，进行图片转发')
         if len(massage) >= 2:
             attachment: Attachment = massage[1]
             url = attachment.data.get("url") or ""
