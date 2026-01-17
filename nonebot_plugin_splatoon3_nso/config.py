@@ -54,6 +54,17 @@ class Config(BaseModel):
     # 兜底回复kook服务器黑名单列表   如["4498783094960820"]
     splatoon3_unknown_command_fallback_reply_kook_black_list: list = []
 
+    splatoon3_cos_config:dict = {
+        'enabled': True,  # 是否启用COS上传功能
+        'secret_id': "AKID开头的ID",  # 腾讯云API密钥ID
+        'secret_key': "密钥",  # 腾讯云API密钥Key
+        'region': "ap-guangzhou",  # 存储桶区域
+        'bucket_name': "",  # 存储桶名称
+        'domain': None,  # 自定义域名(可选)
+        'upload_path_prefix': "meme/",  # 默认上传路径前缀
+        'max_file_size': 30 * 1024 * 1024,  # 最大文件大小30MB
+    }
+
 
 driver = get_driver()
 global_config = driver.config
