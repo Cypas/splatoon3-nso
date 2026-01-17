@@ -6,7 +6,8 @@ import random
 from .send_msg import bot_send_login_md
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, dict_clear_one_user_info_dict
-from ..utils import DIR_RESOURCE
+from ..data.utils import get_or_set_plugin_data
+from ..utils import DIR_RESOURCE, AsHttpReq
 from ..utils.bot import *
 
 # 图标文件夹
@@ -199,7 +200,11 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
     user_id = event.get_user_id()
     user_info = dict_get_or_set_user_info(platform, user_id)
     if plugin_config.splatoon3_maintenance_mode:
+        # 尝试获取公告信息
+        notice = await get_or_set_plugin_data("splatoon3_bot_notice")
         msg = "nso查询暂时维护中，目前无法提供服务，或者可以使用splatoon3 bot"
+        if notice:
+            msg += f"\n公告消息:" + str(notice)
         await matcher.finish(msg)
 
     if not user_info or not user_info.session_token:
@@ -295,12 +300,6 @@ async def get_event_info(bot, event):
             data.update({
                 'user_name': 'QQ私信',
             })
-        # if 'group' in event.get_event_name():
-        # qq 都在群里使用
-        # data.update({
-        #     'group_id': _event.get('guild_id') or _event.get('group_openid') or '',
-        #     'group_name': _event.get('guild_id') or _event.get('group_openid') or '',
-        # })
     elif isinstance(bot, V11_Bot):
         data.update({
             'user_name': _event.get('sender', {}).get('nickname', ''),
@@ -320,6 +319,27 @@ async def get_event_info(bot, event):
         })
 
     return data
+
+
+async def get_qq_user_name(bot: QQ_Bot, user_id):
+    """取qq渠道用户的名字"""
+    api = "https://i.elaina.vin/api/bot/xx.php"
+    params = {
+        "openid": user_id,
+        "appid": bot.self_id
+    }
+    try:
+        res = await AsHttpReq.get(api, with_proxy=False, params=params)
+        data = res.json()
+        user_name = data.get("名字","")
+        return user_name
+    except Exception as e:
+        if res and res.text:
+            logger.warning(f"QQ get username error:{e} res:{res.text}")
+        else:
+            logger.warning(f"QQ get username error:{e}")
+        return ""
+
 
 # event结构解析参考代码
 # async def log_cmd_to_db(bot, event, get_map=False):

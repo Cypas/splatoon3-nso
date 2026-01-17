@@ -3,7 +3,8 @@ from datetime import datetime as dt, timedelta
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
 from .send_msg import bot_send, bot_send_last_md
-from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time, get_event_info
+from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time, get_event_info, \
+    get_qq_user_name
 from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info
 from ..data.utils import get_or_set_plugin_data
@@ -108,27 +109,19 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     user_name = event_info.get('user_name', "")
     # 更新缓存
     if user_name:
-        user = dict_get_or_set_user_info(platform, user_id, user_name=user_name)
+        splatoon.set_user_info(user_name=user_name)
+
+    # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
+    if isinstance(splatoon.bot, QQ_Bot) and (splatoon.user_name in ["QQ群", "QQ私信"] or splatoon.user_id == splatoon.user_name):
+        user_name = await get_qq_user_name(splatoon.bot, splatoon.user_id)
+        # 更新缓存
+        if user_name:
+            splatoon.set_user_info(user_name=user_name)
 
     if get_coop:
         get_battle = False
 
     if not get_coop:
-        # idx为0情况下直接获取最新对战id
-        # if idx == 0:
-        # # 获取最新一场对战的id
-        # res = await splatoon.get_last_one_battle()
-        # if not res:
-        #     # 再次尝试一次
-        #     res = await splatoon.get_last_one_battle()
-        #     if not res:
-        #         return f'`bot网络错误，请稍后再试.`', False
-        # b_info = res['data']['vsResult']['historyGroups']['nodes'][0]['historyDetails']['nodes'][0]
-        # # 这个b_info实际上不完整，可用信息只有battle_id和mode，但响应速度整体都低于查询最近对战信息
-        # battle_id = b_info['id']
-        # battle_t = get_battle_time_or_coop_time(battle_id)
-        # else:
-
         # 获取最近全部对战
         try:
             res = await splatoon.get_recent_battles()
@@ -335,6 +328,13 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             # 查询全部boss击杀数量
             coop_statistics_res = await splatoon.get_coop_statistics()
             coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
+
+            # 取用户本人game_sp_id
+            if not splatoon.user_db_info.game_sp_id or not splatoon.user_db_info.game_name:
+                p = coop_detail['data']['coopHistoryDetail']['myResult']
+                game_sp_id, game_name = get_game_sp_id_and_name(p['player'])
+                splatoon.set_user_info(game_sp_id=game_sp_id, game_name=game_name)
+
             msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask, splatoon=splatoon,
                                         push_statistics=push_statistics)
 

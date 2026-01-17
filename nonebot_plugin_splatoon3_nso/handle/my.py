@@ -318,6 +318,7 @@ async def get_ns_friends_md(splatoon: Splatoon):
         if (f.get('presence') or {}).get('state') == 'ONLINE':
             _game_name = f['presence']['game'].get('name') or ''
             _game_name = _game_name.replace('The Legend of Zelda: Tears of the Kingdom', 'TOTK')
+            _game_name = _game_name.replace("Nintendo Switch 2 Edition","ns2增强版")
             msg += f"|{_game_name}"
             _dict[_game_name] += 1
             if f['presence']['game'].get('totalPlayTime'):

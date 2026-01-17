@@ -302,3 +302,29 @@ def url_md(title, content, url_title, url) -> QQ_Msg:
     })
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
     return qq_msg
+
+
+async def get_qq_face_md(user_id: str, url: str) -> QQ_Msg:
+    """转发表情用md结构"""
+    template_id = "102083290_1705920931"
+
+    image_width, image_height = (500, 500)
+
+    text_start = "图片尺寸以下载为准，此处预览不准"
+
+    params = []
+    if user_id:
+        params.append({"key": "at_user_id", "values": [f"<@{user_id}>"]})
+    params.extend(
+        [
+            {"key": "text_start", "values": [f"{text_start}"]},
+            {"key": "img_size", "values": [f"img#{image_width}px #{image_height}px"]},
+            {"key": "img_url", "values": [f"{url}"]},
+        ]
+    )
+    md = QQ_MsgMarkdown.model_validate(
+        {"custom_template_id": f"{template_id}", "params": params}
+    )
+
+    qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md)])
+    return qq_msg

@@ -43,60 +43,109 @@ APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
 
-# f api请求容量
-fapi_rate = 2
+# f api请求容量（每分钟12次）
+fapi_rate = 12
+fapi_time_window = 60  # 时间窗口（秒）
 # 限流器
 rate_limiter = None
 
 
 class GlobalRateLimiter:
-    """全局限流器"""
+    """全局限流器 - 基于令牌桶算法实现"""
     _instance = None
-    _lock = asyncio.Lock()
-    _semaphores: Dict[asyncio.AbstractEventLoop, asyncio.BoundedSemaphore] = WeakKeyDictionary()
+    _lock = None  # 延迟初始化，避免事件循环绑定问题
+    # 存储每个事件循环的令牌桶状态
+    _token_buckets: Dict[asyncio.AbstractEventLoop, Dict[str, Any]] = WeakKeyDictionary()
 
-    def __init__(self, rate: int = fapi_rate):
-        self.rate = rate
-        self._loop_lock = asyncio.Lock()  # 单独保护_semaphores
+    def __init__(self, rate: int = fapi_rate, time_window: int = fapi_time_window):
+        self.rate = rate  # 每个时间窗口的请求数
+        self.time_window = time_window  # 时间窗口（秒）
+        self._loop_lock = None  # 延迟初始化，避免事件循环绑定问题
+
+    def _get_lock(self):
+        """获取或创建当前事件循环的锁"""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    def _get_loop_lock(self):
+        """获取或创建当前事件循环的锁"""
+        if self._loop_lock is None:
+            self._loop_lock = asyncio.Lock()
+        return self._loop_lock
+
+    async def _get_or_create_bucket(self, loop):
+        """获取或创建当前事件循环的令牌桶"""
+        loop_lock = self._get_loop_lock()
+        async with loop_lock:
+            if loop not in self._token_buckets:
+                self._token_buckets[loop] = {
+                    "tokens": self.rate,  # 初始令牌数
+                    "last_refill": loop.time(),  # 上次补充令牌的时间
+                    "waiters": []  # 等待获取令牌的任务
+                }
+            return self._token_buckets[loop]
+
+    async def _refill_tokens(self, bucket, loop):
+        """补充令牌"""
+        now = loop.time()
+        elapsed = now - bucket["last_refill"]
+
+        # 计算应该补充的令牌数
+        tokens_to_add = int(elapsed * self.rate / self.time_window)
+
+        if tokens_to_add > 0:
+            bucket["tokens"] = min(self.rate, bucket["tokens"] + tokens_to_add)
+            bucket["last_refill"] = now
 
     async def acquire(self):
         """获取令牌，支持等待"""
         loop = asyncio.get_running_loop()
-        async with self._loop_lock:
-            if loop not in self._semaphores:
-                # 使用BoundedSemaphore防止release次数过多
-                self._semaphores[loop] = asyncio.BoundedSemaphore(self.rate)
-        # nb_logger.info(f"get success,dict:{json.dumps(self.get_serializable_state())}")
+        bucket = await self._get_or_create_bucket(loop)
 
-        try:
-            await self._semaphores[loop].acquire()
+        # 补充令牌
+        await self._refill_tokens(bucket, loop)
+
+        # 如果有可用令牌，直接获取
+        if bucket["tokens"] > 0:
+            bucket["tokens"] -= 1
             return True
-        except asyncio.CancelledError:
-            # 如果任务被取消，确保释放令牌
-            self._semaphores[loop].release()
-            raise
+
+        # 没有可用令牌，计算需要等待的时间
+        now = loop.time()
+        time_to_wait = self.time_window - (now - bucket["last_refill"])
+
+        # 等待直到有令牌可用
+        await asyncio.sleep(time_to_wait)
+
+        # 等待后重新尝试获取令牌
+        await self._refill_tokens(bucket, loop)
+        bucket["tokens"] -= 1
+        return True
 
     async def release(self):
-        """释放令牌"""
-        loop = asyncio.get_running_loop()
-        async with self._loop_lock:
-            if loop in self._semaphores:
-                try:
-                    self._semaphores[loop].release()
-                except ValueError:
-                    # 防止release次数超过acquire次数
-                    pass
-        # nb_logger.info(f"exit success,dict:{json.dumps(self.get_serializable_state())}")
+        """释放令牌（令牌桶算法不需要显式释放）"""
+        # 令牌桶算法不需要显式释放令牌
+        pass
 
     async def get_serializable_state(self) -> Dict[str, Any]:
         """获取可序列化的状态信息"""
-        async with self._loop_lock:
-            used = sum(self.rate - sem._value for sem in self._semaphores.values())
+        loop = asyncio.get_running_loop()
+        loop_lock = self._get_loop_lock()
+        async with loop_lock:
+            if loop in self._token_buckets:
+                bucket = self._token_buckets[loop]
+                return {
+                    "max_rate": self.rate,
+                    "time_window": self.time_window,
+                    "available_tokens": bucket["tokens"],
+                    "last_refill": bucket["last_refill"]
+                }
             return {
                 "max_rate": self.rate,
-                "used_permits": used,
-                "available": max(0, self.rate - used),
-                "active_loops": len(self._semaphores)
+                "time_window": self.time_window,
+                "available_tokens": self.rate,
+                "last_refill": 0
             }
 
     async def __aenter__(self):
@@ -109,12 +158,14 @@ class GlobalRateLimiter:
         await self.release()
 
     @classmethod
-    async def get_instance(cls, rate: int = fapi_rate) -> 'GlobalRateLimiter':
+    async def get_instance(cls, rate: int = fapi_rate, time_window: int = fapi_time_window) -> 'GlobalRateLimiter':
         """获取单例"""
         if cls._instance is None:
-            async with cls._lock:  # 双检锁保证线程安全
+            # 使用线程锁确保线程安全
+            import threading
+            with threading.Lock():
                 if cls._instance is None:
-                    cls._instance = cls(rate)
+                    cls._instance = cls(rate, time_window)
         return cls._instance
 
 

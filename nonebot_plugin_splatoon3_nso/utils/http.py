@@ -360,8 +360,15 @@ class AsHttpReq:
     """
     # 存储分组Client：Key = "域名_代理标识"（如 "google.com_True"），Value = AsyncClient实例
     _clients: Dict[str, httpx.AsyncClient] = {}
-    # 异步锁：避免并发创建Client
-    _client_lock = asyncio.Lock()
+    # 异步锁：避免并发创建Client（延迟初始化，避免事件循环绑定问题）
+    _client_lock = None
+
+    @classmethod
+    def _get_client_lock(cls):
+        """获取或创建当前事件循环的锁"""
+        if cls._client_lock is None:
+            cls._client_lock = asyncio.Lock()
+        return cls._client_lock
 
     @classmethod
     async def _get_client(cls, url: str, with_proxy: bool = False) -> httpx.AsyncClient:
@@ -382,7 +389,8 @@ class AsHttpReq:
         # 3. 生成分组Key（域名 + 代理标识）
         client_key = f"{domain}_{use_proxy}"
 
-        async with cls._client_lock:
+        client_lock = cls._get_client_lock()
+        async with client_lock:
             # 4. 无实例/实例已关闭 → 创建新Client
             if client_key not in cls._clients or cls._clients[client_key].is_closed:
                 # 配置代理（仅use_proxy=True时生效）
@@ -401,7 +409,8 @@ class AsHttpReq:
     @classmethod
     async def _close_all_clients(cls):
         """关闭所有分组Client（应用退出时调用，避免资源泄漏）"""
-        async with cls._client_lock:
+        client_lock = cls._get_client_lock()
+        async with client_lock:
             for client_key, client in cls._clients.items():
                 if not client.is_closed:
                     await client.aclose()

@@ -200,7 +200,7 @@ def model_delete_user(platform, user_id):
 def model_get_all_user() -> list[UserTable]:
     """获取全部session_token不为空用户"""
     session = DBSession()
-    users = session.query(UserTable).filter(and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.user_agreement == 1)).all()
+    users = session.query(UserTable).filter(and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.user_agreement == 1)).order_by(UserTable.platform.asc()).all()
     session.close()
     return users
 
@@ -209,7 +209,7 @@ def model_get_all_stat_user() -> list[UserTable]:
     """获取全部session_token不为空,且stat key不为空用户"""
     session = DBSession()
     users = session.query(UserTable).filter(
-        and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.stat_key.isnot(None), UserTable.stat_key != "", UserTable.user_agreement == 1)).all()
+        and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.stat_key.isnot(None), UserTable.stat_key != "", UserTable.user_agreement == 1)).order_by(UserTable.platform.asc()).all()
     session.close()
     return users
 
