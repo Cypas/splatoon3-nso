@@ -1,3 +1,4 @@
+from nonebot.adapters.qq.message import Attachment
 from nonebot.message import event_preprocessor
 from nonebot.plugin import PluginMetadata
 from nonebot.rule import is_type, to_me
@@ -7,6 +8,7 @@ from .data.db_sqlite import init_db
 from .data.transfer import transfer_user_db
 from .handle import *
 from .handle.cron import remove_all_scheduler, scheduler_controller
+from .handle.qq_md import get_qq_face_md
 from .handle.send_msg import bot_send, notify_to_channel
 from .s3s.splatnet_image import global_browser
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
@@ -57,6 +59,29 @@ async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
     logger.info(f'unknown_command from {event.get_event_name()}')
     msg = "无效指令，请发送/help 查看帮助\n或在消息框输入/后，手动选择bot命令"
     await matcher.finish(msg)
+
+
+@on_message(rule=is_type(QQ_C2CME), priority=50, block=True).handle()
+async def c2c_face_image_command(bot: Bot, event: Event, matcher: Matcher):
+    """为qq c2c 下表情导出"""
+
+    def qq_is_my_face_img(_event):
+        plain_text = _event.get_message().extract_plain_text()
+        if "faceType=6" in plain_text:
+            return True
+        else:
+            return False
+
+    logger.info(f'检测为qq表情，进行图片转发')
+    massage = event.get_message()
+    # massage结构为 [Text(type='text', data={'text': '<faceType=6,faceId="0",ext="eyJ0ZXh0IjoiIn0=">'}),Attachment(type='image', data={'url': "https: //multimedia.nt.qq.com.cn"})]  list列表内填充了两个不同的obj类型
+    if qq_is_my_face_img(event):
+        if len(massage) >= 2:
+            attachment: Attachment = massage[1]
+            url = attachment.data.get("url") or ""
+            if url:
+                await bot.send(event, message=await get_qq_face_md(user_id="", url=url))
+                matcher.stop_propagation()
 
 
 @on_command("help", aliases={"h", "帮助", "说明", "文档"}, priority=10).handle()
