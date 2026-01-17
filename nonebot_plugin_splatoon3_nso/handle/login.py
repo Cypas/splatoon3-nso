@@ -6,7 +6,7 @@ import time
 from datetime import datetime as dt
 
 from .cron.stat_ink import sync_stat_ink_func
-from .utils import _check_session_handler, get_event_info, get_game_sp_id
+from .utils import _check_session_handler, get_event_info, get_game_sp_id, get_qq_user_name
 from .send_msg import bot_send, notify_to_channel, bot_send_login_md, bot_send_login_url_md
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict, \
@@ -313,12 +313,31 @@ async def set_login_code(bot: Bot, event: Event):
     #                                  game_name=old_user.game_name, game_sp_id=old_user.game_sp_id,
     #                                  stat_key=old_user.stat_key, user_agreement=old_user.user_agreement)
 
-    user = dict_get_or_set_user_info(platform, user_id, session_token=lc_info.get("session_token"),
-                                     g_token=lc_info.get("g_token"),
-                                     bullet_token=lc_info.get("bullet_token"), access_token=lc_info.get("access_token"),
-                                     game_name=lc_info.get("game_name"), game_sp_id=lc_info.get("game_sp_id"),
-                                     stat_key=lc_info.get("stat_key"), user_agreement=1,
-                                     )
+    data = {"platform": platform,
+            "user_id": user_id,
+            "user_name": event.get_user_name(),
+            "session_token": lc_info.get("session_token"),
+            "g_token": lc_info.get("g_token"),
+            "bullet_token": lc_info.get("bullet_token"),
+            "access_token": lc_info.get("access_token"),
+            "game_name": lc_info.get("game_name"),
+            "game_sp_id": lc_info.get("game_sp_id"),
+            "stat_key": lc_info.get("stat_key"),
+            "user_agreement": 1,
+            }
+
+    # 更新平台用户名
+    event_info = await get_event_info(bot, event)
+    new_user_name = event_info.get('user_name', "")
+
+    # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
+    if isinstance(bot, QQ_Bot):
+        user_name = await get_qq_user_name(bot, user_id)
+        if user_name:
+            new_user_name = user_name
+
+    data["user_name"] = new_user_name
+    user = dict_get_or_set_user_info(**data)
 
     # 清空 code
     # global_login_code_dict.pop(login_code)
@@ -337,7 +356,7 @@ async def set_login_code(bot: Bot, event: Event):
 
     logger.info(f'set_login success: {msg_id},old user is {old_msg_id}')
 
-    await notify_to_channel(f"绑定账号成功: {msg_id}, 旧用户为{old_msg_id},{old_user_name}")
+    await notify_to_channel(f"绑定账号成功: {msg_id},{new_user_name}, 旧用户为{old_msg_id},{old_user_name}")
 
 
 matcher_set_api_key = on_command("set_stat_key", aliases={"set_api_key"}, priority=10, block=True)
