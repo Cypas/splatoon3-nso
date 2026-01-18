@@ -315,7 +315,6 @@ async def set_login_code(bot: Bot, event: Event):
 
     data = {"platform": platform,
             "user_id": user_id,
-            "user_name": event.get_user_name(),
             "session_token": lc_info.get("session_token"),
             "g_token": lc_info.get("g_token"),
             "bullet_token": lc_info.get("bullet_token"),
@@ -354,7 +353,7 @@ async def set_login_code(bot: Bot, event: Event):
 
     await bot_send(bot, event, msg)
 
-    logger.info(f'set_login success: {msg_id},old user is {old_msg_id}')
+    logger.info(f'set_login success: {msg_id},{new_user_name},old user is {old_msg_id},{old_user_name}')
 
     await notify_to_channel(f"绑定账号成功: {msg_id},{new_user_name}, 旧用户为{old_msg_id},{old_user_name}")
 

@@ -24,7 +24,6 @@ playwright = "^1.40.0"
 redis = "^5.2.0"
 Pillow = "^11.3.0"
 pympler = "^1.1"
-nonebot-plugin-shorturl = "^0.4.0"
 cos_python_sdk_v5 = "^1.9.30"
 
 
