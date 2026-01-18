@@ -6,7 +6,7 @@ from .qq_md import last_md, login_md, url_md, c2c_login_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
 from ..config import plugin_config
-from ..utils.cos_upload import cos_uploader, simple_upload_file
+from ..utils.cos_upload import cos_uploader, cos_upload_file
 
 require("nonebot_plugin_htmlrender")
 from nonebot_plugin_htmlrender import md_to_pic
@@ -156,14 +156,13 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
             md_type = QQ_md.get("md_type")
             user_id = QQ_md.get("user_id")
             if md_type:
-                width, height = get_image_size(img_data)
                 # 获取图片url
-                url = await get_image_url(img_data)
+                url, image_size = await get_image_url_and_size(img_data)
                 # 根据不同type渲染不同md
                 qq_md_msg = ""
                 match md_type:
                     case "last":
-                        qq_md_msg = await last_md(user_id, image_size=(width, height), url=url)
+                        qq_md_msg = await last_md(user_id, image_size=image_size, url=url)
                 try:
                     await bot.send(event, qq_md_msg)
                 except QQ_ActionFailed as e:
@@ -265,7 +264,7 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
             await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
             try:
-                url = await get_image_url(img)
+                url, image_size = await get_image_url_and_size(img)
                 # logger.info("url:" + url)
                 if url:
                     await bot.send(event, message=QQ_MsgSeg.image(url))
@@ -281,15 +280,19 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
         await send_msg(bot, event, ad_msg, is_ad=True)
 
 
-async def get_image_url(img: bytes) -> str:
-    """通过kook获取图片url"""
+async def get_image_url_and_size(img_data: bytes) -> tuple[str, tuple[int, int]]:
+    """通过cos图床或kook图床获取图片url"""
     url = ""
+    image_size = (300, 300)
     # 优先使用腾讯cos上传
     if plugin_config.splatoon3_cos_config.enabled and cos_uploader.client is not None:
-        url = simple_upload_file(img)
+        url, image_size = cos_upload_file(img_data)
         if url:
-            return url
+            return url, image_size
+        else:
+            logger.warning("腾讯cos上传失败，使用kook上传")
 
+    # 使用kook的接口传图片
     kook_bot = None
     bots = nonebot.get_bots()
     for k, b in bots.items():
@@ -298,12 +301,14 @@ async def get_image_url(img: bytes) -> str:
             break
     if kook_bot is not None:
         # 使用kook的接口传图片
-        url = await kook_bot.upload_file(img)
-        channel_id = plugin_config.splatoon3_kk_channel_waste_chat_id
-        await kook_bot.send_channel_msg(
-            channel_id=channel_id, message=Kook_MsgSeg.image(url)
-        )
-    return url
+        url = await kook_bot.upload_file(img_data)
+        image_size = get_image_size(img_data)
+        if url:
+            channel_id = plugin_config.splatoon3_kk_channel_waste_chat_id
+            await kook_bot.send_channel_msg(
+                channel_id=channel_id, message=Kook_MsgSeg.image(url)
+            )
+    return url, image_size
 
 
 async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):
