@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from nonebot.adapters.qq.message import Attachment
 from nonebot.internal.rule import Rule
 from nonebot.message import event_preprocessor
@@ -84,7 +86,13 @@ async def c2c_face_image_command(bot: Bot, event: Event, matcher: Matcher):
         attachment: Attachment = massage[1]
         url = attachment.data.get("url") or ""
         if url:
-            await bot.send(event, message=await get_qq_face_md(user_id="", url=url))
+            encoded_url = quote(url, safe=':/?&=')
+            try:
+                await bot.send(event, message=await get_qq_face_md(user_id="", url=encoded_url))
+            except QQ_ActionFailed as e:
+                logger.error(f"qq转发表情失败,res:{e.message},url:{encoded_url}")
+            except Exception as e:
+                logger.error(f"qq转发表情失败:url:{encoded_url},error:{e}")
             matcher.stop_propagation()
 
 
