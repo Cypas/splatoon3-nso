@@ -330,13 +330,3 @@ def close_push(platform, user_id):
         push_time_minute: float = float(push_cnt * push_interval) / 60
     return bot, event, msg, push_time_minute
 
-
-matcher_start_push2 = on_command("开始复读", priority=10, block=True)
-
-
-@matcher_start_push2.handle(parameterless=[Depends(_check_session_handler)])
-async def start_push2(bot: Bot, event: Event, args: Message = CommandArg()):
-    """开始推送"""
-    for i in range(1, 100):
-        await bot_send(bot, event, f"现在是第{i}次消息")
-        await asyncio.sleep(60)
