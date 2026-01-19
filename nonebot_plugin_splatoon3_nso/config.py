@@ -67,6 +67,17 @@ class Config(BaseModel):
     # 腾讯云cos配置
     splatoon3_cos_config: CosConfig = Field(default_factory=CosConfig)
 
+    splatoon3_cos_config:dict = {
+        'enabled': True,  # 是否启用COS上传功能
+        'secret_id': "AKID开头的ID",  # 腾讯云API密钥ID
+        'secret_key': "密钥",  # 腾讯云API密钥Key
+        'region': "ap-guangzhou",  # 存储桶区域
+        'bucket_name': "",  # 存储桶名称
+        'domain': None,  # 自定义域名(可选)
+        'upload_path_prefix': "meme/",  # 默认上传路径前缀
+        'max_file_size': 30 * 1024 * 1024,  # 最大文件大小30MB
+    }
+
 
 driver = get_driver()
 global_config = driver.config

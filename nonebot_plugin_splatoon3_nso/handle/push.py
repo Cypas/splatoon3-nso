@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime as dt, timedelta
 from threading import Lock
 from .b_or_c_tools import PushStatistics
@@ -17,6 +18,7 @@ matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, p
 # push任务状态
 is_running_dict = {}
 is_running_lock = Lock()  # 全局锁
+
 
 @matcher_start_push.handle(parameterless=[Depends(_check_session_handler)])
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
@@ -327,3 +329,14 @@ def close_push(platform, user_id):
         push_cnt = job_data.get('this_push_cnt', 0)
         push_time_minute: float = float(push_cnt * push_interval) / 60
     return bot, event, msg, push_time_minute
+
+
+matcher_start_push2 = on_command("开始复读", priority=10, block=True)
+
+
+@matcher_start_push2.handle(parameterless=[Depends(_check_session_handler)])
+async def start_push2(bot: Bot, event: Event, args: Message = CommandArg()):
+    """开始推送"""
+    for i in range(1, 100):
+        await bot_send(bot, event, f"现在是第{i}次消息")
+        await asyncio.sleep(60)
