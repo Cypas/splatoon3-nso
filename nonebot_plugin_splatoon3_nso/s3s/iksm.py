@@ -43,8 +43,8 @@ APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
 
-# f api请求容量（每分钟12次）
-fapi_rate = 12
+# f api请求容量（每分钟10次）
+fapi_rate = 10
 fapi_time_window = 60  # 时间窗口（秒）
 # 限流器
 rate_limiter = None
