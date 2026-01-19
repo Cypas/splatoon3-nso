@@ -1,5 +1,16 @@
 from nonebot import get_driver, get_plugin_config
-from pydantic import BaseModel
+from pydantic import BaseModel, validator, Field, Extra
+
+
+class CosConfig(BaseModel, extra=Extra.ignore):
+    enabled: bool = False
+    secret_id: str = "AKID开头的ID"  # 腾讯云API密钥ID
+    secret_key: str = "密钥"  # 腾讯云API密钥Key
+    region: str = "ap-guangzhou"  # 存储桶区域
+    bucket_name: str = ""  # 存储桶名称
+    domain: str = ""  # 自定义域名(可选)
+    upload_path_prefix: str = "meme/"  # 默认上传路径前缀
+    max_file_size: int = 30 * 1024 * 1024  # 最大文件大小30MB
 
 
 # 其他地方出现的类似 from .. import config，均是从 __init__.py 导入的 Config 实例
@@ -37,7 +48,7 @@ class Config(BaseModel):
     # redis_ip
     splatoon3_redis_ip: str = ""
     # redis_port
-    splatoon3_redis_port: str|int = ""
+    splatoon3_redis_port: str | int = ""
     # redis_psw
     splatoon3_redis_psw: str = ""
 
@@ -53,6 +64,8 @@ class Config(BaseModel):
     splatoon3_unknown_command_fallback_reply: bool = True
     # 兜底回复kook服务器黑名单列表   如["4498783094960820"]
     splatoon3_unknown_command_fallback_reply_kook_black_list: list = []
+    # 腾讯云cos配置
+    splatoon3_cos_config: CosConfig = Field(default_factory=CosConfig)
 
     splatoon3_cos_config:dict = {
         'enabled': True,  # 是否启用COS上传功能

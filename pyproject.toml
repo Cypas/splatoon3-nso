@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nonebot-plugin-splatoon3-nso"
-version = "1.8.0"
+version = "1.9.1"
 description = "一个基于nonebot2框架的splatoon3游戏nso数据查询插件"
 authors = ["cypas <ayano05@outlook.com>"]
 readme = "README.md"
@@ -24,7 +24,6 @@ playwright = "^1.40.0"
 redis = "^5.2.0"
 Pillow = "^11.3.0"
 pympler = "^1.1"
-nonebot-plugin-shorturl = "^0.4.0"
 cos_python_sdk_v5 = "^1.9.30"
 
 
