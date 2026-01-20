@@ -36,6 +36,13 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         return
     # push计数+1
     user = dict_get_or_set_user_info(platform, user_id, push=1, push_cnt=user.push_cnt + 1)
+    # 测试是否可以访问
+    splatoon = Splatoon(bot, event, user)
+    # 测试访问并刷新
+    success = await splatoon.test_page()
+    if not success:
+        await bot_send(bot, event, "token刷新失败，可能是bot网络问题，请稍后再试")
+        return
 
     # 检查push的条件
     get_battle = False
