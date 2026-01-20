@@ -200,7 +200,9 @@ def model_delete_user(platform, user_id):
 def model_get_all_user() -> list[UserTable]:
     """获取全部session_token不为空用户"""
     session = DBSession()
-    users = session.query(UserTable).filter(and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.user_agreement == 1)).order_by(UserTable.platform.asc()).all()
+    users = session.query(UserTable).filter(and_(UserTable.session_token.isnot(None), UserTable.session_token != "",
+                                                 UserTable.user_agreement == 1)).order_by(UserTable.platform.asc(),
+                                                                                          UserTable.id.asc()).all()
     session.close()
     return users
 
@@ -209,7 +211,9 @@ def model_get_all_stat_user() -> list[UserTable]:
     """获取全部session_token不为空,且stat key不为空用户"""
     session = DBSession()
     users = session.query(UserTable).filter(
-        and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.stat_key.isnot(None), UserTable.stat_key != "", UserTable.user_agreement == 1)).order_by(UserTable.platform.asc()).all()
+        and_(UserTable.session_token.isnot(None), UserTable.session_token != "", UserTable.stat_key.isnot(None),
+             UserTable.stat_key != "", UserTable.user_agreement == 1)).order_by(UserTable.platform.asc(),
+                                                                                UserTable.id.asc()).all()
     session.close()
     return users
 
@@ -222,7 +226,8 @@ def model_get_another_account_user(platform, user_id) -> list[Type[UserTable]]:
         and_(UserTable.platform == platform, UserTable.user_id == user_id)).subquery()
     # 查找sp_id但非本账号id
     users = session.query(UserTable).filter(
-        and_(UserTable.game_sp_id.isnot(None), UserTable.game_sp_id != "", UserTable.game_sp_id == subq.c.sub_game_sp_id,
+        and_(UserTable.game_sp_id.isnot(None), UserTable.game_sp_id != "",
+             UserTable.game_sp_id == subq.c.sub_game_sp_id,
              UserTable.id != subq.c.sub_id)).all()
     session.close()
     return users
@@ -334,7 +339,7 @@ def model_get_today_report(user_id_sp):
     today_utc_start = utc_now.replace(hour=0, minute=0, second=0, microsecond=0)
     # 3. 计算时间边界：前一天22点（UTC+0）、今天2点（UTC+0）
     start_time = today_utc_start - datetime.timedelta(hours=2)  # 今天0点 - 2小时 = 前一天22点
-    end_time = today_utc_start + datetime.timedelta(hours=2)    # 今天0点 + 2小时 = 今天2点
+    end_time = today_utc_start + datetime.timedelta(hours=2)  # 今天0点 + 2小时 = 今天2点
 
     report = session.query(Report).filter(
         and_(Report.user_id_sp == user_id_sp,
@@ -357,24 +362,27 @@ def model_get_report(user_id_sp, create_time=""):
 
     if not create_time:
         report = session.query(Report).from_statement(text("""
-    SELECT *
-    FROM report WHERE (user_id_sp, last_play_time, create_time) IN
-    ( SELECT user_id_sp, last_play_time, MAX(create_time)
-      FROM report
-      GROUP BY user_id_sp, last_play_time)
-    and user_id_sp=:user_id_sp
-    order by create_time desc
-    limit 30""")
+                                                           SELECT *
+                                                           FROM report
+                                                           WHERE (user_id_sp, last_play_time, create_time) IN
+                                                                 (SELECT user_id_sp, last_play_time, MAX(create_time)
+                                                                  FROM report
+                                                                  GROUP BY user_id_sp, last_play_time)
+                                                             and user_id_sp = :user_id_sp
+                                                           order by create_time desc
+                                                           limit 30""")
                                                       ).params(user_id_sp=user_id_sp).all()
     else:
         report = session.query(Report).from_statement(text("""
-        SELECT *
-        FROM report WHERE (user_id_sp, last_play_time, create_time) IN
-        ( SELECT user_id_sp, last_play_time, MAX(create_time)
-          FROM report
-          GROUP BY user_id_sp, last_play_time)
-        and user_id_sp=:user_id_sp and create_time>=:create_time
-        order by create_time desc""")
+                                                           SELECT *
+                                                           FROM report
+                                                           WHERE (user_id_sp, last_play_time, create_time) IN
+                                                                 (SELECT user_id_sp, last_play_time, MAX(create_time)
+                                                                  FROM report
+                                                                  GROUP BY user_id_sp, last_play_time)
+                                                             and user_id_sp = :user_id_sp
+                                                             and create_time >= :create_time
+                                                           order by create_time desc""")
                                                       ).params(user_id_sp=user_id_sp, create_time=create_time).all()
     session.close()
     return report
@@ -428,6 +436,7 @@ def model_new_get_user_friend(nsa_id) -> UserFriendTable:
     ).order_by(UserFriendTable.create_time.desc()).first()
     session.close()
     return user
+
 
 def model_set_user_friend(data_lst):
     """设置好友数据"""
