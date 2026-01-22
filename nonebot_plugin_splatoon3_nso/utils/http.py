@@ -450,19 +450,19 @@ class AsHttpReq:
             try:
                 return await _do_request()
             except (ConnectError, ConnectTimeout, ReadTimeout) as e:
+                error_flag = {
+                    ConnectError: "NetConnectError",
+                    ConnectTimeout: "NetConnectTimeout",
+                    ReadTimeout: "NetReadTimeout"
+                }.get(type(e), "NetError")
                 # 最后一次重试失败 → 返回错误标识
                 if attempt == max_retries:
-                    error_flag = {
-                        ConnectError: "NetConnectError",
-                        ConnectTimeout: "NetConnectTimeout",
-                        ReadTimeout: "NetReadTimeout"
-                    }.get(type(e), "NetError")
                     logger.error(f"请求 {url} 失败（{error_flag}），重试上限: {str(e)}")
                     return error_flag
                 # 指数退避延迟后重试
                 delay = 1 * (2 ** attempt)
                 await asyncio.sleep(delay)
-                logger.info(f"请求 {url} 失败，{delay}s 后第 {attempt+1} 次重试: {str(e)}")
+                logger.info(f"请求 {url} 失败（{error_flag}），{delay}s 后第 {attempt+1} 次重试: {str(e)}")
             except Exception as e:
                 logger.error(f"请求 {url} 非预期异常: {str(e)}", exc_info=True)
                 raise e

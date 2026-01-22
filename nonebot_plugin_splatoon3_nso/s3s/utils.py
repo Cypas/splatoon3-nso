@@ -36,7 +36,7 @@ translate_rid = {
     'CoopHistoryQuery': 'e11a8cf2c3de7348495dea5cdcaa25e0c153541c4ed63f044b6c174bc5b703df',  # 鲑鱼跑
     'CoopHistoryDetailQuery': 'f2d55873a9281213ae27edc171e2b19131b3021a2ae263757543cdd3bf015cc8',
     # 通过打工id详查 参数2:"coopHistoryDetailId" 参数3:打工id
-    'MyOutfitCommonDataEquipmentsQuery': '45a4c343d973864f7bb9e9efac404182be1d48cf2181619505e9b7cd3b56a6e8',
+    'MyOutfitCommonDataEquipmentsQuery': 'a329d22727dbec795dcfa1fa93804756a62542dc0a96dfb94c0f710068a2eb38',
     # 主页 - 武器  获取全部武器数据
     'FriendsList': 'ea1297e9bb8e52404f52d89ac821e1d73b726ceef2fd9cc8d6b38ab253428fb3',  # 好友列表
     'HistorySummary': 'a654ecc80161a7ca5c38761c1d9e502d405eae764e2d343618b9c74b1dc0a80f',  # 主页 - 历史 -总览

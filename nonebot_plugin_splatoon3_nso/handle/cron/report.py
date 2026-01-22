@@ -19,7 +19,7 @@ from ...utils.bot import *
 
 
 async def create_set_report_tasks(is_corn_job=True):
-    """8点时请求并提前写好日报数据"""
+    """7点时请求并提前写好日报数据"""
     cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("set_report", "start")
@@ -38,9 +38,9 @@ async def create_set_report_tasks(is_corn_job=True):
                 }
 
     # 阶段1：认证刷新池（并发限制2）
-    phase1_semaphore = asyncio.Semaphore(4)
+    phase1_semaphore = asyncio.Semaphore(6)
     # 阶段2：报告生成池（并发限制4）
-    phase2_semaphore = asyncio.Semaphore(4)
+    phase2_semaphore = asyncio.Semaphore(6)
 
     # ================== 阶段1：认证刷新 ==================
     async def process_phase1(p_and_id):
@@ -61,8 +61,8 @@ async def create_set_report_tasks(is_corn_job=True):
             try:
                 splatoon = Splatoon(None, None, u, _type="cron")
                 # 测试访问并刷新
-                success = await splatoon.test_page()
-                # success = await splatoon.refresh_gtoken_and_bullettoken()
+                # success = await splatoon.test_page()
+                success = await splatoon.refresh_gtoken_and_bullettoken()
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
                 if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'has be banned']):
@@ -89,7 +89,7 @@ async def create_set_report_tasks(is_corn_job=True):
         current_hour = now_utc.hour
 
         # 情况1：如果在 UTC 23:00-23:59，等待到次日 0 点
-        if current_hour in 23:
+        if current_hour in [23]:
             next_midnight = dt(
                 year=now_utc.year,
                 month=now_utc.month,

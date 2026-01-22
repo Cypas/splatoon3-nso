@@ -658,6 +658,12 @@ class Splatoon:
         res = await self.request(data, multiple=multiple)
         return res
 
+    async def get_weapons(self, multiple=False):
+        """获取全部装备"""
+        data = gen_graphql_body(translate_rid['MyOutfitCommonDataEquipmentsQuery'])
+        res = await self.request(data, multiple=multiple)
+        return res
+
     async def app_ns_friend_list(self, multiple=False):
         """nso 好友列表"""
         url = "https://api-lp1.znc.srv.nintendo.net/v4/Friend/List"

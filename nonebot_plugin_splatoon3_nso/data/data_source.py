@@ -339,7 +339,7 @@ def model_get_today_report(user_id_sp):
     today_utc_start = utc_now.replace(hour=0, minute=0, second=0, microsecond=0)
     # 3. 计算时间边界：前一天22点（UTC+0）、今天2点（UTC+0）
     start_time = today_utc_start - datetime.timedelta(hours=2)  # 今天0点 - 2小时 = 前一天22点
-    end_time = today_utc_start + datetime.timedelta(hours=2)  # 今天0点 + 2小时 = 今天2点
+    end_time = today_utc_start + datetime.timedelta(hours=4)  # 今天0点 + 4小时 = 今天4点
 
     report = session.query(Report).filter(
         and_(Report.user_id_sp == user_id_sp,

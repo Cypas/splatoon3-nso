@@ -43,16 +43,19 @@ async def get_me(bot, event, from_group):
     coop = await splatoon.get_coops(multiple=True)
     if not coop:
         coop = await splatoon.get_coops(multiple=True)
+    weapons = await splatoon.get_weapons(multiple=True)
+    if not weapons:
+        weapons = await splatoon.get_weapons(multiple=True)
 
     try:
-        msg = await get_me_md(user, history_summary, total_query, coop, from_group)
+        msg = await get_me_md(user, history_summary, total_query, coop, weapons, from_group)
     except Exception as e:
-        logger.error(f"get_me request error:{e}")
+        logger.error(f"get_me md error:{e}")
         msg = f"获取数据失败，请稍后再试"
     return msg
 
 
-async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=False):
+async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_group=False):
     """获取 我的 md文本"""
     player = summary['data']['currentPlayer']
     history = summary['data']['playHistory']
@@ -67,6 +70,47 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
         all_cnt = f"/{total_cnt}"
         if total_cnt:
             r = f"{history['winCountTotal'] / total_cnt:.2%}"
+
+    def get_best_weapons_list(__weapons: list[dict], __type: str):
+        w_lst = weapons['data']['weaponRecords']['nodes']
+        __w_l = []
+        for w in w_lst:
+            if not w.get('stats'):
+                continue
+            stats = w.get('stats')
+            if not stats.get(__type):
+                continue
+            __w_l.append({'weapon_id': w.get('weaponId'),
+                          'weapon_name': w.get('name'),
+                          'power': stats.get('maxWeaponPower', 0),
+                          'win': stats.get('win', 0),
+                          })
+        return __w_l
+
+    # 全部有分数的武器 以及 常用武器(赢100局武器的前三名))
+    weapons_str = ''
+    best_weapon = ''
+    if weapons and not from_group:
+        w_l_1 = get_best_weapons_list(weapons, __type="maxWeaponPower")
+        new_weapons_str_list = []
+        if w_l_1:
+            w_power_l = sorted(w_l_1, key=lambda x: x['power'], reverse=True)
+            weapons_str += '\n武器分数top5:|'
+            for w in w_power_l[:5]:
+                ww_img = await model_get_temp_image_path('battle_weapon_main', w['weapon_name'])
+                ww_img = f'''<img style='height:30px; width:auto' src="{ww_img}"/>'''
+                new_weapons_str_list.append(f"{ww_img} &nbsp;&nbsp;{w['power']:.2f}")
+            weapons_str += '<br>'.join(new_weapons_str_list)
+    if weapons:
+        w_l_2 = get_best_weapons_list(weapons, __type="win")
+        if w_l_2:
+            w_win_l = sorted(w_l_2, key=lambda x: x['win'], reverse=True)
+            for w in w_win_l[:3]:
+                if w["win"] > 100:
+                    ww_img = await model_get_temp_image_path('battle_weapon_main', w['weapon_name'])
+                    best_weapon += f'<img height="22" src="{ww_img}"/>({w["win"]}胜)&nbsp;&nbsp;'
+        if best_weapon:
+            best_weapon = '\n常用武器| ' + best_weapon
 
     coop_msg = ''
     if coops:
@@ -120,11 +164,11 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
     if history.get('leagueMatchPlayHistory'):
         _l = history['leagueMatchPlayHistory']
         _n = _l['attend'] - _l['gold'] - _l['silver'] - _l['bronze']
-        _league = f"🏅️{_l['gold']:>3} 🥈{_l['silver']:>3} 🥉{_l['bronze']:>3} &nbsp; {_n:>3} ({_l['attend']})"
+        _league = f"🏅️{_l['gold']:>3} 🥈{_l['silver']:>3} 🥉{_l['bronze']:>3} &nbsp; ♉︎{_n:>3} (总{_l['attend']})"
     if history.get('bankaraMatchOpenPlayHistory'):
         _o = history['bankaraMatchOpenPlayHistory']
         _n = _o['attend'] - _o['gold'] - _o['silver'] - _o['bronze']
-        _open = f"🏅️{_o['gold']:>3} 🥈{_o['silver']:>3} 🥉{_o['bronze']:>3} &nbsp; {_n:>3} ({_o['attend']})"
+        _open = f"🏅️{_o['gold']:>3} 🥈{_o['silver']:>3} 🥉{_o['bronze']:>3} &nbsp; ♉︎{_n:>3} (总{_o['attend']})"
 
     player_name = player['name'].replace('`', '&#96;').replace('|', '&#124;')
     name_id = player['nameId']
@@ -136,7 +180,7 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
     else:
         # 我的头像，优先使用sp_id进行储存，没有就用play_name-code
         icon_img = await model_get_temp_image_path('my_icon', user.game_sp_id or f'{player_name}_{name_id}',
-                                                player['userIcon']['url'])
+                                                   player['userIcon']['url'])
 
     img = f'''<img height='30px' style='position:absolute;margin-left:-30px;margin-top:-15px' src="{icon_img}"/>'''
 
@@ -167,12 +211,12 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, from_group=Fals
 最高技术 | {history['udemaeMax']}
 总胜利数 | {history['winCountTotal']}{all_cnt} {r}
 涂墨面积 | {history['paintPointTotal']:,}p
-徽章 | {len(history['badges'])}
+徽章 | {len(history['badges'])} {best_weapon}
 活动 | {_league}
 开放 | {_open}
 首次游玩 | {s_time:%Y-%m-%d %H:%M:%S} +08:00
 当前时间 | {c_time:%Y-%m-%d %H:%M:%S} +08:00
-{x_msg}
+{x_msg}{weapons_str}
 {coop_msg}
 |||
 """
@@ -318,7 +362,7 @@ async def get_ns_friends_md(splatoon: Splatoon):
         if (f.get('presence') or {}).get('state') == 'ONLINE':
             _game_name = f['presence']['game'].get('name') or ''
             _game_name = _game_name.replace('The Legend of Zelda: Tears of the Kingdom', 'TOTK')
-            _game_name = _game_name.replace("Nintendo Switch 2 Edition","ns2增强版")
+            _game_name = _game_name.replace("Nintendo Switch 2 Edition", "ns2增强版")
             msg += f"|{_game_name}"
             _dict[_game_name] += 1
             if f['presence']['game'].get('totalPlayTime'):

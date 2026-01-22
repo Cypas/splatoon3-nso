@@ -43,8 +43,8 @@ APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
 
-# f api请求容量（每分钟10次）
-fapi_rate = 10
+# f api请求容量（每分钟15次）
+fapi_rate = 12
 fapi_time_window = 60  # 时间窗口（秒）
 # 限流器
 rate_limiter = None
@@ -778,6 +778,21 @@ class S3S:
             return res
         else:
             # 12.20日 只有nxapi可用，禁用重试机制 return None
+            if not res:
+                # 无响应结果
+                self.logger.warning(f"f api error: no res")
+            elif isinstance(res, str):
+                # 错误信息
+                # 改为另一个f接口并重新请求一次
+                if "NetConnectError" in res:
+                    self.logger.warning(f"f api error: ConnectError")
+                elif "NetConnectTimeout" in res:
+                    self.logger.warning(f"f api error:  ConnectTimeout")
+                else:
+                    error = res
+                    if "html" in error:
+                        error = "html网页错误"
+                    self.logger.warning(f"f api error: res Error, Error:{error}")
             return None
 
         # 判断重试时的对象名称以及f地址
