@@ -13,6 +13,7 @@ import urllib
 import random
 import asyncio
 from typing import Dict, Any, Optional, Union
+from unittest.mock import DEFAULT
 
 import httpx
 import jwt
@@ -43,130 +44,248 @@ APP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; Pixel 7a) " \
                  "AppleWebKit/537.36 (KHTML, like Gecko) " \
                  "Chrome/120.0.6099.230 Mobile Safari/537.36"
 
-# f api请求容量（每分钟15次）
-fapi_rate = 12
-fapi_time_window = 60  # 时间窗口（秒）
-# 限流器
+
+# 限流模式枚举（方便使用）
+class RateLimitMode:
+    TOKEN_BUCKET = "token_bucket"  # 令牌桶模式（按时间窗口限流）
+    SEMAPHORE = "semaphore"  # 信号量模式（按并发数限流）
+
+
+# 配置项 - 可根据需要调整
+DEFAULT_MODE = RateLimitMode.SEMAPHORE
+# 令牌桶模式配置
+FAPI_RATE = 10  # 令牌桶：时间窗口内最大请求数
+FAPI_TIME_WINDOW = 30  # 令牌桶：时间窗口（秒）
+# 信号量模式配置
+FAPI_SEMAPHORE_LIMIT = 2  # 信号量：最大并发数
+
+# 限流器实例
 rate_limiter = None
 
 
 class GlobalRateLimiter:
-    """全局限流器 - 基于令牌桶算法实现"""
+    """全局限流器 - 支持令牌桶/信号量两种模式自由切换"""
     _instance = None
-    _lock = None  # 延迟初始化，避免事件循环绑定问题
-    # 存储每个事件循环的令牌桶状态
-    _token_buckets: Dict[asyncio.AbstractEventLoop, Dict[str, Any]] = WeakKeyDictionary()
+    _thread_lock = None  # 单例线程锁
 
-    def __init__(self, rate: int = fapi_rate, time_window: int = fapi_time_window):
-        self.rate = rate  # 每个时间窗口的请求数
-        self.time_window = time_window  # 时间窗口（秒）
-        self._loop_lock = None  # 延迟初始化，避免事件循环绑定问题
+    def __init__(
+            self,
+            mode: str = DEFAULT_MODE,
+            rate: int = FAPI_RATE,
+            time_window: int = FAPI_TIME_WINDOW,
+            semaphore_limit: int = FAPI_SEMAPHORE_LIMIT
+    ):
+        # 基础配置
+        self.mode = mode  # 限流模式
+        self._loop_lock = asyncio.Lock()  # 事件循环锁
 
-    def _get_lock(self):
-        """获取或创建当前事件循环的锁"""
-        if self._lock is None:
-            self._lock = asyncio.Lock()
-        return self._lock
+        # 令牌桶模式配置
+        self.token_bucket_rate = rate  # 令牌桶：时间窗口内最大请求数
+        self.token_bucket_time_window = time_window  # 令牌桶：时间窗口（秒）
+        self._token_buckets: Dict[asyncio.AbstractEventLoop, Dict[str, Any]] = WeakKeyDictionary()
 
-    def _get_loop_lock(self):
-        """获取或创建当前事件循环的锁"""
-        if self._loop_lock is None:
-            self._loop_lock = asyncio.Lock()
-        return self._loop_lock
+        # 信号量模式配置
+        self.semaphore_limit = semaphore_limit  # 信号量：最大并发数
+        self._semaphores: Dict[asyncio.AbstractEventLoop, asyncio.BoundedSemaphore] = WeakKeyDictionary()
 
-    async def _get_or_create_bucket(self, loop):
-        """获取或创建当前事件循环的令牌桶"""
-        loop_lock = self._get_loop_lock()
-        async with loop_lock:
+    # ======================== 单例相关 ========================
+    @classmethod
+    async def get_instance(
+            cls,
+            mode: str = DEFAULT_MODE,
+            rate: int = FAPI_RATE,
+            time_window: int = FAPI_TIME_WINDOW,
+            semaphore_limit: int = FAPI_SEMAPHORE_LIMIT
+    ) -> 'GlobalRateLimiter':
+        """获取单例（支持指定模式和参数）"""
+        if cls._thread_lock is None:
+            import threading
+            cls._thread_lock = threading.Lock()
+
+        if cls._instance is None:
+            with cls._thread_lock:
+                if cls._instance is None:
+                    cls._instance = cls(mode, rate, time_window, semaphore_limit)
+        return cls._instance
+
+    # ======================== 令牌桶模式核心逻辑 ========================
+    async def _get_or_create_token_bucket(self, loop: asyncio.AbstractEventLoop) -> Dict[str, Any]:
+        """获取/创建当前事件循环的令牌桶"""
+        async with self._loop_lock:
             if loop not in self._token_buckets:
                 self._token_buckets[loop] = {
-                    "tokens": self.rate,  # 初始令牌数
-                    "last_refill": loop.time(),  # 上次补充令牌的时间
-                    "waiters": []  # 等待获取令牌的任务
+                    "tokens": self.token_bucket_rate,  # 初始令牌数
+                    "last_refill": loop.time(),  # 上次补充令牌时间
                 }
             return self._token_buckets[loop]
 
-    async def _refill_tokens(self, bucket, loop):
-        """补充令牌"""
+    async def _refill_token_bucket(self, bucket: Dict[str, Any], loop: asyncio.AbstractEventLoop):
+        """补充令牌桶的令牌"""
         now = loop.time()
         elapsed = now - bucket["last_refill"]
 
-        # 计算应该补充的令牌数
-        tokens_to_add = int(elapsed * self.rate / self.time_window)
-
+        # 按时间比例补充令牌
+        tokens_to_add = int(elapsed * self.token_bucket_rate / self.token_bucket_time_window)
         if tokens_to_add > 0:
-            bucket["tokens"] = min(self.rate, bucket["tokens"] + tokens_to_add)
+            bucket["tokens"] = min(self.token_bucket_rate, bucket["tokens"] + tokens_to_add)
             bucket["last_refill"] = now
 
-    async def acquire(self):
-        """获取令牌，支持等待"""
+    async def _acquire_token_bucket(self) -> bool:
+        """令牌桶模式：获取令牌"""
         loop = asyncio.get_running_loop()
-        bucket = await self._get_or_create_bucket(loop)
+        bucket = await self._get_or_create_token_bucket(loop)
 
         # 补充令牌
-        await self._refill_tokens(bucket, loop)
+        await self._refill_token_bucket(bucket, loop)
 
-        # 如果有可用令牌，直接获取
+        # 有可用令牌，直接获取
         if bucket["tokens"] > 0:
             bucket["tokens"] -= 1
             return True
 
-        # 没有可用令牌，计算需要等待的时间
+        # 无令牌，计算等待时间并等待
         now = loop.time()
-        time_to_wait = self.time_window - (now - bucket["last_refill"])
-
-        # 等待直到有令牌可用
+        time_to_wait = self.token_bucket_time_window - (now - bucket["last_refill"])
         await asyncio.sleep(time_to_wait)
 
-        # 等待后重新尝试获取令牌
-        await self._refill_tokens(bucket, loop)
+        # 重新补充令牌并获取
+        await self._refill_token_bucket(bucket, loop)
         bucket["tokens"] -= 1
         return True
 
-    async def release(self):
-        """释放令牌（令牌桶算法不需要显式释放）"""
-        # 令牌桶算法不需要显式释放令牌
+    async def _release_token_bucket(self):
+        """令牌桶模式：释放令牌（无需操作）"""
         pass
 
-    async def get_serializable_state(self) -> Dict[str, Any]:
-        """获取可序列化的状态信息"""
+    # ======================== 信号量模式核心逻辑 ========================
+    async def _get_or_create_semaphore(self, loop: asyncio.AbstractEventLoop) -> asyncio.BoundedSemaphore:
+        """获取/创建当前事件循环的信号量"""
+        async with self._loop_lock:
+            if loop not in self._semaphores:
+                self._semaphores[loop] = asyncio.BoundedSemaphore(self.semaphore_limit)
+            return self._semaphores[loop]
+
+    async def _acquire_semaphore(self) -> bool:
+        """信号量模式：获取许可"""
         loop = asyncio.get_running_loop()
-        loop_lock = self._get_loop_lock()
-        async with loop_lock:
-            if loop in self._token_buckets:
-                bucket = self._token_buckets[loop]
+        semaphore = await self._get_or_create_semaphore(loop)
+
+        try:
+            await semaphore.acquire()
+            return True
+        except asyncio.CancelledError:
+            # 任务取消时释放许可
+            semaphore.release()
+            raise
+
+    async def _release_semaphore(self):
+        """信号量模式：释放许可"""
+        loop = asyncio.get_running_loop()
+        async with self._loop_lock:
+            if loop in self._semaphores:
+                try:
+                    self._semaphores[loop].release()
+                except ValueError:
+                    # 防止释放次数超过获取次数
+                    pass
+
+    # ======================== 统一对外接口 ========================
+    async def acquire(self) -> bool:
+        """统一获取限流许可（自动适配模式）"""
+        if self.mode == RateLimitMode.TOKEN_BUCKET:
+            return await self._acquire_token_bucket()
+        elif self.mode == RateLimitMode.SEMAPHORE:
+            return await self._acquire_semaphore()
+        else:
+            raise ValueError(
+                f"不支持的限流模式：{self.mode}，可选值：{RateLimitMode.TOKEN_BUCKET}/{RateLimitMode.SEMAPHORE}")
+
+    async def release(self):
+        """统一释放限流许可（自动适配模式）"""
+        if self.mode == RateLimitMode.TOKEN_BUCKET:
+            await self._release_token_bucket()
+        elif self.mode == RateLimitMode.SEMAPHORE:
+            await self._release_semaphore()
+        else:
+            raise ValueError(f"不支持的限流模式：{self.mode}")
+
+    async def get_serializable_state(self) -> Dict[str, Any]:
+        """获取可序列化的状态信息（适配两种模式）"""
+        loop = asyncio.get_running_loop()
+        async with self._loop_lock:
+            if self.mode == RateLimitMode.TOKEN_BUCKET:
+                # 令牌桶模式状态
+                if loop in self._token_buckets:
+                    bucket = self._token_buckets[loop]
+                    return {
+                        "mode": self.mode,
+                        "max_rate": self.token_bucket_rate,
+                        "time_window": self.token_bucket_time_window,
+                        "available_tokens": bucket["tokens"],
+                        "last_refill": bucket["last_refill"],
+                        "active_loops": len(self._token_buckets)
+                    }
                 return {
-                    "max_rate": self.rate,
-                    "time_window": self.time_window,
-                    "available_tokens": bucket["tokens"],
-                    "last_refill": bucket["last_refill"]
+                    "mode": self.mode,
+                    "max_rate": self.token_bucket_rate,
+                    "time_window": self.token_bucket_time_window,
+                    "available_tokens": self.token_bucket_rate,
+                    "last_refill": 0,
+                    "active_loops": 0
                 }
-            return {
-                "max_rate": self.rate,
-                "time_window": self.time_window,
-                "available_tokens": self.rate,
-                "last_refill": 0
-            }
+
+            elif self.mode == RateLimitMode.SEMAPHORE:
+                # 信号量模式状态
+                used = sum(self.semaphore_limit - sem._value for sem in self._semaphores.values())
+                return {
+                    "mode": self.mode,
+                    "max_concurrent": self.semaphore_limit,
+                    "used_permits": used,
+                    "available": max(0, self.semaphore_limit - used),
+                    "active_loops": len(self._semaphores)
+                }
+
+            else:
+                return {"mode": self.mode, "error": "不支持的限流模式"}
 
     async def __aenter__(self):
-        """进入上下文时获取令牌"""
+        """上下文管理器：获取许可"""
         await self.acquire()
         return self
 
     async def __aexit__(self, *args):
-        """退出上下文时自动释放令牌"""
+        """上下文管理器：释放许可"""
         await self.release()
 
-    @classmethod
-    async def get_instance(cls, rate: int = fapi_rate, time_window: int = fapi_time_window) -> 'GlobalRateLimiter':
-        """获取单例"""
-        if cls._instance is None:
-            # 使用线程锁确保线程安全
-            import threading
-            with threading.Lock():
-                if cls._instance is None:
-                    cls._instance = cls(rate, time_window)
-        return cls._instance
+    # ======================== 模式切换接口 ========================
+    async def switch_mode(
+            self,
+            new_mode: str,
+            rate: Optional[int] = None,
+            time_window: Optional[int] = None,
+            semaphore_limit: Optional[int] = None
+    ):
+        """
+        动态切换限流模式
+        :param new_mode: 新模式（RateLimitMode.TOKEN_BUCKET/RateLimitMode.SEMAPHORE）
+        :param rate: 令牌桶模式：时间窗口内最大请求数（可选，不填则用原有值）
+        :param time_window: 令牌桶模式：时间窗口（秒）（可选）
+        :param semaphore_limit: 信号量模式：最大并发数（可选）
+        """
+        async with self._loop_lock:
+            self.mode = new_mode
+            # 更新对应模式的参数
+            if rate is not None:
+                self.token_bucket_rate = rate
+            if time_window is not None:
+                self.token_bucket_time_window = time_window
+            if semaphore_limit is not None:
+                self.semaphore_limit = semaphore_limit
+            # 清空原有模式的状态（可选，根据业务需求决定是否保留）
+            if new_mode == RateLimitMode.TOKEN_BUCKET:
+                self._semaphores.clear()
+            else:
+                self._token_buckets.clear()
 
 
 class S3S:
@@ -217,7 +336,8 @@ class S3S:
                 return NSOAPP_VERSION
             except:  # fallback to apple app store
                 try:
-                    page = await AsHttpReq.get("https://apps.apple.com/us/app/nintendo-switch-online/id1234806557", timeout=10.0)
+                    page = await AsHttpReq.get("https://apps.apple.com/us/app/nintendo-switch-online/id1234806557",
+                                               timeout=10.0)
                     soup = BeautifulSoup(page.text, 'html.parser')
                     elt = soup.find("p", {"class": "whats-new__latest__version"})
                     ver = elt.get_text().replace("Version ", "").strip()
@@ -505,7 +625,8 @@ class S3S:
             content = base64.b64decode(encrypt_result)  # 加密数据还原为二进制
             znc_encrypt_data = await AsHttpReq.post(url, headers=app_head, content=content)
             # 解密返回数据
-            decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
+            decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url,
+                                                         encrypted_data=znc_encrypt_data.content)
             decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
             splatoon_token = json.loads(decrypt_json["data"])
         except httpx.ConnectError:
@@ -540,7 +661,8 @@ class S3S:
                 content = base64.b64decode(encrypt_result)
                 znc_encrypt_data = await AsHttpReq.post(url, headers=app_head, content=content)
                 # 解密返回数据
-                decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
+                decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url,
+                                                             encrypted_data=znc_encrypt_data.content)
                 decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
                 splatoon_token = json.loads(decrypt_json["data"])
                 access_token = splatoon_token["result"]["webApiServerCredential"]["accessToken"]
@@ -591,7 +713,8 @@ class S3S:
             content = base64.b64decode(encrypt_result)  # 加密数据还原为二进制
             znc_encrypt_data = await AsHttpReq.post(url, headers=app_head, content=content)
             # 解密返回数据
-            decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url, encrypted_data=znc_encrypt_data.content)
+            decrypt_data = await self.f_decrypt_response(f_gen_url=self.f_gen_url,
+                                                         encrypted_data=znc_encrypt_data.content)
             decrypt_json = json.loads(decrypt_data.text)  # 返回数据包装在data内，还需要二次json解码
             web_service_resp = json.loads(decrypt_json["data"])
         except httpx.ConnectError:
@@ -758,7 +881,7 @@ class S3S:
     async def f_api(self, *args, **kwargs):
         """限流版f_api，支持等待和重试"""
         if self._rate_limiter is None:
-            self._rate_limiter = await GlobalRateLimiter.get_instance(fapi_rate)
+            self._rate_limiter = await GlobalRateLimiter.get_instance()
 
         try:
             async with self._rate_limiter:
@@ -776,24 +899,24 @@ class S3S:
                                     encrypt_token_request=encrypt_token_request)
         if isinstance(res, tuple):
             return res
-        else:
-            # 12.20日 只有nxapi可用，禁用重试机制 return None
-            if not res:
-                # 无响应结果
-                self.logger.warning(f"f api error: no res")
-            elif isinstance(res, str):
-                # 错误信息
-                # 改为另一个f接口并重新请求一次
-                if "NetConnectError" in res:
-                    self.logger.warning(f"f api error: ConnectError")
-                elif "NetConnectTimeout" in res:
-                    self.logger.warning(f"f api error:  ConnectTimeout")
-                else:
-                    error = res
-                    if "html" in error:
-                        error = "html网页错误"
-                    self.logger.warning(f"f api error: res Error, Error:{error}")
-            return None
+        # else:
+        #     # 12.20日 只有nxapi可用，禁用重试机制 return None
+        #     if not res:
+        #         # 无响应结果
+        #         self.logger.warning(f"f api error: no res")
+        #     elif isinstance(res, str):
+        #         # 错误信息
+        #         # 改为另一个f接口并重新请求一次
+        #         if "NetConnectError" in res:
+        #             self.logger.warning(f"f api error: ConnectError")
+        #         elif "NetConnectTimeout" in res:
+        #             self.logger.warning(f"f api error:  ConnectTimeout")
+        #         else:
+        #             error = res
+        #             if "html" in error:
+        #                 error = "html网页错误"
+        #             self.logger.warning(f"f api error: res Error, Error:{error}")
+        #     return None
 
         # 判断重试时的对象名称以及f地址
         if self.f_gen_url == F_GEN_URL:
@@ -804,7 +927,7 @@ class S3S:
             now_f_str = "F_URL_2"
             next_f_str = "F_URL"
             next_f_url = F_GEN_URL
-
+        wait_seconds = 1
         if not res:
             # 无响应结果
             self.logger.warning(f"{now_f_str} no res，try {next_f_str} again")
@@ -819,9 +942,11 @@ class S3S:
                 error = res
                 if "html" in error:
                     error = "html网页错误"
+                    wait_seconds = 5
                 self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{error}")
 
         self.f_gen_url = next_f_url
+        await asyncio.sleep(wait_seconds)
         res = await self.call_f_api(access_token, step, self.f_gen_url, r_user_id, coral_user_id,
                                     encrypt_token_request=encrypt_token_request)
         if isinstance(res, tuple):
