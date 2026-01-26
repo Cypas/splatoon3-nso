@@ -1,3 +1,4 @@
+from pathlib import Path
 from urllib.parse import quote
 
 from nonebot.adapters.qq.message import Attachment
@@ -33,6 +34,7 @@ __plugin_meta__ = PluginMetadata(
 @on_message(rule=to_me(), priority=97, block=True).handle()
 @on_startswith(("/", "、"), priority=99, block=True).handle()
 async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
+    plain_text = event.get_message().extract_plain_text()
     logger.info(f'unknown_command from {event.get_event_name()}')
     msg = ""
     if plugin_config.splatoon3_unknown_command_fallback_reply:
@@ -53,6 +55,11 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
                     logger.info("kook指定兜底黑名单服务器，不进行兜底消息提示")
         if msg:
             await bot.send(event, message=msg)
+            file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+            with open(file_path, "a", encoding="utf-8") as f:
+                f.write(f"{plain_text}\n")  # 每行一个关键词
         await matcher.finish()
 
 
