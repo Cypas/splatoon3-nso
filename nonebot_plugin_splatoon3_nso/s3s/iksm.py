@@ -52,7 +52,7 @@ class RateLimitMode:
 
 
 # 配置项 - 可根据需要调整
-DEFAULT_MODE = RateLimitMode.SEMAPHORE
+DEFAULT_MODE = RateLimitMode.TOKEN_BUCKET
 # 令牌桶模式配置
 FAPI_RATE = 10  # 令牌桶：时间窗口内最大请求数
 FAPI_TIME_WINDOW = 30  # 令牌桶：时间窗口（秒）
@@ -935,15 +935,17 @@ class S3S:
             # 错误信息
             # 改为另一个f接口并重新请求一次
             if "NetConnectError" in res:
-                self.logger.warning(f"{now_f_str} ConnectError，try {next_f_str} again")
+                # self.logger.warning(f"{now_f_str} ConnectError，try {next_f_str} again")
+                pass
             elif "NetConnectTimeout" in res:
-                self.logger.warning(f"{now_f_str} ConnectTimeout，try {next_f_str} again")
+                # self.logger.warning(f"{now_f_str} ConnectTimeout，try {next_f_str} again")
+                pass
             else:
                 error = res
                 if "html" in error:
                     error = "html网页错误"
                     wait_seconds = 5
-                self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{error}")
+                # self.logger.warning(f"{now_f_str} res Error，try {next_f_str} again, Error:{error}")
 
         self.f_gen_url = next_f_url
         await asyncio.sleep(wait_seconds)

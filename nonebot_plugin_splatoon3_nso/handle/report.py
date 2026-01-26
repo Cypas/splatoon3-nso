@@ -120,7 +120,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
         if old.coop_gold != new.coop_gold:
             str_coop += f' 🥉{new.coop_gold - old.coop_gold:+}'
         msg += f'鳞片: {str_coop}\n'
-
+    msg += f'查看近30次日报: /report_all\n'
     msg = f'```{msg}```'
     # u = get_user(user_id=user_id)
     # if report_day and fst_day and not u.report_type:
@@ -129,7 +129,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     return msg
 
 
-matcher_report_all = on_command("report_all", priority=10, block=True)
+matcher_report_all = on_command("report_all", aliases={'all_report'}, priority=10, block=True)
 
 
 @matcher_report_all.handle(parameterless=[Depends(_check_session_handler)])
