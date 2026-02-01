@@ -259,19 +259,19 @@ class STAT:
 
         for sha in queries:
             if sha is not None:
-                lang = "zh-CN" if sha == "CoopHistoryQuery" else None
+                lang = "en-US" if sha == "CoopHistoryQuery" else None  ## 打工必须将语言写死为英文，不然提交的武器名为中文时，stat.ink网站无法处理
                 country = "JP" if sha == "CoopHistoryQuery" else None
                 sha = utils.translate_rid[sha]
                 battle_ids, job_ids = [], []
 
                 data = utils.gen_graphql_body(sha)
-                query1 = await self._request(data)
+                query1 = await self._request(data, force_lang=lang)
                 try:
                     query1_resp = json.loads(query1.text)
                 except Exception as e:
                     # retry again
                     data = utils.gen_graphql_body(sha)
-                    query1 = await self._request(data)
+                    query1 = await self._request(data, force_lang=lang)
                     try:
                         query1_resp = json.loads(query1.text)
                     except Exception as e:

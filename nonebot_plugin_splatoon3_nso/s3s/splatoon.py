@@ -354,8 +354,9 @@ class Splatoon:
                     return None
             t = time.time()
             res = await AsHttpReq.post(GRAPHQL_URL, data=data,
-                                             headers=await self.head_bullet(),
-                                             cookies=dict(_gtoken=self.g_token))
+                                       headers=await self.head_bullet(force_lang=force_lang,
+                                                                      force_country=force_country),
+                                       cookies=dict(_gtoken=self.g_token))
             t2 = f'{time.time() - t:.3f}'
             self.logger.debug(f'_request: {t2}s')
             self.logger.debug(f'data:{data} res:{res.text}')
@@ -378,8 +379,9 @@ class Splatoon:
                     try:
                         t = time.time()
                         res = await AsHttpReq.post(GRAPHQL_URL, data=data,
-                                                         headers=await self.head_bullet(),
-                                                         cookies=dict(_gtoken=self.g_token))
+                                                   headers=await self.head_bullet(force_lang=force_lang,
+                                                                                  force_country=force_country),
+                                                   cookies=dict(_gtoken=self.g_token))
                         t2 = f'{time.time() - t:.3f}'
                         self.logger.debug(f'_request: {t2}s')
                         if return_json:
@@ -391,8 +393,9 @@ class Splatoon:
                             f'{self.user_db_info.db_id},{msg_id} _request sp3net fail,reason:{e},res:{res.text}, start retry...')
                         try:
                             res = await AsHttpReq.post(GRAPHQL_URL, data=data,
-                                                             headers=await self.head_bullet(),
-                                                             cookies=dict(_gtoken=self.g_token))
+                                                       headers=await self.head_bullet(force_lang=force_lang,
+                                                                                      force_country=force_country),
+                                                       cookies=dict(_gtoken=self.g_token))
                             if return_json:
                                 return res.json()
                             else:
@@ -451,12 +454,13 @@ class Splatoon:
             await s3s.f_api_clent_auth2_register()
             # 加密参数
             encrypt_request = await s3s.f_encrypt_request(api_url=url, body_data=json_body,
-                                                           access_token=self.access_token)
+                                                          access_token=self.access_token)
             encrypt_json = encrypt_request.json()
             encrypt_data = encrypt_json["data"]
             body_bytes = base64.b64decode(encrypt_data)
             # 请求nxapi
-            encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token), data=body_bytes)
+            encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token),
+                                                data=body_bytes)
             # 解密响应
             decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
             decrypt_data = decrypt_resp.json()["data"]
@@ -493,7 +497,7 @@ class Splatoon:
                 body_bytes = base64.b64decode(encrypt_data)
                 # 请求nxapi
                 encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token),
-                                                          data=body_bytes)
+                                                    data=body_bytes)
                 # 解密响应
                 decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
                 decrypt_data = decrypt_resp.json()["data"]
