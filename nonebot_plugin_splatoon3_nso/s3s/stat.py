@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Tuple
 
 import msgpack
+import pymmh3 as mmh3
 from nonebot import logger as nb_logger
 
 from . import utils, iksm
@@ -840,7 +841,8 @@ class STAT:
                             except KeyError:  # prev job was private or disconnect
                                 pass
                 else:
-                    data = utils.gen_graphql_body(utils.translate_rid["CoopHistoryDetailQuery"],"coopHistoryDetailId", prev_job_id)
+                    data = utils.gen_graphql_body(utils.translate_rid["CoopHistoryDetailQuery"], "coopHistoryDetailId",
+                                                  prev_job_id)
                     prev_job_post = await self._request(data, multiple=True)
                     try:
                         prev_job = json.loads(prev_job_post.text)
@@ -1156,7 +1158,7 @@ class STAT:
                 url += "/salmon"
             auth = {'Authorization': f'Bearer {self.stat_key}', 'Content-Type': 'application/x-msgpack'}
             postbattle = await AsHttpReq.post(url, headers=auth, data=msgpack.packb(payload),
-                                                             follow_redirects=False)
+                                              follow_redirects=False)
             ##### allow_redirects是request的参数，httpx参数名为 follow_redirects
 
             # response
@@ -1168,7 +1170,7 @@ class STAT:
                 time_uploaded = None
             except json.decoder.JSONDecodeError:  # retry once
                 postbattle = await AsHttpReq.post(url, headers=auth, data=msgpack.packb(payload),
-                                                                 follow_redirects=False)
+                                                  follow_redirects=False)
                 headerloc = postbattle.headers.get('location')
                 time_now = int(time.time())
                 try:
@@ -1208,6 +1210,29 @@ class STAT:
                 self.stat_url = stat_url
                 # print(f"{noun.capitalize()} uploaded to {headerloc}")
                 # eg https://stat.ink/@ricochet/spl3/e2cda397-3946-4257-864f-6e3d83055618
+
+    async def export_seed_json(self, game_sp_id: str):
+        """
+        导出种子数据给观星网站
+        Export a JSON file for use with Lean's seed checker at https://leanny.github.io/splat3seedchecker/.
+        """
+        sp = self.splatoon
+        try:
+            gear = await sp.get_clothes()
+        except:
+            # 重试一次
+            gear = await sp.get_clothes()
+        if not gear:
+            raise "get gear error"
+
+        r = f"u-{game_sp_id}"
+        h = mmh3.hash(r) & 0xFFFFFFFF  # make positive
+        key = base64.b64encode(bytes([k ^ (h & 0xFF) for k in bytes(r, "utf-8")]))
+        t = int(time.time())
+        file_name = f"gear_{t}.json"
+        json_str = json.dumps({"key": key.decode("utf-8"), "h": h, "timestamp": t, "gear": gear})
+        json_bytes = json_str.encode()
+        return {"file_name": file_name, "json_bytes": json_bytes}
 
     # async def check_for_new_results(self, which, cached_battles, cached_jobs, battle_wins, battle_losses, battle_draws,
     #                                 splatfest_wins, splatfest_losses, splatfest_draws, mirror_matches, job_successes,

@@ -658,9 +658,15 @@ class Splatoon:
         res = await self.request(data, multiple=multiple)
         return res
 
-    async def get_weapons(self, multiple=False):
-        """获取全部装备"""
+    async def get_clothes(self, multiple=False):
+        """获取全部武器，服饰等"""
         data = gen_graphql_body(translate_rid['MyOutfitCommonDataEquipmentsQuery'])
+        res = await self.request(data, multiple=multiple)
+        return res
+
+    async def get_weapons(self, multiple=False):
+        """获取全部装备及胜场数据"""
+        data = gen_graphql_body(translate_rid['MyWeaponsDataQuery'])
         res = await self.request(data, multiple=multiple)
         return res
 

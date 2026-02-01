@@ -6,13 +6,18 @@ from nonebot import on_keyword
 
 from .send_msg import bot_send
 from .utils import _check_session_handler
+from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
     model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict, \
     model_get_all_top_all
 from ..data.utils import GlobalUserInfo
+from ..s3s.iksm import F_GEN_URL
 from ..s3s.splatoon import Splatoon
+from ..s3s.stat import STAT, CONFIG_DATA
 from ..utils import get_msg_id
 from ..utils.bot import *
+
+MSG_PRIVATE = "该指令需要私信机器人才能使用"
 
 
 @on_command("me", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
@@ -615,3 +620,71 @@ async def re_enable(bot: Bot, event: Event):
                 else:
                     # 更新数据库数据
                     model_get_or_set_user(u.platform, u.user_id, user_agreement=1)
+
+
+@on_command("观星导出", block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    net_error_msg = "bot网络错误，请稍后再试"
+    if isinstance(event, All_Group_Message):
+        await matcher.finish(MSG_PRIVATE)
+
+    msg_id = get_msg_id(platform, user_id)
+    user = dict_get_or_set_user_info(platform, user_id)
+    if not user.game_sp_id:
+        no_sp_id_msg = "请先使用一次/last命令后再使用观星导出"
+        await matcher.finish(no_sp_id_msg)
+
+    splatoon = Splatoon(bot, event, user)
+    if isinstance(bot, QQ_Bot):
+        msg1 = f"观星网站需要上传一个装备的json文件，QQ平台bot无法发送任何文件，存在一些使用上的不便之处，如需要自己用电脑运行python脚本使用bullet_token凭证去获取该json文件等代码性操作，\n如需要直接导出json文件，建议使用kook平台的小鱿鱿，Kook服务器id：{plugin_config.splatoon3_kk_guild_id}\n\n正在获取最新bullet_token中，请稍后..."
+        await bot_send(bot, event, message=msg1, skip_ad=True)
+
+        # 强制刷新token延长bullet_token时间
+        ok = await splatoon.refresh_gtoken_and_bullettoken()
+        if not ok:
+            await matcher.finish(net_error_msg)
+        msg2 = f"bullet_token凭证获取成功，请参照网址 blog.ayano.top/archives/525/ 的教程进行后续操作，以下是您的bullet_token凭证，请勿外泄，该凭证有效期为2h"
+        msg2 = msg2.replace(".","点")
+        await bot_send(bot, event, message=msg2, skip_ad=True)
+        msg3 = f"{splatoon.bullet_token}"
+        await bot_send(bot, event, message=msg3, skip_ad=True)
+    else:
+        await bot_send(bot, event, message="正在导出观星json文件，请稍等", skip_ad=True)
+        await splatoon.test_page()
+        config_data = CONFIG_DATA(
+            f_gen=F_GEN_URL,
+            user_lang='zh-CN',
+            user_country='JP',
+            stat_key=user.stat_key,
+            g_token=splatoon.g_token,
+            bullet_token=splatoon.bullet_token,
+            session_token=splatoon.session_token
+        )
+        stat = STAT(splatoon=splatoon, config_data=config_data)
+        try:
+            export_data: dict = await stat.export_seed_json(game_sp_id=user.game_sp_id)
+        except Exception as e:
+            logger.error(f"观星导出 error:{e}")
+            msg = f"获取观星json文件失败，请稍后再试"
+            await matcher.finish(msg)
+
+        file_name = export_data.get("file_name")
+        json_bytes = export_data.get("json_bytes")
+        await bot_send(bot, event, message=json_bytes, file_name=file_name, skip_ad=True)
+        msg2 = f"观星json文件导出成功，请参照网址 blog.ayano.top/archives/525/ 的教程进行后续操作"
+        await bot_send(bot, event, message=msg2, skip_ad=True)
+
+
+# @on_command("nso_web", aliases={'nso网页版'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
+# async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
+#     platform = bot.adapter.get_name()
+#     user_id = event.get_user_id()
+#     if isinstance(event, All_Group_Message):
+#         await matcher.finish(MSG_PRIVATE)
+#
+#     user = dict_get_or_set_user_info(platform, user_id)
+#     msg_id = get_msg_id(platform, user_id)
+#
+#     await bot_send(bot, event, message=msg)
