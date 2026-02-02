@@ -175,17 +175,19 @@ class STAT:
         if noun in ("battles", "battle"):
             dict_key = "VsHistoryDetailQuery"
             dict_key2 = "vsResultId"
+            force_lang = None
         else:  # noun == "jobs" or "job"
             dict_key = "CoopHistoryDetailQuery"
             dict_key2 = "coopHistoryDetailId"
+            force_lang = "en-US"
         data = utils.gen_graphql_body(utils.translate_rid[dict_key], dict_key2, hash_)
 
-        result_post = await self._request(data, multiple=True)
+        result_post = await self._request(data, multiple=True, force_lang=force_lang)
         try:
             result = json.loads(result_post.text)
             await self.post_result(result, False, isblackout, istestrun)  # not monitoring mode
         except json.decoder.JSONDecodeError:  # retry once, hopefully avoid a few errors
-            result_post = await self._request(data, multiple=True)
+            result_post = await self._request(data, multiple=True, force_lang=force_lang)
             try:
                 result = json.loads(result_post.text)
                 await self.post_result(result, False, isblackout, istestrun)
