@@ -681,11 +681,25 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
 async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
+    net_error_msg = "bot网络错误，请稍后再试"
     if isinstance(event, All_Group_Message):
         await matcher.finish(MSG_PRIVATE)
 
     user = dict_get_or_set_user_info(platform, user_id)
     msg_id = get_msg_id(platform, user_id)
-    msg1 = "以下导出的gtoken可以让你在电脑网页上查看并操作nso里面的'鱿鱼圈'应用，当你在网络不好登不上nso，或者更新不了nso最新版本时可以派上用场，详细教程请参照网址 blog.ayano.top/archives/525/"
-
-    await bot_send(bot, event, message=msg)
+    splatoon = Splatoon(bot, event, user)
+    msg1 = ("以下导出的gtoken可以让你在电脑网页上查看并操作nso里面的喷三'鱿鱼圈'应用，当你在网络不好登不上nso，"
+            "或者更新不了nso最新版本时可以派上用场\n\n正在生成gtoken凭证中，请稍等...")
+    if isinstance(bot, QQ_Bot):
+        msg1 = msg1.replace(".", "点")
+    await bot_send(bot, event, message=msg1, skip_ad=True)
+    # 强制刷新token延长bullet_token时间
+    ok = await splatoon.refresh_gtoken_and_bullettoken(skip_access=False)
+    if not ok:
+        await matcher.finish(net_error_msg)
+    msg2 = f"gtoken凭证获取成功，请参照网址 blog.ayano.top/archives/525/ 的教程进行后续操作，以下是您的gtoken凭证，请勿外泄，该凭证有效期为3h"
+    if isinstance(bot, QQ_Bot):
+        msg2 = msg2.replace(".", "点")
+    await bot_send(bot, event, message=msg2, skip_ad=True)
+    msg3 = f"{splatoon.g_token}"
+    await bot_send(bot, event, message=msg3, skip_ad=True)
