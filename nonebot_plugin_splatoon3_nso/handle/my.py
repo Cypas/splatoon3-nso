@@ -677,14 +677,15 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         await bot_send(bot, event, message=msg2, skip_ad=True)
 
 
-# @on_command("nso_web", aliases={'nso网页版'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
-# async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
-#     platform = bot.adapter.get_name()
-#     user_id = event.get_user_id()
-#     if isinstance(event, All_Group_Message):
-#         await matcher.finish(MSG_PRIVATE)
-#
-#     user = dict_get_or_set_user_info(platform, user_id)
-#     msg_id = get_msg_id(platform, user_id)
-#
-#     await bot_send(bot, event, message=msg)
+@on_command("nso_web", aliases={'nso网页版'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    if isinstance(event, All_Group_Message):
+        await matcher.finish(MSG_PRIVATE)
+
+    user = dict_get_or_set_user_info(platform, user_id)
+    msg_id = get_msg_id(platform, user_id)
+    msg1 = "以下导出的gtoken可以让你在电脑网页上查看并操作nso里面的'鱿鱼圈'应用，当你在网络不好登不上nso，或者更新不了nso最新版本时可以派上用场，详细教程请参照网址 blog.ayano.top/archives/525/"
+
+    await bot_send(bot, event, message=msg)
