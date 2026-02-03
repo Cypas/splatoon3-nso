@@ -195,7 +195,7 @@ async def bot_send_last_md(bot: Bot, event: Event, message: str | bytes, user_id
     """发送qq md消息"""
     QQ_md = {"md_type": "last",
              "user_id": user_id}
-    await bot_send(bot, event, message, image_width, QQ_md=QQ_md)
+    await bot_send(bot, event, message, image_width=image_width, QQ_md=QQ_md)
 
 
 async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=False):
