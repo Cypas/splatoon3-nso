@@ -26,7 +26,7 @@ Pillow = "^11.3.0"
 pympler = "^1.1"
 cos_python_sdk_v5 = "^1.9.30"
 pymmh3 = "^0.0.5"
-
+fastapi = "^0.104.1"
 
 [tool.poetry.group.test.dependencies]
 nonebug = "^0.3.5"

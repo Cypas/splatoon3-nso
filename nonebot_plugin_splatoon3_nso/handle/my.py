@@ -1,12 +1,14 @@
+import os
+import secrets
 from collections import defaultdict
 from datetime import datetime as dt, timedelta
+from pathlib import Path
 
 import unicodedata
 from nonebot import on_keyword
 
 from .send_msg import bot_send
 from .utils import _check_session_handler
-from .. import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
     model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict, \
     model_get_all_top_all
@@ -16,6 +18,8 @@ from ..s3s.splatoon import Splatoon
 from ..s3s.stat import STAT, CONFIG_DATA
 from ..utils import get_msg_id
 from ..utils.bot import *
+from ..utils.redis import api_rset_json_file_name
+from ..utils.utils import DIR_RESOURCE
 
 MSG_PRIVATE = "该指令需要私信机器人才能使用"
 
@@ -636,44 +640,57 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         no_sp_id_msg = "请先使用一次/last命令后再使用观星导出"
         await matcher.finish(no_sp_id_msg)
 
-    splatoon = Splatoon(bot, event, user)
+    # 用户等待提示词
     if isinstance(bot, QQ_Bot):
-        msg1 = f"观星网站需要上传一个装备的json文件，QQ平台bot无法发送任何文件，存在一些使用上的不便之处，如需要自己用电脑运行python脚本使用bullet_token凭证去获取该json文件等代码性操作，\n如需要直接导出json文件，建议使用kook平台的小鱿鱿，Kook服务器id：{plugin_config.splatoon3_kk_guild_id}\n\n正在获取最新bullet_token中，请稍后..."
+        msg1 = (
+            f"观星网站需要上传一个装备的json文件，QQ平台bot无法发送任何文件，请访问\nblog.ayano.top/archives/525/ \n教程网址,"
+            f"输入接下来发给你的观星访问密钥来下载观星json文件\n\n正在生成观星访问密钥中(大约需要两分钟)，请稍后。。。")
+        if isinstance(bot, QQ_Bot):
+            msg1 = msg1.replace(".", "点")
         await bot_send(bot, event, message=msg1, skip_ad=True)
+    else:
+        await bot_send(bot, event, message="正在导出观星json文件(大约需要两分钟)，请稍等", skip_ad=True)
 
-        # 强制刷新token延长bullet_token时间
-        ok = await splatoon.refresh_gtoken_and_bullettoken()
-        if not ok:
-            await matcher.finish(net_error_msg)
-        msg2 = f"bullet_token凭证获取成功，请参照网址 blog.ayano.top/archives/525/ 的教程进行后续操作，以下是您的bullet_token凭证，请勿外泄，该凭证有效期为2h"
-        msg2 = msg2.replace(".","点")
+    # 生成观星文件
+    splatoon = Splatoon(bot, event, user)
+    await splatoon.test_page()
+    config_data = CONFIG_DATA(
+        f_gen=F_GEN_URL,
+        user_lang='zh-CN',
+        user_country='JP',
+        stat_key=user.stat_key,
+        g_token=splatoon.g_token,
+        bullet_token=splatoon.bullet_token,
+        session_token=splatoon.session_token
+    )
+    stat = STAT(splatoon=splatoon, config_data=config_data)
+    try:
+        export_data: dict = await stat.export_seed_json(game_sp_id=user.game_sp_id)
+    except Exception as e:
+        logger.error(f"观星导出 error:{e}")
+        msg = f"获取观星json文件失败，请稍后再试"
+        await matcher.finish(msg)
+
+    file_name = export_data.get("file_name")
+    json_bytes = export_data.get("json_bytes")
+    if isinstance(bot, QQ_Bot):
+        msg2 = f"观星访问密钥获取成功，请将密钥输入到上面教程网址下载观星json文件，以下是您的观星访问密钥，请勿外泄，该密钥有效期为2h"
         await bot_send(bot, event, message=msg2, skip_ad=True)
-        msg3 = f"{splatoon.bullet_token}"
+        # 生成密钥
+        secret_code = secrets.token_urlsafe(6) #6字节，长度为8位
+        # 生成本地缓存文件
+        file_dir = os.path.join(DIR_RESOURCE, "temp_seedchecker_file")
+        file_path = os.path.join(file_dir, file_name)
+        os.makedirs(file_dir, exist_ok=True)
+        with open(file_path, "wb") as f:
+            f.write(json_bytes)
+        # 将文件名和随机密钥写redis
+        await api_rset_json_file_name(secret_code, file_name)
+        msg3 = f"xyy-seedchecker-{secret_code}" #16+8 = 24位密钥
         await bot_send(bot, event, message=msg3, skip_ad=True)
     else:
-        await bot_send(bot, event, message="正在导出观星json文件，请稍等", skip_ad=True)
-        await splatoon.test_page()
-        config_data = CONFIG_DATA(
-            f_gen=F_GEN_URL,
-            user_lang='zh-CN',
-            user_country='JP',
-            stat_key=user.stat_key,
-            g_token=splatoon.g_token,
-            bullet_token=splatoon.bullet_token,
-            session_token=splatoon.session_token
-        )
-        stat = STAT(splatoon=splatoon, config_data=config_data)
-        try:
-            export_data: dict = await stat.export_seed_json(game_sp_id=user.game_sp_id)
-        except Exception as e:
-            logger.error(f"观星导出 error:{e}")
-            msg = f"获取观星json文件失败，请稍后再试"
-            await matcher.finish(msg)
-
-        file_name = export_data.get("file_name")
-        json_bytes = export_data.get("json_bytes")
         await bot_send(bot, event, message=json_bytes, file_name=file_name, skip_ad=True)
-        msg2 = f"观星json文件导出成功，请参照网址 blog.ayano.top/archives/525/ 的教程进行后续操作"
+        msg2 = f"观星json文件导出成功，请参照网址\nblog.ayano.top/archives/525/ \n的教程进行后续操作"
         await bot_send(bot, event, message=msg2, skip_ad=True)
 
 
@@ -697,7 +714,7 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
     ok = await splatoon.refresh_gtoken_and_bullettoken(skip_access=False)
     if not ok:
         await matcher.finish(net_error_msg)
-    msg2 = f"gtoken凭证获取成功，请参照网址 blog.ayano.top/archives/525/ 的教程进行后续操作，以下是您的gtoken凭证，请勿外泄，该凭证有效期为3h"
+    msg2 = f"gtoken凭证获取成功，请参照网址\nblog.ayano.top/archives/525/ \n的教程进行后续操作，以下是您的gtoken凭证，请勿外泄，该凭证有效期为3h"
     if isinstance(bot, QQ_Bot):
         msg2 = msg2.replace(".", "点")
     await bot_send(bot, event, message=msg2, skip_ad=True)

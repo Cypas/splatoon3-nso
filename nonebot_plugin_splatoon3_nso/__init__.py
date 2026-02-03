@@ -17,6 +17,15 @@ from .handle.send_msg import bot_send, notify_to_channel
 from .s3s.splatnet_image import global_browser
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
 from .utils.bot import *
+from .api.main import app as fastapi_app  # 引入fastapi接口
+### bot.py 中启动fastapi
+# nonebot.init()
+# asgi = nonebot.get_asgi()
+# driver = nonebot.get_driver()
+# driver.register_adapter(OneBotV11Adapter)
+# nonebot.load_plugins("plugins")
+# asgi.mount("/api", fastapi_app)
+###
 
 __plugin_meta__ = PluginMetadata(
     name="splatoon3游戏nso查询",

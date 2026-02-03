@@ -1,7 +1,7 @@
 from nonebot import logger
 from redis import asyncio as aioredis  # noqa
 import redis
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Any, Coroutine
 
 from ..config import plugin_config
 
@@ -72,11 +72,21 @@ class BaseRedisManager(ABC):
         """删除指定key"""
         self.get_redis().delete(key)
 
-    def hset(self, key: str, mapping: Dict[str, Any]) -> None:
-        """批量设置hash字段"""
-        self.get_redis().hset(key, mapping=mapping)
+    def hset(self, key: str, mapping: Dict[str, Any], expire: Optional[int] = None) -> None:
+        """
+        批量设置hash字段
+        :param key: redis的hash顶级key
+        :param mapping: 批量设置的字段映射，dict格式
+        :param expire: 过期时间，单位秒，None则永不过期（示例：2小时传7200）
+        """
+        redis_client = self.get_redis()
+        # 批量设置hash字段
+        redis_client.hset(key, mapping=mapping)
+        # 若传入过期时间，给key设置过期
+        if expire is not None and expire > 0:
+            redis_client.expire(key, expire)
 
-    def hget_all(self, key: str) -> Dict[str, Any]:
+    def hgetall(self, key: str) -> Dict[str, Any]:
         """获取hash所有字段"""
         return self.get_redis().hgetall(key)
 
@@ -92,14 +102,21 @@ class RedisManagerGetlc(BaseRedisManager):
     DEFAULT_DB = 2
 
 
+class RedisManagerFastapi(BaseRedisManager):
+    """fastapi专用Redis管理器（DB=1）"""
+    DEFAULT_DB = 1
+
+
 # 全局实例（保持原有调用方式不变）
 try:
     rm_gtoken = RedisManagerGToken()
     rm_lc = RedisManagerGetlc()
+    rm_api = RedisManagerFastapi()
 except Exception as e:
     logger.error("redis连接失败，请检查redis连接参数")
     rm_gtoken = None
     rm_lc = None
+
 
 # --------------------------
 # 原有异步函数（保持兼容）
@@ -116,7 +133,7 @@ async def rset_gtoken(sp_id: str, g_token: str) -> None:
 
 async def rget_lc(login_code: str) -> Dict[str, Any]:
     """redis hget_all login_info"""
-    return rm_lc.hget_all(login_code)
+    return rm_lc.hgetall(login_code)
 
 
 async def rset_lc(login_code: str, mapping: Dict[str, Any]) -> None:
@@ -127,3 +144,29 @@ async def rset_lc(login_code: str, mapping: Dict[str, Any]) -> None:
 async def rdel_lc(login_code: str) -> None:
     """redis del login_code"""
     rm_lc.delete(login_code)
+
+
+async def api_rset_info(secret_code: str, user_info: Dict[str, Any]) -> None:
+    """api数据库存用户信息以及gtoken和bullet_token"""
+    key = f"user_info:{secret_code}"
+    rm_api.hset(key, user_info, expire=7200)  # 2h过期
+
+
+async def api_rget_info(secret_code: str) -> Dict[str, Any]:
+    """api数据库取用户信息"""
+    key = f"user_info:{secret_code}"
+    user_info = rm_api.hgetall(key)
+    return user_info
+
+
+async def api_rget_json_file_name(secret_code: str) -> str:
+    """api数据库取json文件名"""
+    key = f"seedchecker_json_file_name:{secret_code}"
+    file_name = rm_api.get(key)
+    return file_name
+
+
+async def api_rset_json_file_name(secret_code: str, value: str):
+    """api数据库设置json文件名"""
+    key = f"seedchecker_json_file_name:{secret_code}"
+    rm_api.set(key, value, expire=7200)  # 2h过期
