@@ -16,6 +16,7 @@ from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str
 from ..utils.bot import *
 from ..utils.redis import rset_lc, rget_lc, rdel_lc
+from ..utils.short_url import zurl
 
 MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
@@ -41,19 +42,20 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
 
     # 只有q平台 且 q群才发md
     if isinstance(bot, QQ_Bot):
-        if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
-            if isinstance(event, QQ_C2CME):
-                user_id = ""
-            # 发送md
-            await bot_send_login_md(bot, event, user_id)
-            await matcher.finish()
-        # elif isinstance(event, QQ_C2CME):
-        #     pass
-        else:
-            msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码,支持跨机器人(如漆bot)\n" \
-                  f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
-            await matcher.finish(msg)
-    elif isinstance(event, All_Group_Message):
+        if not zurl.get_client():
+            if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
+                if isinstance(event, QQ_C2CME):
+                    user_id = ""
+                # 发送md
+                await bot_send_login_md(bot, event, user_id)
+                await matcher.finish()
+            # elif isinstance(event, QQ_C2CME):
+            #     pass
+            else:
+                msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码,支持跨机器人(如漆bot)\n" \
+                      f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+                await matcher.finish(msg)
+    if isinstance(event, All_Group_Message):
         await matcher.finish(MSG_PRIVATE)
 
     img_path = f'{DIR_RESOURCE}/sp3bot-login.gif'

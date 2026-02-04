@@ -13,6 +13,12 @@ class CosConfig(BaseModel, extra=Extra.ignore):
     max_file_size: int = 30 * 1024 * 1024  # 最大文件大小30MB
 
 
+class ZurlConfig(BaseModel, extra=Extra.ignore):
+    """开源短链接项目 https://github.com/helloxz/zurl"""
+    enabled: bool = False
+    host: str = ""  # http://demo.a.com
+    token: str = "" # 密钥
+
 # 其他地方出现的类似 from .. import config，均是从 __init__.py 导入的 Config 实例
 class Config(BaseModel):
     # 默认 proxy = "" 表示不使用代理进行连接
@@ -66,7 +72,8 @@ class Config(BaseModel):
     splatoon3_unknown_command_fallback_reply_kook_black_list: list = []
     # 腾讯云cos配置
     splatoon3_cos_config: CosConfig = Field(default_factory=CosConfig)
-
+    # zurl短链接配置
+    splatoon3_zurl_config: ZurlConfig = Field(default_factory=ZurlConfig)
 
 
 driver = get_driver()
