@@ -1231,7 +1231,7 @@ class STAT:
         h = mmh3.hash(r) & 0xFFFFFFFF  # make positive
         key = base64.b64encode(bytes([k ^ (h & 0xFF) for k in bytes(r, "utf-8")]))
         t = int(time.time())
-        file_name = f"gear_{t}.json"
+        file_name = f"gear_{game_sp_id}_{t}.json"
         json_str = json.dumps({"key": key.decode("utf-8"), "h": h, "timestamp": t, "gear": gear})
         json_bytes = json_str.encode()
         return {"file_name": file_name, "json_bytes": json_bytes}

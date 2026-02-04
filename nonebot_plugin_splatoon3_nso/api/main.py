@@ -7,7 +7,7 @@ from nonebot import logger
 from fastapi.middleware.cors import CORSMiddleware
 
 from ..utils.utils import DIR_RESOURCE
-from ..utils.redis import api_rget_json_file_name
+from ..utils.redis import api_rget_json_file_name, api_rdel_json_file_name
 
 fast_logger = logger.bind(fastapi=True)
 app = FastAPI(
@@ -31,7 +31,7 @@ app.add_middleware(
 
 # plugins/my_calc/api/main.py 核心接口片段
 @app.get("/nso/seedchecker")
-async def download_seed_checker(secret_code: str = Query(..., min_length=1, max_length=24)):
+async def download_seed_checker(secret_code: str = Query(..., min_length=1, max_length=40)):
     """
     使用小鱿鱿创建的密钥下载观星json文件
     """
@@ -58,11 +58,12 @@ async def download_seed_checker(secret_code: str = Query(..., min_length=1, max_
                 "code": 404,
                 "msg": "观星文件不存在，请用小鱿鱿重新生成"
             }
+        await api_rdel_json_file_name(real_secret_code)
         # 正常返回文件流
         return FileResponse(
             path=file_path,
             filename=file_name,  # 下载时的文件名
-            media_type="application/json"  # json类型
+            media_type="application/octet-stream"  # 二进制流类型
         )
 
     except Exception as e:

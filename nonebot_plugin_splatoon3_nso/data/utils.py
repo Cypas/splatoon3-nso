@@ -24,6 +24,7 @@ class GlobalUserInfo:
         self.game_name = kwargs.get('game_name', None)
         self.game_sp_id = kwargs.get('game_sp_id', None)
         self.push = kwargs.get('push', 0)
+        self.export_seed = kwargs.get('export_seed', 0)
         self.push_cnt = kwargs.get('push_cnt', 0)
         self.cmd_cnt = kwargs.get('cmd_cnt', 0)
         self.user_agreement = kwargs.get('user_agreement', 0)

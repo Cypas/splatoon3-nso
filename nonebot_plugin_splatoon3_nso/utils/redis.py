@@ -170,3 +170,8 @@ async def api_rset_json_file_name(secret_code: str, value: str):
     """api数据库设置json文件名"""
     key = f"seedchecker_json_file_name:{secret_code}"
     rm_api.set(key, value, expire=7200)  # 2h过期
+
+async def api_rdel_json_file_name(secret_code: str):
+    """api数据库删除文件映射"""
+    key = f"seedchecker_json_file_name:{secret_code}"
+    rm_api.delete(key)
