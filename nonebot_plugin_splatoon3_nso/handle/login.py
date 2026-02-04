@@ -13,7 +13,7 @@ from ..data.data_source import dict_get_or_set_user_info, model_delete_user, glo
     model_get_or_set_user
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
-from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str
+from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str, get_file_bytes
 from ..utils.bot import *
 from ..utils.redis import rset_lc, rget_lc, rdel_lc
 from ..utils.short_url import zurl
@@ -40,9 +40,9 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         await bot_send(bot, event, msg)
         await matcher.finish()
 
-    # 只有q平台 且 q群才发md
     if isinstance(bot, QQ_Bot):
         if not zurl.get_client():
+            # qbot 且 未开启短链情况下 才要求必须转kook进行登录
             if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
                 if isinstance(event, QQ_C2CME):
                     user_id = ""
@@ -86,17 +86,33 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             await bot.send(event, message=msg)
 
         elif isinstance(bot, All_BOT):
-            msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi的过程，可能存在一定的风险，具体说明可查看该频道信息https://www.kookapp.cn/app/channels/7545457877013311/7021701150930949\n" \
-                  "若继续完成以下登录流程，则视为您已知晓此风险并继续使用nso查询\n\n"
-            msg += "登录流程: 在浏览器中打开下面链接（移动端复制链接至其他浏览器,\n" \
-                   "登陆后，在显示红色的选择此人按钮时，右键红色按钮(手机端长按复制)\n" \
-                   "复制其链接后发送给机器人，链接是一串npf开头的文本(两分钟内有效！)"
+            msg = ("风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi的过程，可能存在一定的风险，"
+                   "具体说明请查看下方第三方api使用与隐私声明\n\n若继续完成以下登录流程，则视为您已知晓此风险并继续使用nso查询")
             await bot.send(event, message=msg)
-            await bot.send(event, message='我是分割线'.center(20, '-'))
-            if isinstance(event, QQ_C2CME):
-                await bot_send_login_url_md(bot, event, url)
+            # 发送隐私协议图片
+            privacy_img = get_file_bytes("bot_privacy.png")
+            await bot_send(bot, event, message=privacy_img)
+            msg2 = f"nso登录流程: 在浏览器中打开下面链接\n{'(需要手动替换 点 字)' if isinstance(bot, QQ_Bot) else ''}，然后按照下方登录教程进行操作"
+            await bot.send(event, message=msg2)
+            # 发送登录教程图片
+            login_img = get_file_bytes("bot_login.png")
+            await bot_send(bot, event, message=login_img)
+            # await bot.send(event, message='我是分割线'.center(20, '-'))
+            if zurl.get_client():
+                # 开启了短链
+                ok, new_url = await zurl.create_short_url(long_url=url)
+                if not ok:
+                    logger.warning("短链生成失败，暂时使用原链")
+                    login_url = url
+                else:
+                    login_url = new_url
             else:
-                await bot.send(event, message=url)
+                login_url = url
+
+            if isinstance(bot, QQ_Bot):
+                login_url = login_url.replace(".", "点")
+
+            await bot.send(event, message=login_url)
 
 
 matcher_login_in_2 = on_startswith("npf", priority=10)
@@ -130,7 +146,7 @@ async def login_in_2(bot: Bot, event: Event):
 
     session_token = await s3s.login_in_2(use_account_url=text, auth_code_verifier=auth_code_verifier)
     if (not session_token) or (session_token == 'skip'):
-        err_msg = "登录失败，请 /login 重试, 并在浏览器打开bot新发给你的登录链接，在重新完成登录后，复制按钮的新链接给我"
+        err_msg = "登录失败，请 /login 重试, 并在浏览器打开bot新发给你的登录链接，在重新完成登录后，复制按钮的新链接给bot"
         logger.info(err_msg)
         # 登录失败直接销毁用户等待字典
         global_login_status_dict.pop(msg_id)
@@ -154,8 +170,20 @@ async def login_in_2(bot: Bot, event: Event):
               "/last - show the latest battle or coop\n" \
               "/start_push - start push mode\n" \
               "/set_stat_key - set stat.ink api_key, bot will sync your data to stat.ink"
+    elif isinstance(bot, QQ_Bot):
+        msg = "登录成功！机器人现在可以从nso获取你的数据。\n" \
+              "如果希望在其他平台使用nso查询，请发送\n" \
+              "/get_login_code\n" \
+              "获取一次性跨平台绑定码\n" \
+              "\n" \
+              "常用指令:\n" \
+              "/me - 显示你的信息\n" \
+              "/friends - 显示在线的喷喷好友\n" \
+              "/last - 显示最近一场对战或打工\n" \
+              "/report - 获取昨天或指定日期的日报数据\n" \
+              "/set_stat_key - 设置 api_key, 同步数据到 https://stat点ink"
     elif isinstance(bot, All_BOT):
-        msg = "登录成功！机器人现在可以从App获取你的数据。\n" \
+        msg = "登录成功！机器人现在可以从nso获取你的数据。\n" \
               "如果希望在其他平台使用nso查询，请发送\n" \
               "/get_login_code\n" \
               "获取一次性跨平台绑定码\n" \
@@ -166,27 +194,11 @@ async def login_in_2(bot: Bot, event: Event):
               "/last - 显示最近一场对战或打工\n" \
               "/report - 获取昨天或指定日期的日报数据\n" \
               "/start_push - 开启推送模式\n" \
-              "/set_stat_key - 设置 api_key, 同步数据到 https://stat.ink\n" \
-              "更多完整nso操作指令:\n"
-        if isinstance(event, QQ_C2CME):
-            msg = "登录成功！机器人现在可以从App获取你的数据。\n" \
-                  "如果希望在其他平台使用nso查询，请发送\n" \
-                  "/get_login_code\n" \
-                  "获取一次性跨平台绑定码\n" \
-                  "\n" \
-                  "常用指令:\n" \
-                  "/me - 显示你的信息\n" \
-                  "/friends - 显示在线的喷喷好友\n" \
-                  "/last - 显示最近一场对战或打工\n" \
-                  "/report - 获取昨天或指定日期的日报数据\n" \
-                  "/set_stat_key - 设置 api_key, 同步数据到 https://stat点ink\n" \
-                  "更多完整nso操作指令:\n"
+              "/set_stat_key - 设置 api_key, 同步数据到 https://stat.ink"
 
-        if plugin_config.splatoon3_schedule_plugin_priority_mode:
-            # 日程插件帮助优先模式
-            msg += "/nso帮助"
-        else:
-            msg += "https://docs.qq.com/sheet/DUkZHRWtCUkR0d2Nr?tab=BB08J2"
+    if plugin_config.splatoon3_schedule_plugin_priority_mode:
+        # 日程插件帮助优先模式
+        msg += "\n更多完整nso操作指令: \n/nso帮助"
     await bot.send(event, message=msg)
     global_login_status_dict.pop(msg_id)
     logger.info(f'login success:{msg_id} {user_name}')
@@ -344,14 +356,14 @@ async def set_login_code(bot: Bot, event: Event):
     # global_login_code_dict.pop(login_code)
     await rdel_lc(login_code)
 
-    msg = "登录成功！机器人现在可以从App获取你的数据。\n" \
+    msg = "登录成功！机器人现在可以从nso获取你的数据。\n" \
           "/me - 显示你的信息\n" \
           "/friends - 显示在线的喷喷好友\n" \
           "/last - 显示最近一场对战或打工\n" \
-          "/report - 喷喷早报\n"
+          "/report - 喷喷早报"
     if plugin_config.splatoon3_schedule_plugin_priority_mode:
         # 日程插件帮助优先模式
-        msg += "更多完整nso操作指令:\n/nso帮助"
+        msg += "\n更多完整nso操作指令:\n/nso帮助"
 
     await bot_send(bot, event, msg)
 

@@ -4,7 +4,8 @@ from urllib.parse import urljoin
 
 from nonebot import logger
 
-from .. import plugin_config, AsHttpReq
+from .. import plugin_config
+from .http import AsHttpReq
 
 
 class ZUrlClient:
@@ -41,15 +42,17 @@ class ZUrl:
     def get_client(self):
         return self.client
 
-    async def create_short_url(self, long_url, short_code=""):
-        url = self.client.host
+    async def create_short_url(self, long_url, short_code="", ttl_days=1):
+        # 短链有效期默认为1天
+        url = self._join_url(self.client.host, "/api/shorten_url")
         headers = {
-            "Authorization": self.client.token,
+            "Authorization": f"Bearer {self.client.token}",
             "Content-Type": "application/json"
         }
         body = {
             "long_url": long_url,
-            "short_url": short_code
+            "short_url": short_code,
+            "ttl_days": ttl_days
         }
         try:
             resp = await AsHttpReq.post(url, headers=headers, json=body)
@@ -57,7 +60,7 @@ class ZUrl:
             if res.get("code") == 200:
                 new_short_code = res.get("data").get("short_url")
                 ok = True
-                short_url = self._join_url(url, new_short_code)
+                short_url = self._join_url(self.client.host, new_short_code)
                 return ok, short_url
             else:
                 return False, f"创建失败，响应码:{res.get('code')}"
@@ -65,7 +68,7 @@ class ZUrl:
             logger.warning(f"zurl短链请求失败:traceback:{traceback.format_exc()}")
             return False, ""
 
-    def _join_url(host: str, suffix: str = "") -> str:
+    def _join_url(self, host: str, suffix: str = "") -> str:
         """
         拼接URL，自动处理host末尾是否有/的问题（URL标准写法）
         :param host: 基础主机地址（如https://test.com / https://test.com/）

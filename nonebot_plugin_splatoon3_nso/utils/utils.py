@@ -84,6 +84,11 @@ def get_jwt_exp_info(jwt_token: str) -> dict:
         return {"remaining_seconds": 0, "exp_ts": 0, "exp_date": "已过期"}
 
 
+def get_file_bytes(file_name: str) -> bytes:
+    with open(f"{DIR_RESOURCE}/{file_name}", "rb") as f:
+        return f.read()
+
+
 MSG_HELP = f"""
 /me - show your info
 /friends - show splatoon3 online friends

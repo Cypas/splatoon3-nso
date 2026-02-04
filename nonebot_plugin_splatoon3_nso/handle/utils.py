@@ -331,7 +331,7 @@ async def get_qq_user_name(bot: QQ_Bot, user_id):
     try:
         res = await AsHttpReq.get(api, with_proxy=False, params=params)
         data = res.json()
-        user_name = data.get("名字","")
+        user_name = data.get("名字", "")
         return user_name
     except Exception as e:
         if res and res.text:
@@ -339,7 +339,6 @@ async def get_qq_user_name(bot: QQ_Bot, user_id):
         else:
             logger.warning(f"QQ get username error:{e}")
         return ""
-
 
 # event结构解析参考代码
 # async def log_cmd_to_db(bot, event, get_map=False):

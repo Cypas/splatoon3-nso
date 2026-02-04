@@ -17,7 +17,8 @@ class ZurlConfig(BaseModel, extra=Extra.ignore):
     """开源短链接项目 https://github.com/helloxz/zurl"""
     enabled: bool = False
     host: str = ""  # http://demo.a.com
-    token: str = "" # 密钥
+    token: str = ""  # 密钥
+
 
 # 其他地方出现的类似 from .. import config，均是从 __init__.py 导入的 Config 实例
 class Config(BaseModel):
