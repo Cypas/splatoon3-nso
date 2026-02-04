@@ -1,5 +1,6 @@
 import os
 import secrets
+import time
 from collections import defaultdict
 from datetime import datetime as dt, timedelta
 from pathlib import Path
@@ -18,10 +19,11 @@ from ..s3s.splatoon import Splatoon
 from ..s3s.stat import STAT, CONFIG_DATA
 from ..utils import get_msg_id
 from ..utils.bot import *
-from ..utils.redis import api_rset_json_file_name
-from ..utils.utils import DIR_RESOURCE
+from ..utils.redis import api_rset_json_file_name, api_rset_info
+from ..utils.utils import DIR_RESOURCE, get_jwt_exp_info
 
 MSG_PRIVATE = "该指令需要私信机器人才能使用"
+NSO_WEB_CACHE_DICT = {}
 
 
 @on_command("me", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
@@ -642,7 +644,7 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         no_sp_id_msg = "请先使用一次/last命令后再使用观星导出"
         await matcher.finish(no_sp_id_msg)
 
-    user = dict_get_or_set_user_info(platform, user_id, export_seed=1) # 设置为正在导出
+    user = dict_get_or_set_user_info(platform, user_id, export_seed=1)  # 设置为正在导出
     # 用户等待提示词
     if isinstance(bot, QQ_Bot):
         msg1 = (
@@ -683,7 +685,7 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
             msg2 = f"观星访问密钥获取成功，请将密钥输入到上面教程网址下载观星json文件，以下是您的观星访问密钥，请勿外泄，该一次性密钥有效期为2h"
             await bot_send(bot, event, message=msg2, skip_ad=True)
             # 生成密钥
-            secret_code = secrets.token_urlsafe(6) #6字节，长度为8位
+            secret_code = secrets.token_urlsafe(6)  # 6字节，长度为8位
             # 生成本地缓存文件
             file_dir = os.path.join(DIR_RESOURCE, "temp_seedchecker_file")
             file_path = os.path.join(file_dir, file_name)
@@ -692,7 +694,7 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
                 f.write(json_bytes)
             # 将文件名和随机密钥写redis
             await api_rset_json_file_name(secret_code, file_name)
-            msg3 = f"xyy-seedchecker-{secret_code}" #16+8 = 24位密钥
+            msg3 = f"xyy-seedchecker-{secret_code}"  # 16+8 = 24位密钥
             await bot_send(bot, event, message=msg3, skip_ad=True)
         else:
             await bot_send(bot, event, message=json_bytes, file_name=file_name, skip_ad=True)
@@ -702,7 +704,8 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         user = dict_get_or_set_user_info(platform, user_id, export_seed=0)  # 取消导出状态
 
 
-@on_command("nso_web", aliases={'nso网页版'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("nso_web", aliases={'nso网页版', 'nsoweb'}, block=True).handle(
+    parameterless=[Depends(_check_session_handler)])
 async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -713,18 +716,57 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
     user = dict_get_or_set_user_info(platform, user_id)
     msg_id = get_msg_id(platform, user_id)
     splatoon = Splatoon(bot, event, user)
-    msg1 = ("以下导出的gtoken可以让你在电脑网页上查看并操作nso里面的喷三'鱿鱼圈'应用，当你在网络不好登不上nso，"
-            "或者更新不了nso最新版本时可以派上用场\n\n正在生成gtoken凭证中，请稍等。。。")
+    msg1 = ("以下导出的nso访问密钥可以让你在电脑网页上查看并操作nso里面的喷三'鱿鱼圈'应用，当你在网络不好登不上nso，"
+            "或者更新不了nso最新版本时可以派上用场\n\n正在生成nso访问密钥中，请稍等。。。")
     if isinstance(bot, QQ_Bot):
         msg1 = msg1.replace(".", "点")
     await bot_send(bot, event, message=msg1, skip_ad=True)
-    # 强制刷新token延长bullet_token时间
-    ok = await splatoon.refresh_gtoken_and_bullettoken(skip_access=False)
-    if not ok:
-        await matcher.finish(net_error_msg)
-    msg2 = f"gtoken凭证获取成功，请参照网址\nblog.ayano.top/archives/525/ \n的教程进行后续操作，以下是您的gtoken凭证，请勿外泄，该凭证有效期为3h"
-    if isinstance(bot, QQ_Bot):
-        msg2 = msg2.replace(".", "点")
-    await bot_send(bot, event, message=msg2, skip_ad=True)
-    msg3 = f"{splatoon.g_token}"
-    await bot_send(bot, event, message=msg3, skip_ad=True)
+    # 判断是否存在仍然有效的token
+    nso_web_data = NSO_WEB_CACHE_DICT.get(msg_id)
+    now = time.time()
+    need_refresh = True
+    remaining_seconds = 0
+    if nso_web_data:
+        ex_time = nso_web_data.get("ex_time")
+        if ex_time:
+            remaining_seconds = int(ex_time) - int(now)
+            if remaining_seconds >= 1800:
+                # 如果剩余时间大于1800秒(30分钟)，将缓存的密钥重新返回给用户，不进行刷新
+                need_refresh = False
+    if not need_refresh:
+        # 存在有效的gtoken缓存
+        msg2 = f"存在仍有效的nso访问密钥，以下是您的nso访问密钥，请勿外泄，该凭证有效期剩余{remaining_seconds // 60}分钟"
+        await bot_send(bot, event, message=msg2, skip_ad=True)
+        secret_code = nso_web_data.get('secret_code')
+        msg3 = f"{secret_code}"
+        await bot_send(bot, event, message=msg3, skip_ad=True)
+    else:
+        # 强制刷新token延长bullet_token时间
+        ok = await splatoon.refresh_gtoken_and_bullettoken(skip_access=False)
+        if not ok:
+            await matcher.finish(net_error_msg)
+        msg2 = f"nso访问密钥获取成功，请参照网址\nblog.ayano.top/archives/567/ \n的教程进行后续操作，以下是您的nso访问密钥，请勿外泄，该凭证有效期为3h"
+        if isinstance(bot, QQ_Bot):
+            msg2 = msg2.replace(".", "点")
+        await bot_send(bot, event, message=msg2, skip_ad=True)
+        g_token = splatoon.g_token
+        # 校验gtoken并计算剩余时间
+        jwt_info = get_jwt_exp_info(g_token)
+        exp_ts = jwt_info.get("exp_ts")
+        ## 生成密钥
+        secret_code = secrets.token_urlsafe(6)  # 6字节，长度为8位
+        d = {
+            "platform": platform,
+            "user_id": user_id,
+            "msg_id": msg_id,
+            "game_sp_id": user.game_sp_id or "",
+            "gtoken": splatoon.g_token,
+            "ex_time": exp_ts,  # 过期的时间戳，
+            "secret_code": secret_code
+        }
+        # 将用户信息和随机密钥写redis
+        await api_rset_info(secret_code, d)
+        # 同时将msg_id作为key写到缓存字典
+        NSO_WEB_CACHE_DICT[msg_id] = d
+        msg3 = f"{secret_code}"
+        await bot_send(bot, event, message=msg3, skip_ad=True)

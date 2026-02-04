@@ -6,8 +6,8 @@ from fastapi.responses import FileResponse, Response
 from nonebot import logger
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..utils.utils import DIR_RESOURCE
-from ..utils.redis import api_rget_json_file_name, api_rdel_json_file_name
+from ..utils.utils import DIR_RESOURCE, get_jwt_exp_info
+from ..utils.redis import api_rget_json_file_name, api_rdel_json_file_name, api_rget_info
 
 fast_logger = logger.bind(fastapi=True)
 app = FastAPI(
@@ -29,6 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # plugins/my_calc/api/main.py 核心接口片段
 @app.get("/nso/seedchecker")
 async def download_seed_checker(secret_code: str = Query(..., min_length=1, max_length=40)):
@@ -42,7 +43,7 @@ async def download_seed_checker(secret_code: str = Query(..., min_length=1, max_
                 "msg": "观星访问密钥错误,长度应为24位，请用小鱿鱿重新生成"
             }
         # 取真实redis key
-        real_secret_code = secret_code.replace("xyy-seedchecker-","")
+        real_secret_code = secret_code.replace("xyy-seedchecker-", "")
         file_name = await api_rget_json_file_name(real_secret_code)
         if not file_name:
             return {
@@ -68,4 +69,52 @@ async def download_seed_checker(secret_code: str = Query(..., min_length=1, max_
 
     except Exception as e:
         fast_logger.error(f"[fastapi]观星下载 error:{e}")
+        raise HTTPException(status_code=500, detail=f"服务器内部错误")
+
+
+@app.get("/nso/nso_web/login")
+async def nso_web_login(secret_code: str = Query(..., min_length=1, max_length=40)):
+    """
+    获取小鱿鱿创建的密钥gtoken
+    """
+    try:
+        if len(secret_code) != 24:
+            return {
+                "code": 403,
+                "msg": "鱿鱼圈访问密钥错误,长度应为24位，请用小鱿鱿重新生成"
+            }
+        # 取真实redis key
+        real_secret_code = secret_code.replace("xyy-nsoweb-", "")
+        user_info = await api_rget_info(real_secret_code)
+        if not user_info:
+            return {
+                "code": 403,
+                "msg": "鱿鱼圈访问密钥错误或已过期，请用小鱿鱿重新生成"
+            }
+        # 读取gtoken
+        gtoken = user_info.get("gtoken")
+        # 校验gtoken并计算剩余时间
+        jwt_info = get_jwt_exp_info(gtoken)
+        remaining_seconds = jwt_info.get("remaining_seconds")
+        exp_ts = jwt_info.get("exp_ts")
+        exp_date = jwt_info.get("exp_date")
+        if remaining_seconds <= 0:
+            return {
+                "code": 403,
+                "msg": "密钥已过期，请用小鱿鱿重新生成"
+            }
+        else:
+            return {
+                "code": 0,
+                "msg": "gtoken获取成功",
+                "data": {
+                    "gtoken": gtoken,
+                    "remaining_seconds": remaining_seconds,
+                    "exp_ts": exp_ts,
+                    "exp_date": exp_date
+                }
+            }
+
+    except Exception as e:
+        fast_logger.error(f"[fastapi]鱿鱼圈访问 error:{e}")
         raise HTTPException(status_code=500, detail=f"服务器内部错误")

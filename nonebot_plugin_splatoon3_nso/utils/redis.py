@@ -90,6 +90,27 @@ class BaseRedisManager(ABC):
         """获取hash所有字段"""
         return self.get_redis().hgetall(key)
 
+    def has_key_startswith(self, prefix: str, count: int = 1000) -> bool:
+        """
+        判断Redis中是否存在以指定前缀开头的key（SCAN版，生产环境推荐）
+        :param prefix: 要判断的key前缀（如"XX"）
+        :param count: 每次迭代遍历的key数量，越大遍历越快，建议100-1000
+        :return: 存在返回True，不存在返回False
+        """
+        # SCAN的游标，初始为0（从第一个key开始遍历）
+        cursor = 0
+        # 通配符规则：prefix* 匹配以prefix开头的key
+        pattern = f"{prefix}*"
+        while True:
+            # 执行SCAN：cursor=游标，match=匹配规则，count=每次遍历数量
+            cursor, match_keys = self.get_redis().scan(cursor=cursor, match=pattern, count=count)
+            # 本次遍历找到匹配key，直接返回True
+            if match_keys:
+                return True
+            # 游标为0时，说明遍历完所有key，无匹配项，返回False
+            if cursor == 0:
+                return False
+
 
 class RedisManagerGToken(BaseRedisManager):
     """GToken专用Redis管理器（DB=3）"""
@@ -158,6 +179,15 @@ async def api_rget_info(secret_code: str) -> Dict[str, Any]:
     user_info = rm_api.hgetall(key)
     return user_info
 
+async def api_user_info_has_key_startswith(msg_id: str):
+    """
+    api数据库看用户是否存在仍有效的密钥
+    使用msg_id作为唯一前缀判断
+    """
+    key = f"user_info:{msg_id}"
+    ok = rm_api.has_key_startswith(key)
+    return ok
+
 
 async def api_rget_json_file_name(secret_code: str) -> str:
     """api数据库取json文件名"""
@@ -171,7 +201,11 @@ async def api_rset_json_file_name(secret_code: str, value: str):
     key = f"seedchecker_json_file_name:{secret_code}"
     rm_api.set(key, value, expire=7200)  # 2h过期
 
+
 async def api_rdel_json_file_name(secret_code: str):
     """api数据库删除文件映射"""
     key = f"seedchecker_json_file_name:{secret_code}"
     rm_api.delete(key)
+
+
+
