@@ -26,7 +26,7 @@ proxy_list_mode = plugin_config.splatoon3_proxy_list_mode
 proxy_host_list = plugin_config.splatoon3_proxy_list
 
 # 客户端清理配置
-CLIENT_TIMEOUT = 60 * 60 * 20  # 20小时未使用则清理
+CLIENT_TIMEOUT = 60 * 60 * 10  # 10小时未使用则清理
 
 # ===================== 全局变量  =====================
 # 1. 普通客户端：msg_id -> (ReqClient, 最后使用时间)
@@ -349,7 +349,8 @@ class HttpReq(object):
 # AsyncClient 全局配置（复用核心）
 CLIENT_CONFIG: Dict[str, Any] = {
     "http2": False,
-    "timeout": httpx.Timeout(connect=HTTP_TIME_OUT, read=HTTP_TIME_OUT * 2, write=HTTP_TIME_OUT, pool=HTTP_TIME_OUT),
+    "timeout": httpx.Timeout(connect=HTTP_TIME_OUT // 2, read=HTTP_TIME_OUT, write=HTTP_TIME_OUT // 2,
+                             pool=HTTP_TIME_OUT // 3),
     "limits": httpx.Limits(max_connections=300, max_keepalive_connections=60),
 }
 
@@ -390,7 +391,7 @@ class AsHttpReq:
         """
         # 1. 解析URL域名
         parsed_url = urllib.parse.urlparse(url)
-        domain = parsed_url.hostname or "default"   # 无域名则用default
+        domain = parsed_url.hostname or "default"  # 无域名则用default
 
         # 2. 确定最终是否使用代理（结合显式参数+域名白名单）
         # 规则：with_proxy=True 或 域名在代理白名单中 → 使用代理
