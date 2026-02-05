@@ -17,7 +17,7 @@ from ..data.utils import GlobalUserInfo
 from ..s3s.iksm import F_GEN_URL
 from ..s3s.splatoon import Splatoon
 from ..s3s.stat import STAT, CONFIG_DATA
-from ..utils import get_msg_id
+from ..utils import get_msg_id, convert_td
 from ..utils.bot import *
 from ..utils.redis import api_rset_json_file_name, api_rset_info
 from ..utils.utils import DIR_RESOURCE, get_jwt_exp_info
@@ -716,8 +716,8 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
     user = dict_get_or_set_user_info(platform, user_id)
     msg_id = get_msg_id(platform, user_id)
     splatoon = Splatoon(bot, event, user)
-    msg1 = ("以下导出的nso访问密钥可以让你在电脑网页上查看并操作nso里面的喷三'鱿鱼圈'应用，当你在网络不好登不上nso，"
-            "或者更新不了nso最新版本时可以派上用场\n\n正在生成nso访问密钥中，请稍等。。。")
+    msg1 = ("以下导出的nso网页版访问密钥可以让你在电脑网页上查看并操作nso里面的喷三'鱿鱼圈'应用，当你在网络不好登不上nso，"
+            "或者更新不了nso最新版本时可以派上用场\n\n正在生成nso网页版访问密钥中，请稍等。。。")
     if isinstance(bot, QQ_Bot):
         msg1 = msg1.replace(".", "点")
     await bot_send(bot, event, message=msg1, skip_ad=True)
@@ -735,17 +735,17 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
                 need_refresh = False
     if not need_refresh:
         # 存在有效的gtoken缓存
-        msg2 = f"存在仍有效的nso访问密钥，以下是您的nso访问密钥，请勿外泄，该凭证有效期剩余{remaining_seconds // 60}分钟"
+        msg2 = f"存在仍有效的nso网页版访问密钥，请参照网址\nblog.ayano.top/archives/567/ \n的教程进行后续操作，以下是您的nso网页版访问密钥，请勿外泄，该凭证有效期剩余 {convert_td(timedelta(remaining_seconds))}"
         await bot_send(bot, event, message=msg2, skip_ad=True)
         secret_code = nso_web_data.get('secret_code')
-        msg3 = f"{secret_code}"
+        msg3 = f"xyy-nsoweb-{secret_code}"
         await bot_send(bot, event, message=msg3, skip_ad=True)
     else:
         # 强制刷新token延长bullet_token时间
         ok = await splatoon.refresh_gtoken_and_bullettoken(skip_access=False)
         if not ok:
             await matcher.finish(net_error_msg)
-        msg2 = f"nso访问密钥获取成功，请参照网址\nblog.ayano.top/archives/567/ \n的教程进行后续操作，以下是您的nso访问密钥，请勿外泄，该凭证有效期为3h"
+        msg2 = f"nso网页版访问密钥获取成功，请参照网址\nblog.ayano.top/archives/567/ \n的教程进行后续操作，以下是您的访问密钥，请勿外泄，该凭证有效期为 3h"
         if isinstance(bot, QQ_Bot):
             msg2 = msg2.replace(".", "点")
         await bot_send(bot, event, message=msg2, skip_ad=True)
@@ -768,5 +768,5 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
         await api_rset_info(secret_code, d)
         # 同时将msg_id作为key写到缓存字典
         NSO_WEB_CACHE_DICT[msg_id] = d
-        msg3 = f"{secret_code}"
+        msg3 = f"xyy-nsoweb-{secret_code}"
         await bot_send(bot, event, message=msg3, skip_ad=True)

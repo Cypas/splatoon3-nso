@@ -6,8 +6,8 @@ import urllib.parse
 import weakref
 import httpx
 from typing import Optional, Dict, Any, Union
-from functools import lru_cache
 
+from async_lru import alru_cache
 from httpx import Response, ConnectError, ConnectTimeout, ReadTimeout
 from nonebot import logger
 
@@ -419,7 +419,7 @@ class AsHttpReq:
 
     # ===================== 新增：代理可用性检测 + 缓存 =====================
     @classmethod
-    @lru_cache(maxsize=None)  # 无上限缓存，靠过期时间控制
+    @alru_cache(maxsize=None)  # 无上限缓存，靠过期时间控制
     async def _check_proxy_available(cls, cache_key: str) -> ProxyStatus:
         """
         检测代理是否可用，带缓存（cache_key为随机值，用于控制过期）
@@ -430,7 +430,7 @@ class AsHttpReq:
             # 检测逻辑：请求公共可访问地址，仅验证连接/代理转发能力
             async with httpx.AsyncClient(timeout=PROXY_CHECK_TIMEOUT, proxy=global_proxies) as test_client:
                 resp = await test_client.get(
-                    url="https://accounts.nintendo.com/login",
+                    url="https://accounts.nintendo.com/api/passkey/authentication?context=login",
                     follow_redirects=True
                 )
             # 状态码2xx即认为代理可用
