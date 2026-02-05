@@ -5,7 +5,9 @@ import time
 import urllib.parse
 import weakref
 import httpx
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union
+from functools import lru_cache
+
 from httpx import Response, ConnectError, ConnectTimeout, ReadTimeout
 from nonebot import logger
 
@@ -351,20 +353,28 @@ CLIENT_CONFIG: Dict[str, Any] = {
     "limits": httpx.Limits(max_connections=300, max_keepalive_connections=60),
 }
 
+# 代理检测配置（新增）
+PROXY_CHECK_TIMEOUT = 30  # 代理检测超时时间（秒，要短）
+PROXY_CHECK_CACHE_EXPIRE = 300  # 代理可用性缓存过期时间（秒，5分钟）
+MAX_RETRIES = 1  # 指数退避重试次数（和原有代码一致，统一抽为全局配置）
+# 类型别名（新增，简化代码）
+ProxyStatus = bool  # True=代理可用，False=代理不可用
+
 
 class AsHttpReq:
     """
     按「域名+代理标识」分组复用 AsyncClient
     - 同时维护带代理/不带代理的双实例
     - 根据 with_proxy + url 自动匹配对应实例
+    - 新增：代理故障自动降级直连 + 缓存检测结果 + 自动恢复
     """
     # 存储分组Client：Key = "域名_代理标识"（如 "google.com_True"），Value = AsyncClient实例
     _clients: Dict[str, httpx.AsyncClient] = {}
     # 异步锁：避免并发创建Client（延迟初始化，避免事件循环绑定问题）
-    _client_lock = None
+    _client_lock: Optional[asyncio.Lock] = None
 
     @classmethod
-    def _get_client_lock(cls):
+    def _get_client_lock(cls) -> asyncio.Lock:
         """获取或创建当前事件循环的锁"""
         if cls._client_lock is None:
             cls._client_lock = asyncio.Lock()
@@ -378,9 +388,9 @@ class AsHttpReq:
         :param with_proxy: 是否使用代理（显式指定）
         :return: 复用的AsyncClient实例
         """
-        # 1. 解析URL域名（核心：按域名分组）
+        # 1. 解析URL域名
         parsed_url = urllib.parse.urlparse(url)
-        domain = parsed_url.hostname  # 无域名则用default
+        domain = parsed_url.hostname or "default"   # 无域名则用default
 
         # 2. 确定最终是否使用代理（结合显式参数+域名白名单）
         # 规则：with_proxy=True 或 域名在代理白名单中 → 使用代理
@@ -401,26 +411,64 @@ class AsHttpReq:
                     proxy=proxies,
                     **CLIENT_CONFIG
                 )
-                logger.info(f"创建分组Client：{domain}（代理：{use_proxy}）")
+                logger.info(f"创建分组Client：{client_key}（代理：{use_proxy}）")
 
             # 5. 返回复用的Client实例
             return cls._clients[client_key]
 
+    # ===================== 新增：代理可用性检测 + 缓存 =====================
     @classmethod
-    async def _close_all_clients(cls):
-        """关闭所有分组Client（应用退出时调用，避免资源泄漏）"""
-        client_lock = cls._get_client_lock()
-        async with client_lock:
-            for client_key, client in cls._clients.items():
-                if not client.is_closed:
-                    await client.aclose()
-                    logger.info(f"关闭分组Client：{client_key}")
-            cls._clients.clear()
+    @lru_cache(maxsize=None)  # 无上限缓存，靠过期时间控制
+    async def _check_proxy_available(cls, cache_key: str) -> ProxyStatus:
+        """
+        检测代理是否可用，带缓存（cache_key为随机值，用于控制过期）
+        :param cache_key: 缓存键（由时间戳生成，控制过期）
+        :return: True=可用，False=不可用
+        """
+        try:
+            # 检测逻辑：请求公共可访问地址，仅验证连接/代理转发能力
+            async with httpx.AsyncClient(timeout=PROXY_CHECK_TIMEOUT, proxy=global_proxies) as test_client:
+                resp = await test_client.get(
+                    url="https://accounts.nintendo.com/login",
+                    follow_redirects=True
+                )
+            # 状态码2xx即认为代理可用
+            is_available = resp.status_code // 100 == 2
+            if not is_available:
+                logger.warning(f"代理检测返回非2xx状态码：{resp.status_code}")
+            return is_available
+        except Exception as e:
+            # 任何异常都认为代理不可用（连接失败/超时/代理拒绝等）
+            logger.warning(f"代理检测失败，判定为不可用 | 原因：{type(e).__name__}: {str(e)[:50]}")
+            return False
 
     @classmethod
-    async def _request(cls, method: str, url: str, with_proxy: bool = False, **kwargs) -> Optional[str] | Response:
+    async def is_proxy_available(cls) -> ProxyStatus:
         """
-        核心请求方法：自动匹配Client + 重试 + 异常处理
+        对外的代理检测方法（带自动过期缓存）
+        原理：用当前时间戳//过期时间生成cache_key，相同key复用缓存，过期后自动生成新key
+        """
+        cache_key = str(int(asyncio.get_event_loop().time()) // PROXY_CHECK_CACHE_EXPIRE)
+        return await cls._check_proxy_available(cache_key)
+
+    # ===================== 新增：直连请求兜底（无代理）=====================
+    @classmethod
+    async def _request_direct(cls, method: str, url: str, **kwargs) -> Response:
+        """
+        直连请求兜底方法：创建临时无代理Client发起请求（不污染原有分组Client）
+        :param method: 请求方法
+        :param url: 请求URL
+        :param kwargs: 其他httpx参数
+        :return: Response
+        """
+        async with httpx.AsyncClient(**CLIENT_CONFIG) as temp_client:
+            method_func = getattr(temp_client, method.lower())
+            return await method_func(url, **kwargs)
+
+    @classmethod
+    async def _request(cls, method: str, url: str, with_proxy: bool = False, **kwargs) -> Union[Response, str, None]:
+        """
+        核心请求方法：原有逻辑 + 代理故障自动降级直连 + 增强异常处理
         :param method: get/post/put等
         :param url: 请求URL
         :param with_proxy: 是否显式指定使用代理
@@ -429,26 +477,43 @@ class AsHttpReq:
         """
         # 1. 获取匹配的Client实例（自动判断是否用代理）
         client = await cls._get_client(url, with_proxy)
+        # 通过_clients的key反向解析当前client是否使用代理
+        # 遍历键值对，匹配当前client实例，拆分key得到代理标识
+        current_use_proxy = False
+        for key, inst in cls._clients.items():
+            if inst is client:  # 匹配到当前Client实例
+                # 拆分key：按_分割，最后一部分是代理标识（True/False）
+                proxy_flag = key.split("_")[-1]
+                current_use_proxy = proxy_flag == "True"
+                break
 
-        # 2. 定义请求执行函数
-        async def _do_request():
-            method_lower = method.lower()
-            if method_lower == "get":
-                return await client.get(url, **kwargs)
-            elif method_lower == "post":
-                return await client.post(url, **kwargs)
-            elif method_lower == "put":
-                return await client.put(url, **kwargs)
-            elif method_lower == "delete":
-                return await client.delete(url, **kwargs)
+        # 2. 定义请求执行函数（支持切换为直连）
+        async def _do_request(use_direct: bool = False):
+            if use_direct:
+                # 直连兜底：调用新增的直连方法
+                return await cls._request_direct(method, url, **kwargs)
             else:
-                raise ValueError(f"不支持的请求方法: {method}")
+                # 原有逻辑：使用分组Client
+                method_func = getattr(client, method.lower())
+                return await method_func(url, **kwargs)
 
-        # 3. 指数退避重试（最多1次）
-        max_retries = 1
-        for attempt in range(max_retries + 1):
+        # 3. 指数退避重试（原有逻辑增强）
+        for attempt in range(MAX_RETRIES + 1):
             try:
-                return await _do_request()
+                # 3.1 如果当前使用代理，先检测代理可用性
+                if current_use_proxy:
+                    proxy_available = await cls.is_proxy_available()
+                    if not proxy_available:
+                        logger.info(f"请求{url}：代理不可用，自动降级为直连（本次请求）")
+                        resp = await _do_request(use_direct=True)
+                    else:
+                        resp = await _do_request(use_direct=False)
+                else:
+                    # 不使用代理，直接发起请求
+                    resp = await _do_request(use_direct=False)
+                return resp
+
+            # 3.2 捕获网络类异常（原有逻辑）
             except (ConnectError, ConnectTimeout, ReadTimeout) as e:
                 error_flag = {
                     ConnectError: "NetConnectError",
@@ -456,30 +521,64 @@ class AsHttpReq:
                     ReadTimeout: "NetReadTimeout"
                 }.get(type(e), "NetError")
                 # 最后一次重试失败 → 返回错误标识
-                if attempt == max_retries:
-                    logger.error(f"请求 {url} 失败（{error_flag}），重试上限: {str(e)}")
+                if attempt == MAX_RETRIES:
+                    logger.error(f"请求{url}失败（{error_flag}），已达重试上限 | 详情：{str(e)}")
                     return error_flag
                 # 指数退避延迟后重试
                 delay = 1 * (2 ** attempt)
                 await asyncio.sleep(delay)
-                logger.info(f"请求 {url} 失败（{error_flag}），{delay}s 后第 {attempt+1} 次重试: {str(e)}")
+                logger.info(f"请求{url}失败（{error_flag}），{delay}s后第{attempt + 1}次重试 | 详情：{str(e)}")
+
+            # 3.3 捕获httpx其他异常（增强：区分代理故障和业务异常）
+            except httpx.ProxyError as e:
+                # 专属代理异常：直接判定代理故障，降级直连并重试（跳过指数退避）
+                logger.warning(f"请求{url}触发代理专属异常，立即降级直连重试 | 详情：{type(e).__name__}: {str(e)[:50]}")
+                if attempt == MAX_RETRIES:
+                    logger.error(f"请求{url}代理异常，重试上限，返回错误标识")
+                    return "ProxyError"
+                try:
+                    # 立即直连重试，不延迟
+                    resp = await _do_request(use_direct=True)
+                    return resp
+                except Exception as retry_e:
+                    logger.warning(f"直连重试仍失败 | 详情：{type(retry_e).__name__}: {str(retry_e)[:50]}")
+                    continue
+
+            # 3.4 捕获非预期异常（原有逻辑，抛出不吞掉）
             except Exception as e:
-                logger.error(f"请求 {url} 非预期异常: {str(e)}", exc_info=True)
+                logger.error(f"请求{url}发生非预期异常", exc_info=True)
                 raise e
 
     # ========== 对外暴露的请求方法 ==========
     @classmethod
-    async def get(cls, url: str, with_proxy: bool = False, **kwargs) -> Response | str | None:
+    async def get(cls, url: str, with_proxy: bool = False, **kwargs) -> Union[Response, str, None]:
         return await cls._request("get", url, with_proxy, **kwargs)
 
     @classmethod
-    async def post(cls, url: str, with_proxy: bool = False, **kwargs) -> Response | str | None:
+    async def post(cls, url: str, with_proxy: bool = False, **kwargs) -> Union[Response, str, None]:
         return await cls._request("post", url, with_proxy, **kwargs)
 
     @classmethod
-    async def put(cls, url: str, with_proxy: bool = False, **kwargs) -> Response | str | None:
+    async def put(cls, url: str, with_proxy: bool = False, **kwargs) -> Union[Response, str, None]:
         return await cls._request("put", url, with_proxy, **kwargs)
 
     @classmethod
-    async def delete(cls, url: str, with_proxy: bool = False, **kwargs) -> Response | str | None:
+    async def delete(cls, url: str, with_proxy: bool = False, **kwargs) -> Union[Response, str, None]:
         return await cls._request("delete", url, with_proxy, **kwargs)
+
+    # ========== 新增：优雅关闭（原有_close_all_clients增强）==========
+    @classmethod
+    async def close_all_clients(cls) -> None:
+        """关闭所有分组Client + 清空缓存 + 重置锁（应用退出时调用）"""
+        client_lock = cls._get_client_lock()
+        async with client_lock:
+            for client_key, client in cls._clients.items():
+                if not client.is_closed:
+                    await client.aclose()
+                    logger.info(f"关闭分组Client：{client_key}")
+            cls._clients.clear()
+            # 清空代理检测缓存
+            cls._check_proxy_available.cache_clear()
+            # 重置锁（可选，避免重启时锁绑定旧事件循环）
+            cls._client_lock = None
+        logger.info("所有AsHttpReq客户端已关闭，缓存已清空")
