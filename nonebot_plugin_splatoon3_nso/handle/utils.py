@@ -218,7 +218,7 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
                 msg = "nso未登录，无法使用相关功能，请先私信我 /login 进行登录"
             else:
                 # 未开启全部拒绝登陆并引流到kook
-                if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
+                if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
                     # 发送md
                     await bot_send_login_md(bot, event, user_id, check_session=True)
                     await matcher.finish()

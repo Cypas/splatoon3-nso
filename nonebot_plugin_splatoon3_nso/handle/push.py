@@ -3,8 +3,9 @@ from datetime import datetime as dt, timedelta
 from threading import Lock
 from .b_or_c_tools import PushStatistics
 from .utils import _check_session_handler, PUSH_INTERVAL
-from .send_msg import bot_send, notify_to_channel
+from .send_msg import bot_send, notify_to_channel, bot_send_push_md
 from .last import get_last_battle_or_coop, get_last_msg
+from ..config import plugin_config
 from ..s3s.splatoon import Splatoon
 from ..data.data_source import dict_get_or_set_user_info
 from ..utils import get_msg_id
@@ -24,8 +25,21 @@ is_running_lock = Lock()  # 全局锁
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, "QQ平台不支持该功能，该功能可在其他平台使用")
-        return
+        # 发送md引流到kook
+        if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
+            # 发送md
+            if isinstance(event, QQ_C2CME):
+                user_id = ""
+            # 发送md
+            await bot_send_push_md(bot, event, user_id)
+            return
+        else:
+            # 发送文本
+            msg = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用\n" \
+                  f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+            await bot_send(bot, event, msg)
+            return
+
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
@@ -336,4 +350,3 @@ def close_push(platform, user_id):
         push_cnt = job_data.get('this_push_cnt', 0)
         push_time_minute: float = float(push_cnt * push_interval) / 60
     return bot, event, msg, push_time_minute
-

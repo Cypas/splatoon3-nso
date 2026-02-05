@@ -158,6 +158,20 @@ def login_md(user_id, check_session=False) -> QQ_Msg:
     return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
                        keyboard_template_type=keyboard_template_type)
 
+def push_md(user_id) -> QQ_Msg:
+    """无法使用login时转kook登录的md卡片提示"""
+    keyboard_template_type = "kook_url"
+    data1 = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用"
+    data2 = f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+    data3 = ""
+    if user_id:
+        title = f"<@{user_id}>"
+    else:
+        title = f"当前平台无法使用此功能"
+
+    return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                       keyboard_template_type=keyboard_template_type)
+
 
 def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = "",
                 keyboard_template_type="") -> QQ_Msg:

@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from .qq_md import last_md, login_md, c2c_login_md
+from .qq_md import last_md, login_md, c2c_login_md, push_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
 from ..config import plugin_config
@@ -201,6 +201,12 @@ async def bot_send_last_md(bot: Bot, event: Event, message: str | bytes, user_id
 async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=False):
     """发送login md消息"""
     qq_msg = login_md(user_id, check_session=check_session)
+    await bot.send(event, qq_msg)
+
+
+async def bot_send_push_md(bot: Bot, event: Event, user_id: str):
+    """发送push引流kook md消息"""
+    qq_msg = push_md(user_id)
     await bot.send(event, qq_msg)
 
 
