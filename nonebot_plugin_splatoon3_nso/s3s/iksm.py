@@ -54,8 +54,8 @@ class RateLimitMode:
 # 配置项 - 可根据需要调整
 DEFAULT_MODE = RateLimitMode.TOKEN_BUCKET
 # 令牌桶模式配置
-FAPI_RATE = 10  # 令牌桶：时间窗口内最大请求数
-FAPI_TIME_WINDOW = 30  # 令牌桶：时间窗口（秒）
+FAPI_RATE = 4  # 令牌桶：时间窗口内最大请求数
+FAPI_TIME_WINDOW = 10  # 令牌桶：时间窗口（秒）
 # 信号量模式配置
 FAPI_SEMAPHORE_LIMIT = 2  # 信号量：最大并发数
 
