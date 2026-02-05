@@ -37,7 +37,7 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
     _type = "default"
 
     # 列表类页面高度设置
-    for _k in ('最近', '涂地', '蛮颓', 'X', 'x', 'X赛', 'x赛', '活动', '私房', '武器进度', '武器分数', '打工', '鲑鱼跑', '徽章'):
+    for _k in ('最近', '涂地', '蛮颓', 'X', 'x', 'X赛', 'x赛', '活动', '私房', '武器进度', '武器分数', '打工', '鲑鱼跑', '徽章', '总览'):
         if _k in key and key != "打工记录":
             height = 2500
             _type = "list"
@@ -152,6 +152,7 @@ ss_url_trans = {
     '英雄模式': 'hero_record',
     '英雄': 'hero_record',
     '地图': 'stage_record',
+    '总览': 'history_record/summary',
 }
 
 
