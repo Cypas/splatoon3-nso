@@ -26,7 +26,7 @@ proxy_list_mode = plugin_config.splatoon3_proxy_list_mode
 proxy_host_list = plugin_config.splatoon3_proxy_list
 
 # 客户端清理配置
-CLIENT_TIMEOUT = 60 * 60 * 48  # 48小时未使用则清理
+CLIENT_TIMEOUT = 60 * 60 * 20  # 20小时未使用则清理
 
 # ===================== 全局变量  =====================
 # 1. 普通客户端：msg_id -> (ReqClient, 最后使用时间)
