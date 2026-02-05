@@ -168,9 +168,9 @@ async def rdel_lc(login_code: str) -> None:
 
 
 async def api_rset_info(secret_code: str, user_info: Dict[str, Any]) -> None:
-    """api数据库存用户信息以及gtoken和bullet_token"""
+    """api数据库存用户信息以及gtoken"""
     key = f"user_info:{secret_code}"
-    rm_api.hset(key, user_info, expire=7200)  # 2h过期
+    rm_api.hset(key, user_info, expire=10800)  # 3h过期
 
 
 async def api_rget_info(secret_code: str) -> Dict[str, Any]:
