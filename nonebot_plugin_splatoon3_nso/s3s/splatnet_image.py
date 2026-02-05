@@ -37,7 +37,7 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
     _type = "default"
 
     # 列表类页面高度设置
-    for _k in ('最近', '涂地', '蛮颓', 'X', 'x', 'X赛', 'x赛', '活动', '私房', '武器进度', '武器分数', '打工', '鲑鱼跑', '徽章', '总览'):
+    for _k in ('最近', '涂地', '蛮颓', 'X', 'x', 'X赛', 'x赛', '活动', '私房', '武器进度', '武器分数', '打工', '鲑鱼跑', '徽章',):
         if _k in key and key != "打工记录":
             height = 2500
             _type = "list"
@@ -49,6 +49,8 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
     if 'coop' in url or key == "打工记录":
         height = 1500
         _type = "coop_detail"
+    if key == "总览":
+        height = 1200
     viewport = ViewportSize({"width": 500, "height": height})
 
     # 获取上下文对象
