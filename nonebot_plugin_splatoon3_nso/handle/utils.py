@@ -9,6 +9,7 @@ from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user,
 from ..data.utils import get_or_set_plugin_data
 from ..utils import DIR_RESOURCE, AsHttpReq
 from ..utils.bot import *
+from ..utils.short_url import zurl
 
 # 图标文件夹
 icons_folder = os.path.join(DIR_RESOURCE, "icons")
@@ -212,16 +213,21 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
         if isinstance(bot, Tg_Bot):
             msg = "nso not logged in. direct message to me /login first."
         elif isinstance(bot, QQ_Bot):
-            if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
-                # 发送md
-                await bot_send_login_md(bot, event, user_id, check_session=True)
-                await matcher.finish()
+            if zurl.get_client():
+                # 开启了短链才允许qq平台用户登陆
+                msg = "nso未登录，无法使用相关功能，请先私信我 /login 进行登录"
             else:
-                msg = "nso未登录，无法使用相关查询\n" \
-                      "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
-                      f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+                # 未开启全部拒绝登陆并引流到kook
+                if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
+                    # 发送md
+                    await bot_send_login_md(bot, event, user_id, check_session=True)
+                    await matcher.finish()
+                else:
+                    msg = "nso未登录，无法使用相关查询\n" \
+                          "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
+                          f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
         elif isinstance(bot, All_BOT):
-            msg = "nso未登录，无法使用相关查询，请先私信我 /login 进行登录"
+            msg = "nso未登录，无法使用相关功能，请先私信我 /login 进行登录"
         await matcher.finish(msg)
     else:
         # 已登录用户

@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from .qq_md import last_md, login_md, url_md, c2c_login_md
+from .qq_md import last_md, login_md, c2c_login_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
 from ..config import plugin_config

@@ -7,7 +7,7 @@ from datetime import datetime as dt
 
 from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, get_event_info, get_game_sp_id, get_qq_user_name
-from .send_msg import bot_send, notify_to_channel, bot_send_login_md, bot_send_login_url_md
+from .send_msg import bot_send, notify_to_channel, bot_send_login_md
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict, \
     model_get_or_set_user
