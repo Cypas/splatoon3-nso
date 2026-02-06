@@ -3,7 +3,6 @@ from typing import Any, Coroutine
 
 from sqlalchemy import text, Row
 
-from nonebot_plugin_splatoon3_nso.data.db_sqlite import TempImageTable
 from .db_sqlite import DBSession, TempImageTable, DIR_TEMP_IMAGE
 from ..utils import init_path, get_file_url
 
