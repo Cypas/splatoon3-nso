@@ -37,7 +37,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
               "如需重新登录或绑定账号请继续下面操作\n" \
               "/clear_db_info 登出并清空账号数据\n" \
               "/get_login_code 获取绑定码以绑定其他平台bot账号"
-        await bot_send(bot, event, msg)
+        await bot_send(bot, event, msg, skip_ad=True)
         await matcher.finish()
 
     if isinstance(bot, QQ_Bot):
@@ -88,15 +88,15 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         elif isinstance(bot, All_BOT):
             msg = ("风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi的过程，可能存在一定的风险，"
                    "具体说明请查看下方第三方api使用与隐私声明\n\n若继续完成以下登录流程，则视为您已知晓此风险并继续使用nso查询")
+            msg += f"\n\nnso登录流程: 在浏览器中打开下面链接\n{'(需要手动替换 点 字)' if isinstance(bot, QQ_Bot) else ''}，然后按照下方登录教程进行操作"
             await bot.send(event, message=msg)
             # 发送隐私协议图片
             privacy_img = get_file_bytes("bot_privacy.png")
-            await bot_send(bot, event, message=privacy_img)
-            msg2 = f"nso登录流程: 在浏览器中打开下面链接\n{'(需要手动替换 点 字)' if isinstance(bot, QQ_Bot) else ''}，然后按照下方登录教程进行操作"
-            await bot.send(event, message=msg2)
+            await bot_send(bot, event, message=privacy_img, skip_ad=True)
+            # await bot.send(event, message=msg2)
             # 发送登录教程图片
             login_img = get_file_bytes("bot_login.png")
-            await bot_send(bot, event, message=login_img)
+            await bot_send(bot, event, message=login_img, skip_ad=True)
             # await bot.send(event, message='我是分割线'.center(20, '-'))
             if zurl.get_client():
                 # 开启了短链
@@ -111,6 +111,8 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
 
             if isinstance(bot, QQ_Bot):
                 login_url = login_url.replace(".", "点")
+                # login_url = login_url.replace("http://", "")
+                # login_url = login_url.replace("https://", "")
 
             await bot.send(event, message=login_url)
 
@@ -223,7 +225,7 @@ async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     platform = bot.adapter.get_name()
     if isinstance(event, All_Group_Message):
-        await bot_send(bot, event, MSG_PRIVATE)
+        await bot_send(bot, event, MSG_PRIVATE, skip_ad=True)
         return
 
     user_id = event.get_user_id()
@@ -241,7 +243,7 @@ async def clear_db_info(bot: Bot, event: Event):
         msg = "已清空账号数据!"
     logger.info(log_msg)
 
-    await bot_send(bot, event, message=msg)
+    await bot_send(bot, event, message=msg, skip_ad=True)
     await notify_to_channel(notify_msg)
 
     model_delete_user(platform, user_id)
@@ -254,7 +256,7 @@ async def clear_db_info(bot: Bot, event: Event):
 async def get_login_code(bot: Bot, event: Event):
     """获取绑定码"""
     if isinstance(event, All_Group_Message):
-        await bot_send(bot, event, MSG_PRIVATE)
+        await bot_send(bot, event, MSG_PRIVATE, skip_ad=True)
         return
 
     platform = bot.adapter.get_name()
@@ -281,9 +283,9 @@ async def get_login_code(bot: Bot, event: Event):
     # login_code_info = {"platform": platform, "user_id": user_id, "create_time": int(time.time())}
     # global_login_code_dict.update({login_code: login_code_info})
     msg = f"请在其他平台艾特小鱿鱿(也支持跨机器人，如漆bot)并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用"
-    await bot_send(bot, event, message=msg)
+    await bot_send(bot, event, message=msg, skip_ad=True)
     await bot.send(event, message="我是分割线".center(20, "-"))
-    await bot_send(bot, event, message=f"/set_login {login_code}")
+    await bot_send(bot, event, message=f"/set_login {login_code}", skip_ad=True)
 
 
 @on_command("set_login", priority=10, block=True).handle()
@@ -299,7 +301,7 @@ async def set_login_code(bot: Bot, event: Event):
     lc_info = await rget_lc(login_code)
 
     if not lc_info:
-        await bot_send(bot, event, "code错误，账号绑定失败")
+        await bot_send(bot, event, "code错误，账号绑定失败", skip_ad=True)
         return
     # create_time = login_code_info.get("create_time")
     # if int(time.time()) - create_time > 600:
@@ -365,7 +367,7 @@ async def set_login_code(bot: Bot, event: Event):
         # 日程插件帮助优先模式
         msg += "\n更多完整nso操作指令:\n/nso帮助"
 
-    await bot_send(bot, event, msg)
+    await bot_send(bot, event, msg, skip_ad=True)
 
     logger.info(f'set_login success: {msg_id},{new_user_name},old user is {old_msg_id},{old_user_name}')
 
@@ -391,7 +393,7 @@ async def set_api_key(bot: Bot, event: Event):
         msg = "请从 https://stat.ink/profile 页面复制你的 api_key 后,将key直接发送给机器人\n" \
               "注册stat.ink账号后，无需其他操作，设置api_key后，\n" \
               "机器人会同步你的数据到 stat.ink (App最多保存最近50*5场对战和50场打工数据,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)"
-    await bot_send(bot, event, message=msg)
+    await bot_send(bot, event, message=msg, skip_ad=True)
 
 
 @on_regex("^[A-Za-z0-9_-]{30,}", priority=10, block=True).handle()
@@ -418,7 +420,7 @@ async def get_set_api_key(bot: Bot, event: Event):
               "因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat网站自行查看记录，kook平台bot才可以主动推送"
     elif isinstance(bot, All_BOT):
         msg = f"设置成功，bot将开始同步你当前的对战及打工数据到 stat.ink，并后续每2h自动进行一次同步"
-    await bot_send(bot, event, message=msg)
+    await bot_send(bot, event, message=msg, skip_ad=True)
 
     # await update_s3si_ts()
     db_user = model_get_or_set_user(platform, user_id)
@@ -439,7 +441,7 @@ async def sync_now(bot: Bot, event: Event):
             msg = "请先设置 stat点ink网站的api_key, 指令:/set_stat_key"
         elif isinstance(bot, All_BOT):
             msg = "请先设置 stat.ink网站的api_key, 指令:/set_stat_key"
-        await bot_send(bot, event, msg)
+        await bot_send(bot, event, msg, skip_ad=True)
         return
 
     # await update_s3si_ts()
@@ -448,7 +450,7 @@ async def sync_now(bot: Bot, event: Event):
         msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat点ink网站自行查看记录，kook平台bot才可以主动推送"
     db_user = model_get_or_set_user(platform, user_id)
     if db_user:
-        await bot_send(bot, event, msg)
+        await bot_send(bot, event, msg, skip_ad=True)
         # 使用 asyncio.create_task 在当前事件循环中运行，避免事件循环绑定问题
         asyncio.create_task(sync_stat_ink_func(db_user))
     return
