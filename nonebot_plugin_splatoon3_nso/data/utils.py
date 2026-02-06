@@ -1,7 +1,9 @@
 import copy
+from typing import Any, Coroutine
 
-from sqlalchemy import text
+from sqlalchemy import text, Row
 
+from nonebot_plugin_splatoon3_nso.data.db_sqlite import TempImageTable
 from .db_sqlite import DBSession, TempImageTable, DIR_TEMP_IMAGE
 from ..utils import init_path, get_file_url
 
@@ -35,9 +37,11 @@ class GlobalUserInfo:
         # self.req_client = kwargs.get('req_client', None)
 
 
-async def model_get_or_set_temp_image(_type, name: str, link=None, force=False) -> TempImageTable:
+async def model_get_or_set_temp_image(_type, name: str, link=None, force=False) -> TempImageTable | None | Any:
     """获取或设置缓存图片"""
     session = DBSession()
+    if not name:
+        return None
     name = name.replace("/", "-")
     row: TempImageTable = get_insert_or_update_obj(TempImageTable, {"type": _type, "name": name})
 

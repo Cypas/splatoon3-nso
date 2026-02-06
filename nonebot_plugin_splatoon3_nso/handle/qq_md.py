@@ -36,7 +36,7 @@ async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
                    {"key": "img_size", "values": [f"img#{image_width}px #{image_height}px"]},
                    {"key": "img_url", "values": [f"{url}"]}])
     if text_end:
-        text_end = "\r" + text_end.replace("\\n", "\r").replace("\\r", "\r")
+        text_end = " \r" + text_end.replace("\\n", "\r").replace("\\r", "\r")
         params.append({"key": "text_end", "values": [f"{text_end}"]})
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
@@ -146,14 +146,21 @@ def login_md(user_id, check_session=False) -> QQ_Msg:
     keyboard_template_type = "kook_url"
     data1 = ""
     if check_session:
+        # 使用其他功能前的检查
         data1 += "nso未登录，无法使用相关查询，"
     data1 += "QQ平台当前无法完成登录流程，请至其他平台完成登录后使用 /getlc 命令获取绑定码"
     data2 = f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
     data3 = ""
-    if user_id:
-        title = f"<@{user_id}>"
+    if check_session:
+        if user_id:
+            title = f"<@{user_id}> 该功能需要登陆后才可使用"
+        else:
+            title = f"该功能需要登陆后才可使用"
     else:
-        title = f"当前平台无法登录"
+        if user_id:
+            title = f"<@{user_id}> 当前平台无法登录"
+        else:
+            title = f"当前平台无法登录"
 
     return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
                        keyboard_template_type=keyboard_template_type)
@@ -165,7 +172,7 @@ def push_md(user_id) -> QQ_Msg:
     data2 = f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
     data3 = ""
     if user_id:
-        title = f"<@{user_id}>"
+        title = f"<@{user_id}> 当前平台无法使用此功能"
     else:
         title = f"当前平台无法使用此功能"
 

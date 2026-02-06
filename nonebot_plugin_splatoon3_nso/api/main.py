@@ -19,6 +19,7 @@ app = FastAPI(
 origins = [
     "https://blog.ayano.top",
     "http://blog.ayano.top",
+    "https://api.lp1.av5ja.srv.nintendo.net"
 ]
 
 app.add_middleware(
@@ -27,8 +28,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    max_age=86400,
 )
-
 
 # plugins/my_calc/api/main.py 核心接口片段
 @app.get("/nso/seedchecker")
@@ -37,6 +38,11 @@ async def download_seed_checker(secret_code: str = Query(..., min_length=1, max_
     使用小鱿鱿创建的密钥下载观星json文件
     """
     try:
+        if secret_code.startswith("xyy-nsoweb-"):
+            return {
+                "code": 403,
+                "msg": "你输入的是nso网页版的访问密钥，这里需要输入的是 观星访问密钥，观星密钥应为xyy-seedchecker- 开头，你是不是复制错了呢?"
+            }
         if len(secret_code) != 24:
             return {
                 "code": 403,
@@ -78,10 +84,15 @@ async def nso_web_login(secret_code: str = Query(..., min_length=1, max_length=4
     获取小鱿鱿创建的密钥gtoken
     """
     try:
-        if len(secret_code) != 24:
+        if secret_code.startswith("xyy-seedchecker-"):
             return {
                 "code": 403,
-                "msg": "鱿鱼圈访问密钥错误,长度应为24位，请用小鱿鱿重新生成"
+                "msg": "你输入的是观星访问密钥，这里需要输入的是 nso网页版访问密钥，nso网页版访问密钥应为xyy-nsoweb- 开头，你是不是复制错了呢?"
+            }
+        if len(secret_code) != 19:
+            return {
+                "code": 403,
+                "msg": "nso网页版访问密钥错误,长度应为19位，请用小鱿鱿重新生成"
             }
         # 取真实redis key
         real_secret_code = secret_code.replace("xyy-nsoweb-", "")
@@ -89,7 +100,7 @@ async def nso_web_login(secret_code: str = Query(..., min_length=1, max_length=4
         if not user_info:
             return {
                 "code": 403,
-                "msg": "鱿鱼圈访问密钥错误或已过期，请用小鱿鱿重新生成"
+                "msg": "nso网页版访问密钥错误或已过期，请用小鱿鱿重新生成"
             }
         # 读取gtoken
         gtoken = user_info.get("gtoken")

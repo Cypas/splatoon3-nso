@@ -698,7 +698,7 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
             await bot_send(bot, event, message=msg3, skip_ad=True)
         else:
             await bot_send(bot, event, message=json_bytes, file_name=file_name, skip_ad=True)
-            msg2 = f"观星json文件导出成功，请参照网址\nblog.ayano.top/archives/525/ \n的教程进行后续操作"
+            msg2 = f"观星json文件导出成功，请参照网址\n\nblog.ayano.top/archives/525/ \n\n的教程进行后续操作"
             await bot_send(bot, event, message=msg2, skip_ad=True)
     finally:
         user = dict_get_or_set_user_info(platform, user_id, export_seed=0)  # 取消导出状态
@@ -735,7 +735,7 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
                 need_refresh = False
     if not need_refresh:
         # 存在有效的gtoken缓存
-        msg2 = f"存在仍有效的nso网页版访问密钥，请参照网址\nblog.ayano.top/archives/567/ \n的教程进行后续操作，以下是您的nso网页版访问密钥，请勿外泄，该凭证有效期剩余 {convert_td(timedelta(remaining_seconds))}"
+        msg2 = f"存在仍有效的nso网页版访问密钥，请参照网址\n\nblog.ayano.top/archives/567/ \n\n的教程进行后续操作，以下是您的nso网页版访问密钥，请勿外泄，该凭证有效期剩余 {convert_td(timedelta(remaining_seconds))}"
         await bot_send(bot, event, message=msg2, skip_ad=True)
         secret_code = nso_web_data.get('secret_code')
         msg3 = f"xyy-nsoweb-{secret_code}"
@@ -745,7 +745,7 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
         ok = await splatoon.refresh_gtoken_and_bullettoken(skip_access=False)
         if not ok:
             await matcher.finish(net_error_msg)
-        msg2 = f"nso网页版访问密钥获取成功，请参照网址\nblog.ayano.top/archives/567/ \n的教程进行后续操作，以下是您的访问密钥，请勿外泄，该凭证有效期为 3h"
+        msg2 = f"nso网页版访问密钥获取成功，请参照网址\n\nblog.ayano.top/archives/567/ \n\n的教程进行后续操作，以下是您的访问密钥，请勿外泄，该凭证有效期为 3h"
         if isinstance(bot, QQ_Bot):
             msg2 = msg2.replace(".", "点")
         await bot_send(bot, event, message=msg2, skip_ad=True)
