@@ -61,10 +61,18 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     e_date = (new.last_play_time + timedelta(hours=8)).strftime('%Y%m%d %H:%M')
     msg += f'统计区间HKT: {s_date[2:]} 08:00 ~ {e_date[2:]}\n\n'
 
-    msg += f'{new.nickname}\n'
+    new_name = new.nickname
+    if platform == "QQ":
+        new_name = new_name.replace(".","。")
+    msg += f'{new_name}\n'
     for k in ('nickname', 'name_id', 'byname'):
-        if getattr(old, k) != getattr(new, k):
-            msg += f'{getattr(old, k)} -> {getattr(new, k)}\n'
+        k1 = getattr(old, k)
+        k2 = getattr(new, k)
+        if k1 != k2:
+            if platform == "QQ":
+                k1 = k1.replace(".", "。")
+                k2 = k2.replace(".", "。")
+            msg += f'{k1} -> {k2}\n'
     if old.rank != new.rank:
         msg += f'等级: {old.rank} -> {new.rank}\n'
     if old.udemae != new.udemae:
