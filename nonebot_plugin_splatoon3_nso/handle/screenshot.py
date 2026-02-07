@@ -52,7 +52,10 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
     except Exception as e:
         logger.exception(e)
         message = "bot网络错误，请稍后再试"
-    await bot_send(bot, event, message=message)
+    await bot_send(bot, event, message=message, skip_ad=True)
+    if isinstance(message, bytes):
+        msg2 = "你也可以私聊小鱿鱿试试新功能 /nso网页版"
+        await bot_send(bot, event, message=msg2, skip_ad=True)
 
 
 async def get_screenshot_image(bot, event, platform, user_id, key=None):
