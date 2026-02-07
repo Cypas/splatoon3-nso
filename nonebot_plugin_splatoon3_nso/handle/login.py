@@ -22,7 +22,7 @@ MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
 global_login_code_dict: dict = {}
 
-matcher_login_in = on_command("login", priority=10, block=True)
+matcher_login_in = on_command("login", aliases={'登录'}, priority=10, block=True)
 
 
 @matcher_login_in.handle()
@@ -52,7 +52,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
             # elif isinstance(event, QQ_C2CME):
             #     pass
             else:
-                msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码,支持跨机器人(如漆bot)\n" \
+                msg = "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc 命令获取绑定码,支持跨机器人(如漆bot)\n" \
                       f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
                 await matcher.finish(msg)
     if isinstance(event, All_Group_Message):
@@ -220,7 +220,7 @@ async def login_in_2(bot: Bot, event: Event):
     await notify_to_channel(_msg)
 
 
-@on_command("clear_db_info", priority=10, block=True).handle()
+@on_command("clear_db_info", aliases={'loginout', 'login_out', '退出登录'}, priority=10, block=True).handle()
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     platform = bot.adapter.get_name()

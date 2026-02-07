@@ -156,7 +156,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     await bot_send(bot, event, msg)
 
 
-matcher_stop_push = on_command("stop_push", aliases={'stp', 'st', 'stop'}, priority=10, block=True)
+matcher_stop_push = on_command("stop_push", aliases={'stp', 'stop'}, priority=10, block=True)
 
 
 @matcher_stop_push.handle(parameterless=[Depends(_check_session_handler)])

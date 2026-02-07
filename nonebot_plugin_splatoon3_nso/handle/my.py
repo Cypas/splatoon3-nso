@@ -735,7 +735,9 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
                 need_refresh = False
     if not need_refresh:
         # 存在有效的gtoken缓存
-        msg2 = f"存在仍有效的nso网页版访问密钥，请参照网址\n\nblog.ayano.top/archives/567/ \n\n的教程进行后续操作，以下是您的nso网页版访问密钥，请勿外泄，该凭证有效期剩余 {convert_td(timedelta(remaining_seconds))}"
+        msg2 = f"存在仍有效的nso网页版访问密钥，请参照网址\n\nblog.ayano.top/archives/567/ \n\n的教程进行后续操作，以下是您的nso网页版访问密钥，请勿外泄，该凭证有效期剩余 {convert_td(timedelta(seconds=remaining_seconds))}"
+        if isinstance(bot, QQ_Bot):
+            msg2 = msg2.replace(".", "点")
         await bot_send(bot, event, message=msg2, skip_ad=True)
         secret_code = nso_web_data.get('secret_code')
         msg3 = f"xyy-nsoweb-{secret_code}"

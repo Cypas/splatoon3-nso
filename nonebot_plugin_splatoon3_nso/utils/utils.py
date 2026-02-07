@@ -34,9 +34,9 @@ def get_msg_id(platform, user_id):
 
 def trigger_with_probability():
     """
-    该函数有2/100的概率返回True（触发）
+    该函数有1/100的概率返回True（触发）
     """
-    return random.random() < 0.02
+    return random.random() < 0.01
 
 
 def get_image_size(img_data):
