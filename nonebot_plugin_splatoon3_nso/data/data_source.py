@@ -5,6 +5,7 @@ from typing import Type
 
 from nonebot import logger
 from sqlalchemy import and_, text
+from sqlalchemy.dialects import mysql
 
 from .db_sqlite import *
 from .utils import model_get_or_set_temp_image, get_insert_or_update_obj, GlobalUserInfo
@@ -362,29 +363,31 @@ def model_get_report(user_id_sp, create_time=""):
     #     report = session.query(Report).filter(*query).order_by(Report.create_time.desc()).all()
 
     if not create_time:
-        report = session.query(Report).from_statement(text("""
-                                                           SELECT *
-                                                           FROM report
-                                                           WHERE (user_id_sp, last_play_time, create_time) IN
-                                                                 (SELECT user_id_sp, last_play_time, MAX(create_time)
-                                                                  FROM report
-                                                                  GROUP BY user_id_sp, last_play_time)
-                                                             and user_id_sp = :user_id_sp
-                                                           order by create_time desc
-                                                           limit 30""")
-                                                      ).params(user_id_sp=user_id_sp).all()
+        sql = f"""
+           SELECT *
+           FROM report
+           WHERE (user_id_sp, last_play_time, create_time) IN
+                 (SELECT user_id_sp, last_play_time, MAX(create_time)
+                  FROM report
+                  GROUP BY user_id_sp, last_play_time)
+             and user_id_sp = '{user_id_sp}'
+           order by create_time desc
+           limit 30"""
+
+        report = session.query(Report).from_statement(text(sql)).all()
     else:
-        report = session.query(Report).from_statement(text("""
-                                                           SELECT *
-                                                           FROM report
-                                                           WHERE (user_id_sp, last_play_time, create_time) IN
-                                                                 (SELECT user_id_sp, last_play_time, MAX(create_time)
-                                                                  FROM report
-                                                                  GROUP BY user_id_sp, last_play_time)
-                                                             and user_id_sp = :user_id_sp
-                                                             and create_time >= :create_time
-                                                           order by create_time desc""")
-                                                      ).params(user_id_sp=user_id_sp, create_time=create_time).all()
+        sql = f"""
+           SELECT *
+           FROM report
+           WHERE (user_id_sp, last_play_time, create_time) IN
+                 (SELECT user_id_sp, last_play_time, MAX(create_time)
+                  FROM report
+                  GROUP BY user_id_sp, last_play_time)
+             and user_id_sp = '{user_id_sp}'
+             and create_time >= '{create_time}'
+           order by create_time desc"""
+        # print(sql)
+        report = session.query(Report).from_statement(text(sql)).all()
     session.close()
     return report
 
