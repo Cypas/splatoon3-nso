@@ -163,12 +163,35 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
     cl = (history.get('xMatchMaxCl') or {}).get('power') or 0  # 蛤蜊
     x_msg = '||'
     if any([ar, lf, gl, cl]) and not from_group:
-        x_msg = f"X赛最高战力 | 区域:{ar:>7.2f}, 塔楼:{lf:>7.2f}<br> 鱼虎:{gl:>7.2f}, 蛤蜊:{cl:>7.2f}\n||"
+        # 1. 构建维度名称与分数的映射字典，方便后续查找最大值
+        power_dict = {
+            '区域': ar,
+            '塔楼': lf,
+            '鱼虎': gl,
+            '蛤蜊': cl
+        }
+        # 2. 找出最大值对应的维度名称（如果多个维度值相同且都是最大值，取第一个）
+        max_power = max(power_dict.values())
+        max_key = next(key for key, value in power_dict.items() if value == max_power)
+        # 3. 逐个构建每个维度的文本，最大值维度添加红色样式
+        parts = []
+        # 第一行：区域 + 塔楼
+        ar_text = f'<span style="color:red">区域:{ar:>7.2f}</span>' if '区域' == max_key else f'区域:{ar:>7.2f}'
+        lf_text = f'<span style="color:red">塔楼:{lf:>7.2f}</span>' if '塔楼' == max_key else f'塔楼:{lf:>7.2f}'
+        parts.append(f'{ar_text}, {lf_text}<br>')
+        # 第二行：鱼虎 + 蛤蜊
+        gl_text = f'<span style="color:red">鱼虎:{gl:>7.2f}</span>' if '鱼虎' == max_key else f'鱼虎:{gl:>7.2f}'
+        cl_text = f'<span style="color:red">蛤蜊:{cl:>7.2f}</span>' if '蛤蜊' == max_key else f'蛤蜊:{cl:>7.2f}'
+        parts.append(
+            f' 鱼虎:{gl:>7.2f}, 蛤蜊:{cl:>7.2f}' if '鱼虎' != max_key and '蛤蜊' != max_key else f' {gl_text}, {cl_text}')
+
+        # 4. 拼接最终文本
+        x_msg = f"X赛最高战力 | {''.join(parts)}\n||"
     if any([ar, lf, gl, cl]):
         _dict_rank = model_get_power_rank()
         _rank = _dict_rank.get(user.game_sp_id)
         if _rank:
-            x_msg = x_msg.replace('||', f'X赛最高战力</br>bot排名 | {_rank}\n||')
+            x_msg = x_msg.replace('||', f'X赛最高战力</br>bot排名 | {_rank}名\n||')
 
     _league = ''
     _open = ''
@@ -234,6 +257,8 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
     top_res = model_get_all_top_all(user.game_sp_id)
     if top_res:
         msg += f"上榜记录 | {len(top_res)}次 &nbsp;&nbsp; /top 查询排行榜\n"
+    if any([ar, lf, gl, cl]) and from_group:
+        msg += f"Tips：私聊使用/me 查询时会额外展示X分和武器分\n"
     return msg
 
 
