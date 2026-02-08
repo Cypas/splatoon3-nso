@@ -156,10 +156,18 @@ async def login_in_2(bot: Bot, event: Event):
         return
     logger.info(f'session_token: {session_token}')
 
+    # 更新平台用户名
     event_info = await get_event_info(bot, event)
-    user_name = event_info.get('user_name', "")
+    new_user_name = event_info.get('user_name', "")
+
+    # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
+    if isinstance(bot, QQ_Bot):
+        user_name = await get_qq_user_name(bot, user_id)
+        if user_name:
+            new_user_name = user_name
+
     # 更新数据库
-    user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=user_name,
+    user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=new_user_name,
                                      user_agreement=1)
     # 刷新token
     await bot.send(event, message="登录中，正在刷新token，请等待大约10s")
