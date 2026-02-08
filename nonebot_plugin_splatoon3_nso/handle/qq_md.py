@@ -36,7 +36,7 @@ async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
                    {"key": "img_size", "values": [f"img#{image_width}px #{image_height}px"]},
                    {"key": "img_url", "values": [f"{url}"]}])
     if text_end:
-        text_end = "\\r" + text_end.replace("\\n", "\r").replace("\\r", "\r")
+        text_end = "\r" + text_end.replace("\\n", "\r").replace("\\r", "\r")
         params.append({"key": "text_end", "values": [f"{text_end}"]})
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
