@@ -96,7 +96,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
 
     # 轮询间隔时间
     if not fast:
-        push_interval = PUSH_INTERVAL * 4  # 增加到1min
+        push_interval = PUSH_INTERVAL * 2
     else:
         push_interval = PUSH_INTERVAL
     # 添加定时任务
@@ -136,7 +136,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     scheduler.add_job(
         push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
         id=job_id, args=[bot.self_id, event, job_data, filters],
-        misfire_grace_time=PUSH_INTERVAL * 4 * 4, coalesce=True, max_instances=1
+        misfire_grace_time=60 * 20, coalesce=True, max_instances=1
     )
     if isinstance(bot, Tg_Bot):
         msg = f'Start push! check new data(battle or coop) every {push_interval} seconds. /stop_push to stop'
