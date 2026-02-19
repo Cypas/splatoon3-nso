@@ -447,11 +447,12 @@ class Splatoon:
             t = time.time()
             json_body = {'parameter': {}}
             s3s = self.s3s
+            await s3s.f_api_clent_auth2_register()
             if not self.access_token:
                 await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
                 success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
+                self.reload_tokens()
 
-            await s3s.f_api_clent_auth2_register()
             # 加密参数
             encrypt_request = await s3s.f_encrypt_request(api_url=url, body_data=json_body,
                                                           access_token=self.access_token)
@@ -480,6 +481,7 @@ class Splatoon:
                     self.logger.info(f'{self.user_db_info.db_id},{msg_id}  tokens expired,start refresh tokens soon')
                     success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
                     if success:
+                        self.reload_tokens()
                         self.logger.info(f'{self.user_db_info.db_id},{msg_id} refresh tokens complete，try again')
                     else:
                         self.logger.error(f'{self.user_db_info.db_id},{msg_id} refresh tokens fail, return None')
