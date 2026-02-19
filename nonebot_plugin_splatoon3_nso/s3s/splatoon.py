@@ -441,21 +441,28 @@ class Splatoon:
         """ns接口层操作，如ns好友列表，我的 页面"""
         # 跨线程重载token
         self.reload_tokens()
+
+        if self.access_token:
+            # 先通过jwt简单校验access_token的有效性
+            ok = self.s3s.is_jwt_token_valid(self.access_token)
+            if not ok:
+                await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
+                success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
+                self.reload_tokens()
+        else:
+            await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
+            success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
+            self.reload_tokens()
+
         res = ''
         msg_id = get_msg_id(self.platform, self.user_id)
         try:
             t = time.time()
             json_body = {'parameter': {}}
-            s3s = self.s3s
-            await s3s.f_api_clent_auth2_register()
-            if not self.access_token:
-                await bot_send(self.bot, self.event, "本次请求需要刷新token，请求耗时会比平时更长一些，请稍等...")
-                success = await self.refresh_gtoken_and_bullettoken(skip_access=False)
-                self.reload_tokens()
-
+            await self.s3s.f_api_clent_auth2_register()
             # 加密参数
-            encrypt_request = await s3s.f_encrypt_request(api_url=url, body_data=json_body,
-                                                          access_token=self.access_token)
+            encrypt_request = await self.s3s.f_encrypt_request(api_url=url, body_data=json_body,
+                                                               access_token=self.access_token)
             encrypt_json = encrypt_request.json()
             encrypt_data = encrypt_json["data"]
             body_bytes = base64.b64decode(encrypt_data)
@@ -463,7 +470,7 @@ class Splatoon:
             encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token),
                                                 data=body_bytes)
             # 解密响应
-            decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
+            decrypt_resp = await self.s3s.f_decrypt_response(encrypt_resp.content)
             decrypt_data = decrypt_resp.json()["data"]
             decrypt_json = json.loads(decrypt_data)
             # self.logger.info(f'decrypt_json:{json.dumps(decrypt_json)}')
@@ -492,8 +499,8 @@ class Splatoon:
                 t = time.time()
 
                 # 加密参数
-                encrypt_request = await s3s.f_encrypt_request(api_url=url, body_data=json_body,
-                                                              access_token=self.access_token)
+                encrypt_request = await self.s3s.f_encrypt_request(api_url=url, body_data=json_body,
+                                                                   access_token=self.access_token)
                 encrypt_json = encrypt_request.json()
                 encrypt_data = encrypt_json['data']
                 body_bytes = base64.b64decode(encrypt_data)
@@ -501,7 +508,7 @@ class Splatoon:
                 encrypt_resp = await AsHttpReq.post(url, headers=await self._head_access(self.access_token),
                                                     data=body_bytes)
                 # 解密响应
-                decrypt_resp = await s3s.f_decrypt_response(encrypt_resp.content)
+                decrypt_resp = await self.s3s.f_decrypt_response(encrypt_resp.content)
                 decrypt_data = decrypt_resp.json()["data"]
                 decrypt_json = json.loads(decrypt_data)
 
