@@ -2,12 +2,13 @@ import asyncio
 from datetime import datetime as dt, timedelta
 from threading import Lock
 from .b_or_c_tools import PushStatistics
+from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, PUSH_INTERVAL
 from .send_msg import bot_send, notify_to_channel, bot_send_push_md
 from .last import get_last_battle_or_coop, get_last_msg
 from ..config import plugin_config
 from ..s3s.splatoon import Splatoon
-from ..data.data_source import dict_get_or_set_user_info
+from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
 from ..utils import get_msg_id
 from ..utils.bot import *
 
@@ -169,6 +170,10 @@ async def stop_push(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
+    user = dict_get_or_set_user_info(platform, user_id)
+    if user.push == 0:
+        await bot_send(bot, event, '未启动push推送，无需关闭')
+        return
     user = dict_get_or_set_user_info(platform, user_id, push=0)
 
     _, _, st_msg, push_time_minute = close_push(platform, user_id)
@@ -180,8 +185,14 @@ async def stop_push(bot: Bot, event: Event):
         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
 
     msg += st_msg
-
     await bot_send(bot, event, msg)
+    if user.stat_key:
+        # 自动启动stat同步任务
+        db_user = model_get_or_set_user(platform, user_id)
+        if db_user:
+            stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
+            await bot_send(bot, event, stat_msg, skip_ad=True)
+            asyncio.create_task(sync_stat_ink_func(db_user))
 
 
 async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters: dict):
@@ -278,6 +289,14 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                 await bot_send(bot, event, message=msg, skip_log_cmd=True)
                 with is_running_lock:
                     is_running_dict.pop(msg_id)
+                if user.stat_key:
+                    # 自动启动stat同步任务
+                    db_user = model_get_or_set_user(platform, user_id)
+                    if db_user:
+                        stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
+                        await bot_send(bot, event, stat_msg, skip_ad=True)
+                        asyncio.create_task(sync_stat_ink_func(db_user))
+
                 # msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
                 # await notify_to_channel(msg)
                 return
