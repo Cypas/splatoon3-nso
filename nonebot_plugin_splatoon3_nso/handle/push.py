@@ -348,5 +348,5 @@ def close_push(platform, user_id):
             msg += push_statistics.get_coop_st_msg()
         # 计算推送持续时间
         push_cnt = job_data.get('this_push_cnt', 0)
-        push_time_minute: float = float(push_cnt * push_interval) / 60
+        push_time_minute: float = float(push_cnt * push_interval) // 60
     return bot, event, msg, push_time_minute
