@@ -13,7 +13,7 @@ from ..utils.short_url import zurl
 
 # 图标文件夹
 icons_folder = os.path.join(DIR_RESOURCE, "icons")
-PUSH_INTERVAL = 15  # push推送循环时间
+PUSH_INTERVAL = 20  # push推送循环时间
 
 # 真格入场券点数
 DICT_RANK_POINT = {
