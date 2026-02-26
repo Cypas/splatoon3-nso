@@ -408,8 +408,8 @@ async def send_report_task():
         if user.platform == "QQ" or not user.report_notify:
             continue
         counters["can_send_report_count"] += 1
-        # 每次循环强制睡眠1s，使一分钟内不超过120次发信阈值
-        await asyncio.sleep(1)
+        # 每次循环强制睡眠0.5s，使一分钟内不超过120次发信阈值
+        await asyncio.sleep(0.5)
         try:
             msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:
