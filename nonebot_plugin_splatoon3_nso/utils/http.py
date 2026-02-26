@@ -505,7 +505,7 @@ class AsHttpReq:
                 if current_use_proxy:
                     proxy_available = await cls.is_proxy_available()
                     if not proxy_available:
-                        logger.info(f"请求{url}：代理不可用，自动降级为直连（本次请求）")
+                        logger.warning(f"请求{url}：代理不可用，自动降级为直连")
                         resp = await _do_request(use_direct=True)
                     else:
                         resp = await _do_request(use_direct=False)
@@ -529,21 +529,6 @@ class AsHttpReq:
                 delay = 1 * (2 ** attempt)
                 await asyncio.sleep(delay)
                 logger.info(f"请求{url}失败（{error_flag}），{delay}s后第{attempt + 1}次重试 | 详情：{str(e)}")
-
-            # 3.3 捕获httpx其他异常（增强：区分代理故障和业务异常）
-            except httpx.ProxyError as e:
-                # 专属代理异常：直接判定代理故障，降级直连并重试（跳过指数退避）
-                logger.warning(f"请求{url}触发代理专属异常，立即降级直连重试 | 详情：{type(e).__name__}: {str(e)[:50]}")
-                if attempt == MAX_RETRIES:
-                    logger.error(f"请求{url}代理异常，重试上限，返回错误标识")
-                    return "ProxyError"
-                try:
-                    # 立即直连重试，不延迟
-                    resp = await _do_request(use_direct=True)
-                    return resp
-                except Exception as retry_e:
-                    logger.warning(f"直连重试仍失败 | 详情：{type(retry_e).__name__}: {str(retry_e)[:50]}")
-                    continue
 
             # 3.4 捕获非预期异常（原有逻辑，抛出不吞掉）
             except Exception as e:
