@@ -68,11 +68,12 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
         if msg:
             await bot.send(event, message=msg)
             if plain_text:
-                file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
-                with open(file_path, "a", encoding="utf-8") as f:
-                    f.write(f"{get_time_now_china_str()},{msg_id},{plain_text}\n")  # 每行一个关键词
+                if "[分享]" not in plain_text:
+                    file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
+                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                    # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+                    with open(file_path, "a", encoding="utf-8") as f:
+                        f.write(f"{get_time_now_china_str()},{msg_id},{plain_text}\n")  # 每行一个关键词
         await matcher.finish()
 
 

@@ -25,13 +25,15 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
         case "get_push":
             users = dict_get_all_global_users(False)
-            msg = ""
+            p_msg = ""
+            push_cnt = 0
             for u in users:
                 if not u.push:
                     continue
+                push_cnt += 1
                 msg_id = get_msg_id(u.platform, u.user_id)
-                msg += f"db_id:{u.db_id:>3},{msg_id}, n:{u.user_name:>7}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n"
-            msg = f"```\n{msg}```" if msg else "no data"
+                p_msg += f"db_id:{u.db_id:>3},{msg_id}, n:{u.user_name:>7}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n"
+            msg = f"```\n当前推送人数: {push_cnt}\n{p_msg}```"
             await bot_send(bot, event, message=msg)
 
         case "close_push":
@@ -189,5 +191,4 @@ async def admin_close_push() -> int:
                 logger.warning(
                     f'msg_id:{msg_id} private notice error: {e}')
         push_cnt += 1
-        time.sleep(0.5)
     return push_cnt
