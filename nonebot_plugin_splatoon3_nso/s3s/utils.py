@@ -43,7 +43,7 @@ translate_rid = {
     'FriendsList': 'ea1297e9bb8e52404f52d89ac821e1d73b726ceef2fd9cc8d6b38ab253428fb3',  # 好友列表
     'HistorySummary': 'a654ecc80161a7ca5c38761c1d9e502d405eae764e2d343618b9c74b1dc0a80f',  # 主页 - 历史 -总览
     'TotalQuery': '2a9302bdd09a13f8b344642d4ed483b9464f20889ac17401e993dfa5c2bb3607',  # 统计查询  nso没有这个页面
-    'XRankingQuery': 'a5331ed228dbf2e904168efe166964e2be2b00460c578eee49fc0bc58b4b899c',  # 主页 - x排名
+    'XRankingQuery': 'b5b2b330269dc29181fc55e297cd759a36fc02270c879fab6362c3084fff78b2',  # 主页 - x排名
     'ScheduleQuery': '9b6b90568f990b2a14f04c25dd6eb53b35cc12ac815db85ececfccee64215edd',  # 日程
     'StageRecordsQuery': 'c8b31c491355b4d889306a22bd9003ac68f8ce31b2d5345017cdd30a2c8056f3',  # 主页 - 场地 (查各地图胜率)
     'EventBattleHistoriesQuery': 'e47f9aac5599f75c842335ef0ab8f4c640e8bf2afe588a3b1d4b480ee79198ac',  # 对战 - 活动
