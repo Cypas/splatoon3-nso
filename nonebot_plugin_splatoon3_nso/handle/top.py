@@ -5,7 +5,7 @@ from .send_msg import bot_send
 from .utils import _check_session_handler
 from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_all_top_all
 from ..s3s.splatoon import Splatoon
-from ..utils import get_msg_id, utc_str_to_china_str
+from ..utils import get_msg_id, utc_str_to_china_str, game_name_replace
 from ..utils.bot import *
 
 matcher_top = on_command("top", priority=10, block=True)
@@ -265,10 +265,10 @@ async def region_x_top(x):
     cl_weapon_main_img = await model_get_temp_image_path(img_type, cl_w_name, cl['weapon']['image']['url'])
     text = f'''\n||||||
 |-|-|-|-|-|
-|区域|{ar['xPower']}| {ar['name']}\#{ar['nameId']}| {ar_w_name}|<img height="40" src="{ar_weapon_main_img}" />|
-|塔楼|{lf['xPower']}| {lf['name']}\#{lf['nameId']}| {lf_w_name}|<img height="40" src="{lf_weapon_main_img}" />|
-|鱼虎|{gl['xPower']}| {gl['name']}\#{gl['nameId']}| {gl_w_name}|<img height="40" src="{gl_weapon_main_img}" />|
-|蛤蜊|{cl['xPower']}| {cl['name']}\#{cl['nameId']}| {cl_w_name}|<img height="40" src="{cl_weapon_main_img}" />|
+|区域|{ar['xPower']}| {game_name_replace(ar['name'])}\#{ar['nameId']}| {ar_w_name}|<img height="40" src="{ar_weapon_main_img}" />|
+|塔楼|{lf['xPower']}| {game_name_replace(lf['name'])}\#{lf['nameId']}| {lf_w_name}|<img height="40" src="{lf_weapon_main_img}" />|
+|鱼虎|{gl['xPower']}| {game_name_replace(gl['name'])}\#{gl['nameId']}| {gl_w_name}|<img height="40" src="{gl_weapon_main_img}" />|
+|蛤蜊|{cl['xPower']}| {game_name_replace(cl['name'])}\#{cl['nameId']}| {cl_w_name}|<img height="40" src="{cl_weapon_main_img}" />|
 '''
     return text
 

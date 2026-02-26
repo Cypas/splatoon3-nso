@@ -40,7 +40,9 @@ def trigger_with_probability():
 
 
 def get_image_size(img_data):
-    # 通过pillow库获取图片宽高数据
+    """
+    通过pillow库获取图片宽高数据
+    """
     image = Image.open(io.BytesIO(img_data))
     width, height = image.size
     image.close()
@@ -85,8 +87,23 @@ def get_jwt_exp_info(jwt_token: str) -> dict:
 
 
 def get_file_bytes(file_name: str) -> bytes:
+    """
+    取静态资源目录下的指定文件bytes
+    """
     with open(f"{DIR_RESOURCE}/{file_name}", "rb") as f:
         return f.read()
+
+
+def game_name_replace(game_name: str) -> str:
+    """
+    玩家游戏名称替换 防止干扰markdown表格渲染
+    """
+    d = {
+        "`": "&#96;",
+        "|": "&#124;"
+    }
+    new_game_name = multiple_replace(game_name, d)
+    return new_game_name
 
 
 MSG_HELP = f"""

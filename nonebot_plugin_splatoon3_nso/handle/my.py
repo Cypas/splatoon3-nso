@@ -20,7 +20,7 @@ from ..s3s.stat import STAT, CONFIG_DATA
 from ..utils import get_msg_id, convert_td
 from ..utils.bot import *
 from ..utils.redis import api_rset_json_file_name, api_rset_info
-from ..utils.utils import DIR_RESOURCE, get_jwt_exp_info
+from ..utils.utils import DIR_RESOURCE, get_jwt_exp_info, game_name_replace
 
 MSG_PRIVATE = "该指令需要私信机器人才能使用"
 NSO_WEB_CACHE_DICT = {}
@@ -204,7 +204,7 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
         _n = _o['attend'] - _o['gold'] - _o['silver'] - _o['bronze']
         _open = f"🏅️{_o['gold']:>3} 🥈{_o['silver']:>3} 🥉{_o['bronze']:>3} &nbsp; ♉︎{_n:>3} (总{_o['attend']})"
 
-    player_name = player['name'].replace('`', '&#96;').replace('|', '&#124;')
+    player_name = game_name_replace(player['name'])
     name_id = player['nameId']
     user_name = f'{player_name} #{name_id}'
 
@@ -293,14 +293,14 @@ async def get_friends_md(splatoon, lang='zh-CN'):
 
         _dict[_state] += 1
         n = f['playerName'] or f.get('nickname')
-        n = n.replace('`', '&#96;').replace('|', '&#124;')
+        n = game_name_replace(n)
 
         img_type = "friend_icon"
         # 储存名使用friend_id
         icon_img = await model_get_temp_image_path(img_type, f['id'], f['userIcon']['url'])
         img = f'''<img height="40" src="{icon_img}"/>'''
         if f['playerName'] and f['playerName'] != f['nickname']:
-            nickname = f['nickname'].replace('`', '&#96;').replace('|', '&#124;')
+            nickname = game_name_replace(nickname)
             n = f'{f["playerName"]}|{img}|{nickname}'
         else:
             n = f'{n}|{img}|'
@@ -388,7 +388,7 @@ async def get_ns_friends_md(splatoon: Splatoon):
         if (f.get('presence') or {}).get('state') != 'ONLINE' and f.get('isFavoriteFriend') is False:
             continue
         u_name = f.get('name') or ''
-        u_name = u_name.replace('`', '&#96;').replace('|', '&#124;')
+        u_name = game_name_replace(u_name)
 
         img_type = "ns_friend_icon"
         # 储存名使用friend_id
