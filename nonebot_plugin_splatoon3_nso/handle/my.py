@@ -157,41 +157,108 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
 头目鲑鱼 | {card['defeatBossCount']} {boss_per_cnt}
 鳞片 | 🏅️{p['gold']} 🥈{p['silver']} 🥉{p['bronze']}"""
 
-    ar = (history.get('xMatchMaxAr') or {}).get('power') or 0  # 区域
-    lf = (history.get('xMatchMaxLf') or {}).get('power') or 0  # 塔楼
-    gl = (history.get('xMatchMaxGl') or {}).get('power') or 0  # 鱼虎
-    cl = (history.get('xMatchMaxCl') or {}).get('power') or 0  # 蛤蜊
-    x_msg = '||'
-    if any([ar, lf, gl, cl]) and not from_group:
+    # 最高power
+    ar_max_power = (history.get('xMatchMaxAr') or {}).get('power') or 0  # 区域
+    lf_max_power = (history.get('xMatchMaxLf') or {}).get('power') or 0  # 塔楼
+    gl_max_power = (history.get('xMatchMaxGl') or {}).get('power') or 0  # 鱼虎
+    cl_max_power = (history.get('xMatchMaxCl') or {}).get('power') or 0  # 蛤蜊
+    # 最高排名
+    ar_max_rank = (history.get('xMatchMaxAr') or {}).get('rank') or 0  # 区域
+    lf_max_rank = (history.get('xMatchMaxLf') or {}).get('rank') or 0  # 塔楼
+    gl_max_rank = (history.get('xMatchMaxGl') or {}).get('rank') or 0  # 鱼虎
+    cl_max_rank = (history.get('xMatchMaxCl') or {}).get('rank') or 0  # 蛤蜊
+    # 当前排名
+    ar_rank = (history.get('xMatchRankAr') or 0)  # 区域
+    lf_rank = (history.get('xMatchRankLf') or 0)  # 塔楼
+    gl_rank = (history.get('xMatchRankGl') or 0)  # 鱼虎
+    cl_rank = (history.get('xMatchRankCl') or 0)  # 蛤蜊
+    x_msg = ''
+    # x赛最高战力
+    if any([ar_max_power, lf_max_power, gl_max_power, cl_max_power]) and not from_group:
         # 1. 构建维度名称与分数的映射字典，方便后续查找最大值
         power_dict = {
-            '区域': ar,
-            '塔楼': lf,
-            '鱼虎': gl,
-            '蛤蜊': cl
+            '区域': ar_max_power,
+            '塔楼': lf_max_power,
+            '鱼虎': gl_max_power,
+            '蛤蜊': cl_max_power
         }
         # 2. 找出最大值对应的维度名称（如果多个维度值相同且都是最大值，取第一个）
-        max_power = max(power_dict.values())
-        max_key = next(key for key, value in power_dict.items() if value == max_power)
+        max_power = max([v for v in power_dict.values() if v])
+        max_power_key = next((key for key, value in power_dict.items() if value == max_power), None)
         # 3. 逐个构建每个维度的文本，最大值维度添加红色样式
         parts = []
         # 第一行：区域 + 塔楼
-        ar_text = f'<span style="color:red">区域:{ar:>7.2f}</span>' if '区域' == max_key else f'区域:{ar:>7.2f}'
-        lf_text = f'<span style="color:red">塔楼:{lf:>7.2f}</span>' if '塔楼' == max_key else f'塔楼:{lf:>7.2f}'
+        ar_text = f'<span style="color:red">区域:{ar_max_power:>7.2f}</span>' if '区域' == max_power_key else f'区域:{ar_max_power:>7.2f}'
+        lf_text = f'<span style="color:red">塔楼:{lf_max_power:>7.2f}</span>' if '塔楼' == max_power_key else f'塔楼:{lf_max_power:>7.2f}'
         parts.append(f'{ar_text}, {lf_text}<br>')
         # 第二行：鱼虎 + 蛤蜊
-        gl_text = f'<span style="color:red">鱼虎:{gl:>7.2f}</span>' if '鱼虎' == max_key else f'鱼虎:{gl:>7.2f}'
-        cl_text = f'<span style="color:red">蛤蜊:{cl:>7.2f}</span>' if '蛤蜊' == max_key else f'蛤蜊:{cl:>7.2f}'
-        parts.append(
-            f' 鱼虎:{gl:>7.2f}, 蛤蜊:{cl:>7.2f}' if '鱼虎' != max_key and '蛤蜊' != max_key else f' {gl_text}, {cl_text}')
+        gl_text = f'<span style="color:red">鱼虎:{gl_max_power:>7.2f}</span>' if '鱼虎' == max_power_key else f'鱼虎:{gl_max_power:>7.2f}'
+        cl_text = f'<span style="color:red">蛤蜊:{cl_max_power:>7.2f}</span>' if '蛤蜊' == max_power_key else f'蛤蜊:{cl_max_power:>7.2f}'
+        parts.append(f' {gl_text}, {cl_text}')
 
         # 4. 拼接最终文本
-        x_msg = f"X赛最高战力 | {''.join(parts)}\n||"
-    if any([ar, lf, gl, cl]):
+        x_msg += f"X最高战力 | {''.join(parts)}\n"
+    # x赛最高排名
+    if any([ar_max_rank, lf_max_rank, gl_max_rank, cl_max_rank]) and not from_group:
+        # 1. 构建维度名称与分数的映射字典，方便后续查找最大值
+        rank_dict = {
+            '区域': ar_max_rank,
+            '塔楼': lf_max_rank,
+            '鱼虎': gl_max_rank,
+            '蛤蜊': cl_max_rank
+        }
+        # 2. 找出最小排名
+        min_rank = min([v for v in rank_dict.values() if v])
+        min_rank_key = next((key for key, value in rank_dict.items() if value == min_rank), None)
+        # 3. 逐个构建每个维度的文本，最小排名添加红色样式
+        parts = []
+        # 第一行：区域 + 塔楼
+        ar_text = f'<span style="color:red">区域:{ar_max_rank}名</span>' if '区域' == min_rank_key else f'区域:{ar_max_rank}名'
+        lf_text = f'<span style="color:red">塔楼:{lf_max_rank}名</span>' if '塔楼' == min_rank_key else f'塔楼:{lf_max_rank}名'
+        parts.append(f'{ar_text}, {lf_text}<br>')
+        # 第二行：鱼虎 + 蛤蜊
+        gl_text = f'<span style="color:red">鱼虎:{gl_max_rank}名</span>' if '鱼虎' == min_rank_key else f'鱼虎:{gl_max_rank}名'
+        cl_text = f'<span style="color:red">蛤蜊:{cl_max_rank}名</span>' if '蛤蜊' == min_rank_key else f'蛤蜊:{cl_max_rank}名'
+        parts.append(f' {gl_text}, {cl_text}')
+
+        # 4. 拼接最终文本
+        x_msg += f"X最高排名 | {''.join(parts)}\n"
+    # x赛当前排名
+    if any([ar_rank, lf_rank, gl_rank, cl_rank]) and not from_group:
+        # 1. 构建维度名称与分数的映射字典，方便后续查找最大值
+        now_rank_dict = {
+            '区域': ar_rank,
+            '塔楼': lf_rank,
+            '鱼虎': gl_rank,
+            '蛤蜊': cl_rank
+        }
+        # 2. 找出最小排名
+        min_now_rank = min([v for v in now_rank_dict.values() if v])
+        min_now_rank_key = next((key for key, value in now_rank_dict.items() if value == min_now_rank), None)
+        # 3. 逐个构建每个维度的文本，最小排名添加红色样式
+        parts = []
+        # 第一行：区域 + 塔楼
+        ar_text = f'<span style="color:red">区域:{ar_rank}名</span>' if '区域' == min_now_rank_key else f'区域:{ar_rank}名'
+        lf_text = f'<span style="color:red">塔楼:{lf_rank}名</span>' if '塔楼' == min_now_rank_key else f'塔楼:{lf_rank}名'
+        parts.append(f'{ar_text}, {lf_text}<br>')
+        # 第二行：鱼虎 + 蛤蜊
+        gl_text = f'<span style="color:red">鱼虎:{gl_rank}名</span>' if '鱼虎' == min_now_rank_key else f'鱼虎:{gl_rank}名'
+        cl_text = f'<span style="color:red">蛤蜊:{cl_rank}名</span>' if '蛤蜊' == min_now_rank_key else f'蛤蜊:{cl_rank}名'
+        parts.append(f' {gl_text}, {cl_text}')
+
+        # 4. 拼接最终文本
+        x_msg += f"X当前排名 | {''.join(parts)}\n"
+
+    if any([ar_max_power, lf_max_power, gl_max_power, cl_max_power]):
         _dict_rank = model_get_power_rank()
         _rank = _dict_rank.get(user.game_sp_id)
         if _rank:
-            x_msg = x_msg.replace('||', f'X赛最高战力</br>bot排名 | {_rank}名\n||')
+            x_msg += f'X最高战力</br>bot排名 | {_rank}名\n'
+
+    if x_msg:
+        x_msg += "||"
+    else:
+        x_msg = "\n||"
 
     _league = ''
     _open = ''
@@ -250,15 +317,15 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
 开放 | {_open}
 首次游玩 | {s_time:%Y-%m-%d %H:%M:%S} +08:00
 当前时间 | {c_time:%Y-%m-%d %H:%M:%S} +08:00
-{x_msg}{weapons_str}
+{x_msg}||{weapons_str}
 {coop_msg}
 |||
 """
     top_res = model_get_all_top_all(user.game_sp_id)
     if top_res:
-        msg += f"上榜记录 | {len(top_res)}次 &nbsp;&nbsp; /top 查询排行榜\n"
-    if any([ar, lf, gl, cl]) and from_group:
-        msg += f"Tips：私聊使用/me 查询时会额外展示X分和武器分\n"
+        msg += f"|上榜记录 | {len(top_res)}次 &nbsp;&nbsp; /top 查询排行榜|\n"
+    if any([ar_max_power, lf_max_power, gl_max_power, cl_max_power]) and from_group:
+        msg += f"<td colspan='2'>Tips：私聊使用/me 查询时会额外展示X分和武器分</td>"
     return msg
 
 
