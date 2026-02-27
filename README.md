@@ -183,7 +183,8 @@ nso查询过程中使用到了第三方的自动令牌生成接口
 ## 鸣谢
 
 - [splatoon3-bot](https://github.com/paul-sama/splatoon3-bot) 本插件基于splatoon3-bot内的nso插件进行重构
-- [s3si.ts](https://github.com/spacemeowx2/s3si.ts) 个人战绩同步上传至stat.ink的脚本
+- [s3s](https://github.com/frozenpandaman/s3s) 个人战绩同步上传至stat.ink的脚本
+- [s3si.ts](https://github.com/spacemeowx2/s3si.ts) 个人战绩同步上传至stat.ink的脚本ts版本
 - https://github.com/imink-app/f-API 模拟nso授权步骤的公开接口
 - https://github.com/samuelthomas2774/nxapi-znca-api 模拟nso授权步骤的公开接口
 
