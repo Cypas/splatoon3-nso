@@ -187,6 +187,7 @@ nso查询过程中使用到了第三方的自动令牌生成接口
 - [s3si.ts](https://github.com/spacemeowx2/s3si.ts) 个人战绩同步上传至stat.ink的脚本ts版本
 - https://github.com/imink-app/f-API 模拟nso授权步骤的公开接口
 - https://github.com/samuelthomas2774/nxapi-znca-api 模拟nso授权步骤的公开接口
+- [zurl](https://github.com/helloxz/zurl)一个简单易用的短链接服务
 
 ## ⏳ Star 趋势
 
