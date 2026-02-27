@@ -958,7 +958,6 @@ class S3S:
             error = res
             if "html" in error:
                 error = "html网页错误"
-                # 全局延迟1s
                 await asyncio.sleep(5)
             self.logger.warning(f"{next_f_str} Both Error: {error}")
             return None
