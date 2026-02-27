@@ -184,10 +184,13 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 return msg, is_playing
             # 减1变回索引
             idx -= 1
+            coop_highest_eggs = 0
+            coop_highest_result = coop['historyGroups']['nodes'][coop_group_idx].get('highestResult')
+            if coop_highest_result:
+                coop_highest_eggs = coop_highest_result.get('jobScore') or "0"
             coop_info = {
                 'coop_point': coop['pointCard']['regularPoint'] or "0",
-                'coop_highest_eggs': coop['historyGroups']['nodes'][coop_group_idx]['highestResult'].get(
-                    'jobScore') or "0"
+                'coop_highest_eggs': coop_highest_eggs
             }  # coop_eggs为当期获得的最多的蛋数
             coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx]['id']
             coop_t = get_battle_time_or_coop_time(coop_id)

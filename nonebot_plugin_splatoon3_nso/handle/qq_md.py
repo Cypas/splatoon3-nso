@@ -36,7 +36,7 @@ async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
                    {"key": "img_size", "values": [f"img#{image_width}px #{image_height}px"]},
                    {"key": "img_url", "values": [f"{url}"]}])
     if text_end:
-        text_end = text_end.replace("\\n", "\r").replace("\\r", "\r")
+        text_end = "\r" + text_end.replace("\\n", "\r").replace("\\r", "\r")
         params.append({"key": "text_end", "values": [f"{text_end}"]})
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
@@ -143,59 +143,82 @@ async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
 
 def login_md(user_id, check_session=False) -> QQ_Msg:
     """无法使用login时转kook登录的md卡片提示"""
-    template_id = "102083290_1705923685"
-    keyboard_template_id = "102083290_1721647351"
+    keyboard_template_type = "kook_url"
     data1 = ""
     if check_session:
+        # 使用其他功能前的检查
         data1 += "nso未登录，无法使用相关查询，"
     data1 += "QQ平台当前无法完成登录流程，请至其他平台完成登录后使用 /getlc 命令获取绑定码"
     data2 = f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
-    button_show = "kook服务器"
-    kook_jump_link = "https://www.kookapp.cn/app/invite/mkjIOn"
+    data3 = ""
+    if check_session:
+        if user_id:
+            title = f"<@{user_id}> 该功能需要登陆后才可使用"
+        else:
+            title = f"该功能需要登陆后才可使用"
+    else:
+        if user_id:
+            title = f"<@{user_id}> 当前平台无法登录"
+        else:
+            title = f"当前平台无法登录"
+
+    return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                       keyboard_template_type=keyboard_template_type)
+
+def push_md(user_id) -> QQ_Msg:
+    """无法使用login时转kook登录的md卡片提示"""
+    keyboard_template_type = "kook_url"
+    data1 = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用"
+    data2 = f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+    data3 = ""
+    if user_id:
+        title = f"<@{user_id}> 当前平台无法使用此功能"
+    else:
+        title = f"当前平台无法使用此功能"
+
+    return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                       keyboard_template_type=keyboard_template_type)
+
+
+def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = "",
+                keyboard_template_type="") -> QQ_Msg:
+    """
+    通用的 文本引用消息md模版
+    可提供 titile
+    引用文本  data1，data2，data3  这三个也支持\n进行换行
+    按钮模版类型 若不提供则没有按钮
+    """
+    # 固定的文本模版id
+    template_id = "102083290_1705923685"
+
+    keyboard_template_id = ""
+    if keyboard_template_type == "kook_url":
+        # kook 服务器的链接 按钮模版
+        keyboard_template_id = "102083290_1721647351"
 
     params = []
-    if user_id:
-        params.append({"key": "title", "values": [f"<@{user_id}>"]})
-    else:
-        params.append({"key": "title", "values": [f"当前平台无法登录"]})
-    params.extend([{"key": "data1", "values": [f"{data1}"]},
-                   {"key": "data2", "values": [f"{data2}"]},
-                   ])
+    if title:
+        params.append({"key": "title", "values": [f"{title}"]})
+    if data1:
+        params.append({"key": "data1", "values": [f"{data1}"]})
+    if data2:
+        params.append({"key": "data2", "values": [f"{data2}"]})
+    if data3:
+        params.append({"key": "data3", "values": [f"{data3}"]})
 
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
         "params": params
     })
 
-    keyboard = MessageKeyboard.model_validate({
-        "id": f"{keyboard_template_id}"
-    })
-
-    # keyboard = MessageKeyboard.model_validate({
-    #     "content": {
-    #         "rows": [{"buttons": [
-    #             {
-    #                 "id": "1",
-    #                 "render_data": {
-    #                     "label": f"{button_show}",
-    #                     "visited_label": f"{button_show}",
-    #                     "style": 0
-    #                 },
-    #                 "action": {
-    #                     "type": 0,
-    #                     "permission": {
-    #                         "type": 2,
-    #                     },
-    #                     "unsupport_tips": "客户端不支持",
-    #                     "data": f"{kook_jump_link}",
-    #                 }
-    #             }
-    #
-    #         ]},
-    #         ]
-    #     }
-    # })
-    qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
+    msg_data_list = [QQ_MsgSeg.markdown(md)]
+    # 是否添加按钮
+    if keyboard_template_id:
+        keyboard = MessageKeyboard.model_validate({
+            "id": f"{keyboard_template_id}"
+        })
+        msg_data_list.append(QQ_MsgSeg.keyboard(keyboard))
+    qq_msg = QQ_Msg(msg_data_list)
     return qq_msg
 
 

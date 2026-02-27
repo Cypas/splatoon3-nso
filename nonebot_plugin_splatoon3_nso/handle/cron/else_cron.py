@@ -113,39 +113,16 @@ async def show_dict_status():
 
 async def get_dict_status():
     """获取字典当前状态文本"""
-    # limiter = await GlobalRateLimiter.get_instance(rate=2)
+    limiter = await GlobalRateLimiter.get_instance()
 
     # 获取状态
-    # limiter_dict = await limiter.get_serializable_state()
-
-    # Python内部的内存
-    # 开始统计
-    get_python_internal_memory()
-    gc_stats = gc.get_stats()
-    gen0 = gc_stats[0]['collections']
-    gen1 = gc_stats[1]['collections']
-    gen2 = gc_stats[2]['collections']
-    gc_before = f"Python GC统计(清理前) - 0代:{gen0}次, 1代:{gen1}次, 2代:{gen2}次"
-
-    # 进行清理
-    gc.collect(0)
-    gc.collect(1)
-    gc.collect(2)
-    # 再次统计
-    get_python_internal_memory()
-    gc_stats = gc.get_stats()
-    gen0 = gc_stats[0]['collections']
-    gen1 = gc_stats[1]['collections']
-    gen2 = gc_stats[2]['collections']
-    gc_after = f"Python GC统计(清理后) - 0代:{gen0}次, 1代:{gen1}次, 2代:{gen2}次"
+    limiter_dict = await limiter.get_serializable_state()
 
     cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
                 f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
                 f"global_client_cnt:{len(global_client_dict)}\n"
                 f"cron_client_cnt:{len(global_cron_client_dict)}\n"
-                f"{gc_before}\n"
-                f"{gc_after}\n"
-                # f"limiter:{json.dumps(limiter_dict)}\n"
+                f"limiter:{json.dumps(limiter_dict)}\n"
                 # f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
     return cron_msg
@@ -295,6 +272,7 @@ async def clean_expired_clients():
             client, _ = global_client_dict.pop(msg_id)
             try:
                 await client.close()
+                global_user_info_dict.pop(msg_id)
                 logger.info(f"清理过期客户端: {msg_id}")
             except Exception as e:
                 logger.warning(f"清理客户端 {msg_id} 失败: {e}")

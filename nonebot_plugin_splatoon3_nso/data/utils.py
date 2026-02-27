@@ -1,6 +1,7 @@
 import copy
+from typing import Any, Coroutine
 
-from sqlalchemy import text
+from sqlalchemy import text, Row
 
 from .db_sqlite import DBSession, TempImageTable, DIR_TEMP_IMAGE
 from ..utils import init_path, get_file_url
@@ -24,6 +25,7 @@ class GlobalUserInfo:
         self.game_name = kwargs.get('game_name', None)
         self.game_sp_id = kwargs.get('game_sp_id', None)
         self.push = kwargs.get('push', 0)
+        self.export_seed = kwargs.get('export_seed', 0)
         self.push_cnt = kwargs.get('push_cnt', 0)
         self.cmd_cnt = kwargs.get('cmd_cnt', 0)
         self.user_agreement = kwargs.get('user_agreement', 0)
@@ -34,9 +36,11 @@ class GlobalUserInfo:
         # self.req_client = kwargs.get('req_client', None)
 
 
-async def model_get_or_set_temp_image(_type, name: str, link=None, force=False) -> TempImageTable:
+async def model_get_or_set_temp_image(_type, name: str, link=None, force=False) -> TempImageTable | None | Any:
     """获取或设置缓存图片"""
     session = DBSession()
+    if not name:
+        return None
     name = name.replace("/", "-")
     row: TempImageTable = get_insert_or_update_obj(TempImageTable, {"type": _type, "name": name})
 

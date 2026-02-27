@@ -1,3 +1,4 @@
+from pathlib import Path
 from urllib.parse import quote
 
 from nonebot.adapters.qq.message import Attachment
@@ -14,8 +15,17 @@ from .handle.cron import remove_all_scheduler, scheduler_controller
 from .handle.qq_md import get_qq_face_md
 from .handle.send_msg import bot_send, notify_to_channel
 from .s3s.splatnet_image import global_browser
-from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION
+from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION, get_time_now_china_str, get_msg_id
 from .utils.bot import *
+from .api.main import app as fastapi_app  # 引入fastapi接口
+### bot.py 中启动fastapi
+# nonebot.init()
+# asgi = nonebot.get_asgi()
+# driver = nonebot.get_driver()
+# driver.register_adapter(OneBotV11Adapter)
+# nonebot.load_plugins("plugins")
+# asgi.mount("/api", fastapi_app)
+###
 
 __plugin_meta__ = PluginMetadata(
     name="splatoon3游戏nso查询",
@@ -33,6 +43,10 @@ __plugin_meta__ = PluginMetadata(
 @on_message(rule=to_me(), priority=97, block=True).handle()
 @on_startswith(("/", "、"), priority=99, block=True).handle()
 async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    msg_id = get_msg_id(platform, user_id)
+    plain_text = event.get_message().extract_plain_text().strip()
     logger.info(f'unknown_command from {event.get_event_name()}')
     msg = ""
     if plugin_config.splatoon3_unknown_command_fallback_reply:
@@ -53,14 +67,31 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
                     logger.info("kook指定兜底黑名单服务器，不进行兜底消息提示")
         if msg:
             await bot.send(event, message=msg)
+            if plain_text:
+                if "[分享]" not in plain_text:
+                    file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
+                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                    # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+                    with open(file_path, "a", encoding="utf-8") as f:
+                        f.write(f"{get_time_now_china_str()},{msg_id},{plain_text}\n")  # 每行一个关键词
         await matcher.finish()
 
 
 @on_message(rule=is_type(QQ_C2CME), priority=98, block=True).handle()
 async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
     """为qq c2c任何未匹配文本进行兜底"""
+    plain_text = event.get_message().extract_plain_text().strip()
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    msg_id = get_msg_id(platform, user_id)
     logger.info(f'unknown_command from {event.get_event_name()}')
     msg = "无效指令，请发送/help 查看帮助\n或在消息框输入/后，手动选择bot命令"
+    if plain_text:
+        file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+        with open(file_path, "a", encoding="utf-8") as f:
+            f.write(f"{get_time_now_china_str()},{msg_id},{plain_text}\n")  # 每行一个关键词
     await matcher.finish(msg)
 
 

@@ -9,10 +9,11 @@ from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user,
 from ..data.utils import get_or_set_plugin_data
 from ..utils import DIR_RESOURCE, AsHttpReq
 from ..utils.bot import *
+from ..utils.short_url import zurl
 
 # 图标文件夹
 icons_folder = os.path.join(DIR_RESOURCE, "icons")
-PUSH_INTERVAL = 15  # push推送循环时间
+PUSH_INTERVAL = 20  # push推送循环时间
 
 # 真格入场券点数
 DICT_RANK_POINT = {
@@ -212,16 +213,21 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
         if isinstance(bot, Tg_Bot):
             msg = "nso not logged in. direct message to me /login first."
         elif isinstance(bot, QQ_Bot):
-            if isinstance(event, QQ_GME) and plugin_config.splatoon3_qq_md_mode:
-                # 发送md
-                await bot_send_login_md(bot, event, user_id, check_session=True)
-                await matcher.finish()
+            if zurl.get_client():
+                # 开启了短链才允许qq平台用户登陆
+                msg = "nso未登录，无法使用相关功能，请先私信我 /login 进行登录"
             else:
-                msg = "nso未登录，无法使用相关查询\n" \
-                      "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
-                      f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+                # 未开启全部拒绝登陆并引流到kook
+                if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
+                    # 发送md
+                    await bot_send_login_md(bot, event, user_id, check_session=True)
+                    await matcher.finish()
+                else:
+                    msg = "nso未登录，无法使用相关查询\n" \
+                          "QQ平台当前无法完成nso登录流程，请至其他平台完成登录后使用/getlc命令获取绑定码\n" \
+                          f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
         elif isinstance(bot, All_BOT):
-            msg = "nso未登录，无法使用相关查询，请先私信我 /login 进行登录"
+            msg = "nso未登录，无法使用相关功能，请先私信我 /login 进行登录"
         await matcher.finish(msg)
     else:
         # 已登录用户
@@ -331,7 +337,7 @@ async def get_qq_user_name(bot: QQ_Bot, user_id):
     try:
         res = await AsHttpReq.get(api, with_proxy=False, params=params)
         data = res.json()
-        user_name = data.get("名字","")
+        user_name = data.get("名字", "")
         return user_name
     except Exception as e:
         if res and res.text:
@@ -339,7 +345,6 @@ async def get_qq_user_name(bot: QQ_Bot, user_id):
         else:
             logger.warning(f"QQ get username error:{e}")
         return ""
-
 
 # event结构解析参考代码
 # async def log_cmd_to_db(bot, event, get_map=False):

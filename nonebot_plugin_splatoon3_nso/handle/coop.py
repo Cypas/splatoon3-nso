@@ -69,8 +69,11 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
         wave_msg += f"EX |{boss_name} (总击杀{defeat}) |{r} {s}||"
 
     # 蛋数统计  本局蛋数(当期最大蛋数)
-    if total_deliver_cnt and c_eggs:
-        total_deliver_cnt = f'本局蛋数:{total_deliver_cnt} (本期最多蛋数:{c_eggs})'
+    if total_deliver_cnt:
+        total_deliver_cnt = f'本局蛋数:{total_deliver_cnt}'
+        if c_eggs:
+            total_deliver_cnt = f'{total_deliver_cnt} (本期最多蛋数:{c_eggs})'
+
 
     # boss槽
     king_smell = detail.get("smellMeter")
@@ -78,13 +81,18 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
     # 段位
     lv_grade = detail['afterGrade']['name'] if detail.get('afterGrade') else ''
     lv_point = detail['afterGradePoint'] or ''
+    if lv_point and lv_grade:
+        lv_str = f"段位:{lv_grade} {lv_point}"
+    else:
+        # 私人剧本工
+        lv_str = f"私人剧本工"
     # 打工地图
     coop_stage = detail['coopStage']['name']
     # 胜负情况
     result_wave = detail["resultWave"]
     judgement = "🎉Clear!! " if win else f"😭W{result_wave} Failure"
     msg = f"""
-#### {rule_icon}{coop_stage} 段位:{lv_grade} {lv_point}  危险度:{detail['dangerRate']:.0%} {judgement}
+#### {rule_icon}{coop_stage} {lv_str}  危险度:{detail['dangerRate']:.0%} {judgement}
 ##### 打工点数+{detail['jobPoint']}({c_point}p) boss槽:{king_str}
 {wave_msg}
 

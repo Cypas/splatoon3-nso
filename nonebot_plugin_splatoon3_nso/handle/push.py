@@ -1,11 +1,14 @@
+import asyncio
 from datetime import datetime as dt, timedelta
 from threading import Lock
 from .b_or_c_tools import PushStatistics
+from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, PUSH_INTERVAL
-from .send_msg import bot_send, notify_to_channel
+from .send_msg import bot_send, notify_to_channel, bot_send_push_md
 from .last import get_last_battle_or_coop, get_last_msg
+from ..config import plugin_config
 from ..s3s.splatoon import Splatoon
-from ..data.data_source import dict_get_or_set_user_info
+from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user
 from ..utils import get_msg_id
 from ..utils.bot import *
 
@@ -18,12 +21,26 @@ matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, p
 is_running_dict = {}
 is_running_lock = Lock()  # 全局锁
 
+
 @matcher_start_push.handle(parameterless=[Depends(_check_session_handler)])
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, "QQ平台不支持该功能，该功能可在其他平台使用")
-        return
+        # 发送md引流到kook
+        if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
+            # 发送md
+            if isinstance(event, QQ_C2CME):
+                user_id = ""
+            # 发送md
+            await bot_send_push_md(bot, event, user_id)
+            return
+        else:
+            # 发送文本
+            msg = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用\n" \
+                  f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+            await bot_send(bot, event, msg)
+            return
+
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
@@ -32,7 +49,14 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     if user and user.push:
         await bot_send(bot, event, "已开启推送，无需重复触发")
         return
-    # push计数+1
+    # 测试是否可以访问
+    splatoon = Splatoon(bot, event, user)
+    # 测试访问并刷新
+    success = await splatoon.test_page()
+    if not success:
+        await bot_send(bot, event, "token刷新失败，可能是bot网络问题，请稍后再试")
+        return
+    # 设置为push模式，并将push计数+1
     user = dict_get_or_set_user_info(platform, user_id, push=1, push_cnt=user.push_cnt + 1)
 
     # 检查push的条件
@@ -73,7 +97,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
 
     # 轮询间隔时间
     if not fast:
-        push_interval = PUSH_INTERVAL * 4  # 增加到1min
+        push_interval = PUSH_INTERVAL * 2
     else:
         push_interval = PUSH_INTERVAL
     # 添加定时任务
@@ -113,7 +137,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     scheduler.add_job(
         push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
         id=job_id, args=[bot.self_id, event, job_data, filters],
-        misfire_grace_time=PUSH_INTERVAL * 4 * 4, coalesce=True, max_instances=1
+        misfire_grace_time=60 * 20, coalesce=True, max_instances=1
     )
     if isinstance(bot, Tg_Bot):
         msg = f'Start push! check new data(battle or coop) every {push_interval} seconds. /stop_push to stop'
@@ -133,7 +157,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     await bot_send(bot, event, msg)
 
 
-matcher_stop_push = on_command("stop_push", aliases={'stp', 'st', 'stop'}, priority=10, block=True)
+matcher_stop_push = on_command("stop_push", aliases={'stp', 'stop'}, priority=10, block=True)
 
 
 @matcher_stop_push.handle(parameterless=[Depends(_check_session_handler)])
@@ -146,6 +170,10 @@ async def stop_push(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
+    user = dict_get_or_set_user_info(platform, user_id)
+    if user.push == 0:
+        await bot_send(bot, event, '未启动push推送，无需关闭')
+        return
     user = dict_get_or_set_user_info(platform, user_id, push=0)
 
     _, _, st_msg, push_time_minute = close_push(platform, user_id)
@@ -157,8 +185,14 @@ async def stop_push(bot: Bot, event: Event):
         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
 
     msg += st_msg
-
     await bot_send(bot, event, msg)
+    if user.stat_key:
+        # 自动启动stat同步任务
+        db_user = model_get_or_set_user(platform, user_id)
+        if db_user:
+            stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
+            await bot_send(bot, event, stat_msg, skip_ad=True)
+            asyncio.create_task(sync_stat_ink_func(db_user))
 
 
 async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters: dict):
@@ -255,6 +289,14 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                 await bot_send(bot, event, message=msg, skip_log_cmd=True)
                 with is_running_lock:
                     is_running_dict.pop(msg_id)
+                if user.stat_key:
+                    # 自动启动stat同步任务
+                    db_user = model_get_or_set_user(platform, user_id)
+                    if db_user:
+                        stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
+                        await bot_send(bot, event, stat_msg, skip_ad=True)
+                        asyncio.create_task(sync_stat_ink_func(db_user))
+
                 # msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
                 # await notify_to_channel(msg)
                 return
@@ -325,5 +367,5 @@ def close_push(platform, user_id):
             msg += push_statistics.get_coop_st_msg()
         # 计算推送持续时间
         push_cnt = job_data.get('this_push_cnt', 0)
-        push_time_minute: float = float(push_cnt * push_interval) / 60
+        push_time_minute: float = float(push_cnt * push_interval) // 60
     return bot, event, msg, push_time_minute

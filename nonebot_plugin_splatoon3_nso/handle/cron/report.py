@@ -19,7 +19,7 @@ from ...utils.bot import *
 
 
 async def create_set_report_tasks(is_corn_job=True):
-    """8点时请求并提前写好日报数据"""
+    """7点时请求并提前写好日报数据"""
     cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("set_report", "start")
@@ -38,9 +38,9 @@ async def create_set_report_tasks(is_corn_job=True):
                 }
 
     # 阶段1：认证刷新池（并发限制2）
-    phase1_semaphore = asyncio.Semaphore(4)
+    phase1_semaphore = asyncio.Semaphore(6)
     # 阶段2：报告生成池（并发限制4）
-    phase2_semaphore = asyncio.Semaphore(4)
+    phase2_semaphore = asyncio.Semaphore(6)
 
     # ================== 阶段1：认证刷新 ==================
     async def process_phase1(p_and_id):
@@ -61,8 +61,8 @@ async def create_set_report_tasks(is_corn_job=True):
             try:
                 splatoon = Splatoon(None, None, u, _type="cron")
                 # 测试访问并刷新
-                success = await splatoon.test_page()
-                # success = await splatoon.refresh_gtoken_and_bullettoken()
+                # success = await splatoon.test_page()
+                success = await splatoon.refresh_gtoken_and_bullettoken()
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
                 if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'has be banned']):
@@ -75,23 +75,50 @@ async def create_set_report_tasks(is_corn_job=True):
 
     # ================== 等待 UTC 0 点后再执行阶段2 ==================
     def get_seconds_until_utc_midnight() -> int:
-        """计算当前 UTC 时间距离下一个 UTC 0 点的秒数（纯 datetime 计算，无时区依赖）"""
+        """计算当前 UTC 时间距离下一个 UTC 0 点的秒数（纯 datetime 计算，无时区依赖）
+
+        兼容两种情况：
+        1. 阶段1在 UTC 23:xx 完成，需要等待到次日 0 点
+        2. 阶段1在第二天 0:00-3:00 完成，不等待直接运行
+        """
         if not is_corn_job:
             # 手动触发时，直接继续执行
             return 0
+
         now_utc = dt.utcnow()  # now_utc 是 datetime.datetime 类型（UTC 时间，无时区属性）
-        # 构造当天 UTC 0 点（纯 datetime 对象，无时区）
-        next_midnight = dt(
-            year=now_utc.year,
-            month=now_utc.month,
-            day=now_utc.day,
-            hour=0,
-            minute=0,
-            second=0
-        ) + datetime.timedelta(days=1)  # 关键：直接+1天，得到次日0点
-        # 计算当前时间到次日0点的秒数
-        delta = next_midnight - now_utc
-        return int(delta.total_seconds())
+        current_hour = now_utc.hour
+
+        # 情况1：如果在 UTC 23:00-23:59，等待到次日 0 点
+        if current_hour in [23]:
+            next_midnight = dt(
+                year=now_utc.year,
+                month=now_utc.month,
+                day=now_utc.day,
+                hour=0,
+                minute=0,
+                second=0
+            ) + datetime.timedelta(days=1)  # 次日0点
+            delta = next_midnight - now_utc
+            return int(delta.total_seconds())
+
+        # 情况2：如果在 UTC 0:00-2:59，不等待直接运行
+        elif 0 <= current_hour < 3:
+            # 已经是 0 点之后，但还在 3 点之前，说明是当天
+            # 不需要等待，直接执行
+            return 0
+
+        # 情况3：其他时间，等待到下一个 0 点
+        else:
+            next_midnight = dt(
+                year=now_utc.year,
+                month=now_utc.month,
+                day=now_utc.day,
+                hour=0,
+                minute=0,
+                second=0
+            ) + datetime.timedelta(days=1)  # 次日0点
+            delta = next_midnight - now_utc
+            return int(delta.total_seconds())
 
     # 计算需要等待的秒数
     wait_seconds = get_seconds_until_utc_midnight()
@@ -381,8 +408,8 @@ async def send_report_task():
         if user.platform == "QQ" or not user.report_notify:
             continue
         counters["can_send_report_count"] += 1
-        # 每次循环强制睡眠1s，使一分钟内不超过120次发信阈值
-        await asyncio.sleep(1)
+        # 每次循环强制睡眠0.5s，使一分钟内不超过120次发信阈值
+        await asyncio.sleep(0.5)
         try:
             msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:

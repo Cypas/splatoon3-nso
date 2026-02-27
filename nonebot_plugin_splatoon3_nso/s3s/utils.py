@@ -37,11 +37,13 @@ translate_rid = {
     'CoopHistoryDetailQuery': 'f2d55873a9281213ae27edc171e2b19131b3021a2ae263757543cdd3bf015cc8',
     # 通过打工id详查 参数2:"coopHistoryDetailId" 参数3:打工id
     'MyOutfitCommonDataEquipmentsQuery': '45a4c343d973864f7bb9e9efac404182be1d48cf2181619505e9b7cd3b56a6e8',
-    # 主页 - 武器  获取全部武器数据
+    # 武器，衣服鞋帽等穿搭配装查询
+    'MyWeaponsDataQuery': 'a329d22727dbec795dcfa1fa93804756a62542dc0a96dfb94c0f710068a2eb38',
+    # 主页 - 武器  获取全部武器数据(武器装备数据，胜场等)
     'FriendsList': 'ea1297e9bb8e52404f52d89ac821e1d73b726ceef2fd9cc8d6b38ab253428fb3',  # 好友列表
     'HistorySummary': 'a654ecc80161a7ca5c38761c1d9e502d405eae764e2d343618b9c74b1dc0a80f',  # 主页 - 历史 -总览
     'TotalQuery': '2a9302bdd09a13f8b344642d4ed483b9464f20889ac17401e993dfa5c2bb3607',  # 统计查询  nso没有这个页面
-    'XRankingQuery': 'a5331ed228dbf2e904168efe166964e2be2b00460c578eee49fc0bc58b4b899c',  # 主页 - x排名
+    'XRankingQuery': 'b5b2b330269dc29181fc55e297cd759a36fc02270c879fab6362c3084fff78b2',  # 主页 - x排名
     'ScheduleQuery': '9b6b90568f990b2a14f04c25dd6eb53b35cc12ac815db85ececfccee64215edd',  # 日程
     'StageRecordsQuery': 'c8b31c491355b4d889306a22bd9003ac68f8ce31b2d5345017cdd30a2c8056f3',  # 主页 - 场地 (查各地图胜率)
     'EventBattleHistoriesQuery': 'e47f9aac5599f75c842335ef0ab8f4c640e8bf2afe588a3b1d4b480ee79198ac',  # 对战 - 活动
@@ -53,7 +55,7 @@ translate_rid = {
     'PagerLatestVsDetailQuery': '73462e18d464acfdf7ac36bde08a1859aa2872a90ed0baed69c94864c20de046',  # 查询最新一局的对战id
     'CoopStatistics': '56f989a59643642e0799c90d3f6d0457f5f5f72d4444dfae87043c4a23d13043',  # 主页 - 打工  打工统计数据
     'XRanking500Query': '90932ee3357eadab30eb11e9d6b4fe52d6b35fde91b5c6fd92ba4d6159ea1cb7',  # 主页-x排名 - 顶级500强玩家
-    'WeaponRecordsQuery':'6b8db227bbe479401875e509a95c3183931e708ec222a824f8d4157cebea4584',
+    'WeaponRecordsQuery': '6b8db227bbe479401875e509a95c3183931e708ec222a824f8d4157cebea4584',
     'BestNineRankin': 'a9c97b7c1a9f73e30f51935a2562b48b1f47cc0bf008996473b632b9d2c62cc9',
 }
 

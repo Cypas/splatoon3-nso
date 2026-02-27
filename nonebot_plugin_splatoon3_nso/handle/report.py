@@ -15,19 +15,50 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     if cmd_list:
         report_day = cmd_list
         try:
-            dt.strptime(report_day, '%Y-%m-%d')
+            target_date = dt.strptime(report_day, '%Y-%m-%d').date()
+            report_day = target_date.strftime('%Y-%m-%d')
         except:
             msg = "日期格式错误，正确格式: /report 2023-07-01 或 /report"
+            msg += f'\n查看近30次日报: /report_all\n'
             await bot_send(bot, event, message=msg)
             return
+
+        # 获取UTC+8时区的当前时间
+        tz_utc8 = datetime.timezone(datetime.timedelta(hours=8))
+        now = dt.now(tz_utc8)
+        today_utc8 = now.date()
+        current_hour = now.hour
+        # 1. 判断是否为未来日期
+        if target_date > today_utc8:
+            msg = "无法获取未来的日报，请输入过去的日期"
+            msg += f'\n查看近30次日报: /report_all\n'
+            await bot_send(bot, event, message=msg)
+            return
+
+        # 2. 判断是否为今日日期
+        if target_date == today_utc8:
+            msg = "今天的日报明天才能生成，请明天再查询"
+            msg += f'\n查看近30次日报: /report_all\n'
+            await bot_send(bot, event, message=msg)
+            return
+
+        # 3. 判断是否为昨日日期且在0点-9点之间
+        yesterday_utc8 = today_utc8 - datetime.timedelta(days=1)
+        if target_date == yesterday_utc8 and 0 <= current_hour < 9:
+            msg = "昨天日报将在大约今天9点后进行生成，请9点后再进行查询"
+            msg += f'\n查看近30次日报: /report_all\n'
+            await bot_send(bot, event, message=msg)
+            return
+
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg = get_report(platform, user_id, report_day=report_day)
     if not msg:
-        if not report_day:
-            msg = f"```\n数据准备中，在登陆bot两天后才可获取日报对比数据\n```"
-        elif report_day:
-            msg = f"```\n没有查询到所指定日期的日报数据```"
+        if cmd_list:
+            msg = f"没有查询到所指定日期的日报数据"
+        else:
+            msg = f"数据准备中，在登陆bot两天后才可获取日报对比数据"
+        msg += f'\n查看近30次日报: /report_all\n'
 
     await bot_send(bot, event, message=msg)
 
@@ -61,10 +92,18 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     e_date = (new.last_play_time + timedelta(hours=8)).strftime('%Y%m%d %H:%M')
     msg += f'统计区间HKT: {s_date[2:]} 08:00 ~ {e_date[2:]}\n\n'
 
-    msg += f'{new.nickname}\n'
+    new_name = new.nickname
+    if platform == "QQ":
+        new_name = new_name.replace(".","。")
+    msg += f'{new_name}\n'
     for k in ('nickname', 'name_id', 'byname'):
-        if getattr(old, k) != getattr(new, k):
-            msg += f'{getattr(old, k)} -> {getattr(new, k)}\n'
+        k1 = getattr(old, k)
+        k2 = getattr(new, k)
+        if k1 != k2:
+            if platform == "QQ":
+                k1 = k1.replace(".", "。")
+                k2 = k2.replace(".", "。")
+            msg += f'{k1} -> {k2}\n'
     if old.rank != new.rank:
         msg += f'等级: {old.rank} -> {new.rank}\n'
     if old.udemae != new.udemae:
@@ -120,7 +159,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
         if old.coop_gold != new.coop_gold:
             str_coop += f' 🥉{new.coop_gold - old.coop_gold:+}'
         msg += f'鳞片: {str_coop}\n'
-
+    msg += f'查看近30次日报: /report_all\n'
     msg = f'```{msg}```'
     # u = get_user(user_id=user_id)
     # if report_day and fst_day and not u.report_type:
@@ -129,7 +168,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     return msg
 
 
-matcher_report_all = on_command("report_all", priority=10, block=True)
+matcher_report_all = on_command("report_all", aliases={'all_report'}, priority=10, block=True)
 
 
 @matcher_report_all.handle(parameterless=[Depends(_check_session_handler)])

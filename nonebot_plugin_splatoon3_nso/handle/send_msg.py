@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from .qq_md import last_md, login_md, url_md, c2c_login_md
+from .qq_md import last_md, login_md, c2c_login_md, push_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
 from ..config import plugin_config
@@ -129,8 +129,10 @@ async def notify_to_private(platform: str, user_id: str, msg: str):
         await send_private_msg(bot, user_id, msg)
 
 
-async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_width=None, skip_log_cmd=True, QQ_md=None):
+async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name="", image_width=None, skip_log_cmd=True,
+                   QQ_md=None, skip_ad=False):
     """综合发信函数
+    如果为bytes模式时传递了filename,改为文件模式执行上传
     QQ_md的值应该为一个字典{"md_type":"last","user_id":"111"}
     """
 
@@ -150,7 +152,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
 
     if img_data:
         if not QQ_md:
-            await send_msg(bot, event, img_data)
+            await send_msg(bot, event, img_data, file_name=file_name, skip_ad=skip_ad)
         elif isinstance(bot, QQ_Bot) and QQ_md:
             # 需要图片的md消息
             md_type = QQ_md.get("md_type")
@@ -178,7 +180,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", image_widt
         try:
             if isinstance(bot, QQ_Bot):
                 message = message.replace("```", "").replace("\_", "_").strip().strip("`")
-            await send_msg(bot, event, message)
+            await send_msg(bot, event, message, file_name=file_name, skip_ad=skip_ad)
         except QQ_ActionFailed as e:
             if "消息被去重" in str(e):
                 pass
@@ -193,12 +195,18 @@ async def bot_send_last_md(bot: Bot, event: Event, message: str | bytes, user_id
     """发送qq md消息"""
     QQ_md = {"md_type": "last",
              "user_id": user_id}
-    await bot_send(bot, event, message, image_width, QQ_md=QQ_md)
+    await bot_send(bot, event, message, image_width=image_width, QQ_md=QQ_md)
 
 
 async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=False):
     """发送login md消息"""
     qq_msg = login_md(user_id, check_session=check_session)
+    await bot.send(event, qq_msg)
+
+
+async def bot_send_push_md(bot: Bot, event: Event, user_id: str):
+    """发送push引流kook md消息"""
+    qq_msg = push_md(user_id)
     await bot.send(event, qq_msg)
 
 
@@ -208,8 +216,11 @@ async def bot_send_login_url_md(bot: Bot, event: Event, url):
     await bot.send(event, qq_msg)
 
 
-async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
-    """公用send_msg"""
+async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_ad=False):
+    """
+    公用send_msg
+    如果为bytes模式时传递了filename,改为文件模式执行上传
+    """
     # 指定回复模式
     reply_mode = plugin_config.splatoon3_reply_mode
     ad_msg = "如果小鱿鱿帮助到了你，请帮忙去github仓库点个star吧~谢谢~\nhttps://github.com/Cypas/splatoon3-nso"
@@ -259,9 +270,12 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
             else:
                 await bot.send(event, Tg_File.photo(img))
         elif isinstance(bot, Kook_Bot):
-            url = await bot.upload_file(img)
+            url = await bot.upload_file(img, filename=file_name)
             # logger.info("url:" + url)
-            await bot.send(event, Kook_MsgSeg.image(url), reply_sender=reply_mode)
+            if not file_name:
+                await bot.send(event, Kook_MsgSeg.image(file_key=url), reply_sender=reply_mode)
+            else:
+                await bot.send(event, Kook_MsgSeg.file(file_key=url, title=file_name), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
             try:
                 url, image_size = await get_image_url_and_size(img)
@@ -274,10 +288,10 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, is_ad=False):
                 else:
                     logger.warning(f"QQ send msg error: {e}")
 
-    if not is_ad and trigger_with_probability():
+    if not skip_ad and trigger_with_probability():
         if isinstance(bot, QQ_Bot):
             ad_msg = ad_msg.replace(".", "点")
-        await send_msg(bot, event, ad_msg, is_ad=True)
+        await send_msg(bot, event, ad_msg, skip_ad=True)
 
 
 async def get_image_url_and_size(img_data: bytes) -> tuple[str, tuple[int, int]]:

@@ -25,13 +25,15 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
         case "get_push":
             users = dict_get_all_global_users(False)
-            msg = ""
+            p_msg = ""
+            push_cnt = 0
             for u in users:
                 if not u.push:
                     continue
+                push_cnt += 1
                 msg_id = get_msg_id(u.platform, u.user_id)
-                msg += f"db_id:{u.db_id:>3},{msg_id}, n:{u.user_name:>7}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n"
-            msg = f"```\n{msg}```" if msg else "no data"
+                p_msg += f"db_id:{u.db_id:>3},{msg_id}, n:{u.user_name:>7}, cnt:{u.push_cnt:>3}, g:{u.game_name}\n"
+            msg = f"```\n当前推送人数: {push_cnt}\n{p_msg}```"
             await bot_send(bot, event, message=msg)
 
         case "close_push":
@@ -93,8 +95,8 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                 platform = bot.adapter.get_name()
                 my_user_id = event.get_user_id()
                 dict_get_or_set_user_info(platform, my_user_id, session_token=admin_token,
-                                          access_token="",
-                                          g_token="", bullet_token="")
+                                          access_token="", g_token="", bullet_token="",
+                                          game_sp_id="", game_name="", nsa_id="")
                 await bot_send(bot, event, message=f"token已恢复")
 
         case "help":
@@ -162,7 +164,8 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                 return False
             # 设置别人的值
             dict_get_or_set_user_info(platform, my_user_id, session_token=user.session_token, access_token="",
-                                      g_token="", bullet_token="")
+                                      g_token="", bullet_token="", game_sp_id=user.game_sp_id or "",
+                                      game_name=user.game_name or "", nsa_id=user.nsa_id or "")
             await bot_send(bot, event,
                            message=f"已复制账号 db_id:{user.id},msg_id:{get_msg_id(user.platform, user.user_id)},\ngame_name:{user.game_name}\n还原:/admin restore_token")
         else:
@@ -188,5 +191,4 @@ async def admin_close_push() -> int:
                 logger.warning(
                     f'msg_id:{msg_id} private notice error: {e}')
         push_cnt += 1
-        time.sleep(0.5)
     return push_cnt

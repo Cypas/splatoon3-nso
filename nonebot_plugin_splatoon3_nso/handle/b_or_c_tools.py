@@ -4,6 +4,7 @@ from .utils import DICT_RANK_POINT, get_battle_true_id
 from ..s3s.splatoon import Splatoon
 from ..data.data_source import model_get_top_player, model_get_temp_image_path, model_get_max_power_top_all, \
     model_get_login_user_by_sp_code, model_get_user_friend
+from ..utils import game_name_replace
 from ..utils.bot import *
 
 
@@ -23,6 +24,8 @@ async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splato
         else:
             # challenge
             bankara_info = await splatoon.get_bankara_battles(multiple=True)
+            if not bankara_info:
+                bankara_info = await splatoon.get_bankara_battles(multiple=True)
             # 得确定对战位于哪一个group
             if idx == 0:
                 group_idx = 0
@@ -63,6 +66,8 @@ async def get_x_power_and_process(battle_detail, splatoon: Splatoon, idx=0):
         x_process = ""
 
         x_res = await splatoon.get_x_battles(multiple=True)
+        if not x_res:
+            x_res = await splatoon.get_x_battles(multiple=True)
         # 得确定对战位于哪一个group
         if idx == 0:
             group_idx = 0
@@ -115,7 +120,7 @@ async def get_top_all_username(name, icon, player_code):
     row = top_all
     max_power = row.power
     top_str = f'F({max_power})' if row.top_type.startswith('Fest') else f'E({max_power})'
-    name = name.replace('`', '&#96;').replace('|', '&#124;')
+    name = game_name_replace(name)
     name = name.strip() + f'</br><span style="color:#EE9D59">`{top_str}`</span>'
     # 武器图片
     weapon_name = str(row.weapon)
@@ -129,21 +134,21 @@ async def get_top_all_username(name, icon, player_code):
 
 async def get_x_username(name, icon, player_code):
     """对x榜单上有名的玩家额外渲染name"""
-    # 哄小孩yuki代码  25年12月26号前有效
-    current_date = dt.now().date()
-    target_date = dt(2025, 12, 26).date()
-    if player_code == "q4g6433x4p6xjqoqzomm" and current_date < target_date:
-        name = name.replace('`', '&#96;').replace('|', '&#124;')
-        name = name.strip() + f'</br><span style="color:red">X666(500)</span>'
-        # 武器图片
-        weapon_name = "公升4K"
-        img_type = "battle_weapon_main"
-        weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
-        if weapon_main_img:
-            # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
-            icon = f"<img height='36px' src='{weapon_main_img}'/>"
-        _power = 500
-        return name, icon, _power
+    # # 哄小孩yuki代码  25年12月26号前有效
+    # current_date = dt.now().date()
+    # target_date = dt(2025, 12, 26).date()
+    # if player_code == "q4g6433x4p6xjqoqzomm" and current_date < target_date:
+    #     name = game_name_replace(name)
+    #     name = name.strip() + f'</br><span style="color:red">X666(500)</span>'
+    #     # 武器图片
+    #     weapon_name = "公升4K"
+    #     img_type = "battle_weapon_main"
+    #     weapon_main_img = await model_get_temp_image_path(img_type, weapon_name)
+    #     if weapon_main_img:
+    #         # 有分数记录，去掉好友头像, 高优先级显示分数的武器而不是头像
+    #         icon = f"<img height='36px' src='{weapon_main_img}'/>"
+    #     _power = 500
+    #     return name, icon, _power
 
     top_user = model_get_top_player(player_code)
     if not top_user:
@@ -162,7 +167,7 @@ async def get_x_username(name, icon, player_code):
     else:
         # 日服
         color = "red"
-    name = name.replace('`', '&#96;').replace('|', '&#124;')
+    name = game_name_replace(name)
     name = name.strip() + f'</br><span style="color:{color}">{_x}{top_user.rank}({top_user.power})</span>'
     # 武器图片
     weapon_name = str(top_user.weapon)
@@ -185,7 +190,7 @@ async def get_badge_username(name, icon, area, ranking, max_badge, badge_badge_p
     else:
         # 日服
         color = "red"
-    name = name.replace('`', '&#96;').replace('|', '&#124;')
+    name = game_name_replace(name)
     ranking_str = ""
     badge_badge_point_str = f"{badge_badge_point}↑"
     if ranking != "2000+":
@@ -234,7 +239,7 @@ async def get_user_name_color(player_name, player_code, is_myself=False, nsa_id=
 
     u_str = player_name
     _name = player_name
-    # 将编码后的特殊字符还原为文本
+    # 将编码后的特殊字符还原为文本，再搜索好友表
     if '&#' in _name:
         from .battle import DICT_HTML_CODES
         for k, v in DICT_HTML_CODES.items():
@@ -395,7 +400,7 @@ class PushStatistics:
                     c.w3_lose += 1
 
             # boss 金银铜鳞片
-            c.boss_name = coop_detail['boss']['name']
+            c.boss_name = coop_detail.get('boss', {}).get('name', '')
             if coop_detail.get('bossResult'):
                 c.boss += 1
                 scale = coop_detail.get('scale')

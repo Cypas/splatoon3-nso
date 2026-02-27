@@ -301,7 +301,7 @@ async def get_post_stat_msg(db_user):
                 url += "/spl3"
             elif coop_cnt and not battle_cnt:
                 url += "/salmon3"
-            msg += f" to\n{url}\n\n"
+            msg += f" to\n {url}\n\n"
 
             log_msg = msg.replace("\n", "")
             cron_logger.info(f"{db_user.id}, {db_user.user_name}, {log_msg}")
