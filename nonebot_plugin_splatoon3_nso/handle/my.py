@@ -367,7 +367,7 @@ async def get_friends_md(splatoon, lang='zh-CN'):
         icon_img = await model_get_temp_image_path(img_type, f['id'], f['userIcon']['url'])
         img = f'''<img height="40" src="{icon_img}"/>'''
         if f['playerName'] and f['playerName'] != f['nickname']:
-            nickname = game_name_replace(nickname)
+            nickname = game_name_replace(f['nickname'])
             n = f'{f["playerName"]}|{img}|{nickname}'
         else:
             n = f'{n}|{img}|'
