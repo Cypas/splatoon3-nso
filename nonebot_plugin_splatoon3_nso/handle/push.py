@@ -25,6 +25,8 @@ is_running_lock = Lock()  # 全局锁
 @matcher_start_push.handle(parameterless=[Depends(_check_session_handler)])
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
     if isinstance(bot, QQ_Bot):
         # 发送md引流到kook
         if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
