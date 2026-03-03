@@ -11,7 +11,7 @@ from ..utils.bot import *
 async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     """为/last查询拼装md结构"""
     template_id = "102083290_1705920931"
-    keyboard_template_id = "102083290_1767589971"
+    keyboard_template_id = "102083290_1772274396"
     image_width, image_height = image_size
     text_start = "发送/nso帮助查看详细用法"
     # text_end作为公告消息
@@ -179,13 +179,26 @@ def push_md(user_id) -> QQ_Msg:
     return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
                        keyboard_template_type=keyboard_template_type)
 
+def more_nso_help_md(user_id) -> QQ_Msg:
+    """nso帮助的二级md按钮菜单"""
+    keyboard_template_type = "more_nso_help"
+    data1 = f"全部完整的功能和详细用法说明可以点击下面  全部nso指令"
+    data2 = f""
+    data3 = f""
+    if user_id:
+        title = f"<@{user_id}> nso相关查询功能太多，下面列举的也不是全部功能，只是提供常用功能的一个快捷方式"
+    else:
+        title = f"nso相关查询功能太多，下面列举的也不是全部功能，只是提供常用功能的一个快捷方式"
+
+    return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                       keyboard_template_type=keyboard_template_type)
 
 def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = "",
                 keyboard_template_type="") -> QQ_Msg:
     """
     通用的 文本引用消息md模版
-    可提供 titile
-    引用文本  data1，data2，data3  这三个也支持\n进行换行
+    可提供 titile  title模版前面是引号开头
+    引用文本  data1，data2，data3  这三个也支持\n进行换行   至少需要提供一个data1 data2和data3可以不给
     按钮模版类型 若不提供则没有按钮
     """
     # 固定的文本模版id
@@ -195,6 +208,9 @@ def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = 
     if keyboard_template_type == "kook_url":
         # kook 服务器的链接 按钮模版
         keyboard_template_id = "102083290_1721647351"
+    if keyboard_template_type == "more_nso_help":
+        # 更多nso指令 按钮模版
+        keyboard_template_id = "102083290_1772274485"
 
     params = []
     if title:
@@ -223,7 +239,7 @@ def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = 
 
 
 def c2c_login_md(login_url) -> QQ_Msg:
-    """c2c login卡片"""
+    """c2c login 自定义卡片  需要原生md权限，已无法使用"""
     template_id = "102083290_1705923685"
     docs_url = "https://docs.qq.com/doc/DSVlLSnloTGZqTmNz"
 
@@ -286,7 +302,7 @@ def c2c_login_md(login_url) -> QQ_Msg:
 
 
 def url_md(title, content, url_title, url) -> QQ_Msg:
-    """仅发一个url的按钮卡片"""
+    """仅发一个url的按钮卡片  需要原生md权限，已无法使用"""
     template_id = "102083290_1705923685"
     if not title:
         title = " "
