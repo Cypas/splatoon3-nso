@@ -25,7 +25,7 @@ async def history(bot: Bot, event: Event, args: Message = CommandArg()):
 
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
-    await bot_send(bot, event, "开始努力作图，请稍等~", skip_log_cmd=True)
+    await bot_send(bot, event, "开始努力作图，请稍等~")
     msg = await get_history_md(splatoon, _type=_type)
     await bot_mixed_send(bot, event, msg, image_width=1000)
 

@@ -252,7 +252,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
             logger.info(
                 f"push too much error,auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
-            await bot_send(bot, event, message=msg, skip_log_cmd=True)
+            await bot_send(bot, event, message=msg)
             msg = f"#{msg_id} {user.game_name or ''}\n 连续多次请求报错，停止推送，推送持续 {push_time_minute}分钟"
             await notify_to_channel(msg)
             with is_running_lock:
@@ -288,7 +288,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                 logger.info(
                     f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
-                await bot_send(bot, event, message=msg, skip_log_cmd=True)
+                await bot_send(bot, event, message=msg)
                 with is_running_lock:
                     is_running_dict.pop(msg_id)
                 if user.stat_key:
@@ -312,7 +312,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                                  get_screenshot=get_screenshot, mask=mask)
 
         image_width = 680
-        r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)
+        r = await bot_send(bot, event, message=msg, image_width=image_width)
 
         # tg撤回上一条push的消息
         if job_data.get('channel_id') and r:
