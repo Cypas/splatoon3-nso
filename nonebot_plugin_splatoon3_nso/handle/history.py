@@ -1,5 +1,5 @@
 from datetime import datetime as dt, timedelta
-from .send_msg import bot_send
+from .send_msg import bot_send, bot_mixed_send
 from .utils import _check_session_handler, get_battle_time_or_coop_time
 from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info
 from ..s3s.splatoon import Splatoon
@@ -27,7 +27,7 @@ async def history(bot: Bot, event: Event, args: Message = CommandArg()):
     splatoon = Splatoon(bot, event, user)
     await bot_send(bot, event, "开始努力作图，请稍等~", skip_log_cmd=True)
     msg = await get_history_md(splatoon, _type=_type)
-    await bot_send(bot, event, msg, image_width=1000)
+    await bot_mixed_send(bot, event, msg, image_width=1000)
 
 
 async def get_history_md(splatoon: Splatoon, _type='open'):

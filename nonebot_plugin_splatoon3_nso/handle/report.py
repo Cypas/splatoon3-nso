@@ -1,7 +1,7 @@
 import datetime
 from datetime import datetime as dt, timedelta
 
-from .send_msg import bot_send
+from .send_msg import bot_send, bot_mixed_send_report
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info, model_get_report, model_get_report_all
 from ..utils.bot import *
@@ -20,7 +20,7 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
         except:
             msg = "日期格式错误，正确格式: /report 2023-07-01 或 /report"
             msg += f'\n查看近30次日报: /report_all\n'
-            await bot_send(bot, event, message=msg)
+            await bot_mixed_send_report(bot, event, title="未获取到日报", msg=msg)
             return
 
         # 获取UTC+8时区的当前时间
@@ -32,14 +32,14 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
         if target_date > today_utc8:
             msg = "无法获取未来的日报，请输入过去的日期"
             msg += f'\n查看近30次日报: /report_all\n'
-            await bot_send(bot, event, message=msg)
+            await bot_mixed_send_report(bot, event, title="未获取到日报", msg=msg)
             return
 
         # 2. 判断是否为今日日期
         if target_date == today_utc8:
             msg = "今天的日报明天才能生成，请明天再查询"
             msg += f'\n查看近30次日报: /report_all\n'
-            await bot_send(bot, event, message=msg)
+            await bot_mixed_send_report(bot, event, title="未获取到日报", msg=msg)
             return
 
         # 3. 判断是否为昨日日期且在0点-9点之间
@@ -47,7 +47,7 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
         if target_date == yesterday_utc8 and 0 <= current_hour < 9:
             msg = "昨天日报将在大约今天9点后进行生成，请9点后再进行查询"
             msg += f'\n查看近30次日报: /report_all\n'
-            await bot_send(bot, event, message=msg)
+            await bot_mixed_send_report(bot, event, title="未获取到日报", msg=msg)
             return
 
     platform = bot.adapter.get_name()
@@ -60,7 +60,9 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
             msg = f"数据准备中，在登陆bot两天后才可获取日报对比数据"
         msg += f'\n查看近30次日报: /report_all\n'
 
-    await bot_send(bot, event, message=msg)
+    if isinstance(bot, Kook_Bot):
+        msg = f'```{msg}```'
+    await bot_mixed_send_report(bot, event, title="喷3日报", msg=msg)
 
 
 def get_report(platform, user_id, report_day=None, _type="normal"):
@@ -73,7 +75,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     report_list = model_get_report(user_id_sp=u.game_sp_id, create_time=report_day)
 
     if not report_list or len(report_list) == 1:
-        return
+        return ""
 
     old = report_list[1]
 
@@ -94,7 +96,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
 
     new_name = new.nickname
     if platform == "QQ":
-        new_name = new_name.replace(".","。")
+        new_name = new_name.replace(".", "。")
     msg += f'{new_name}\n'
     for k in ('nickname', 'name_id', 'byname'):
         k1 = getattr(old, k)
@@ -160,7 +162,6 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
             str_coop += f' 🥉{new.coop_gold - old.coop_gold:+}'
         msg += f'鳞片: {str_coop}\n'
     msg += f'查看近30次日报: /report_all\n'
-    msg = f'```{msg}```'
     # u = get_user(user_id=user_id)
     # if report_day and fst_day and not u.report_type:
     #     msg += f'```\n\n订阅早报: /report```'

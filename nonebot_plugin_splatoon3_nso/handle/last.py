@@ -2,7 +2,7 @@ from datetime import datetime as dt, timedelta
 
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
-from .send_msg import bot_send, bot_send_last_md
+from .send_msg import bot_send, bot_send_nso_md, bot_mixed_send
 from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time, get_event_info, \
     get_qq_user_name
 from .. import plugin_config
@@ -76,11 +76,8 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
                                                     idx=idx,
                                                     get_screenshot=get_screenshot, mask=mask)
 
-    if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode and not get_image:
-        if isinstance(event, QQ_C2CME):
-            user_id = ""
-        # 这里存在 /last ss 的情况，msg值实际为bytes
-        await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
+    if not get_image:
+        await bot_mixed_send(bot, event, msg, image_width=image_width)
     else:
         await bot_send(bot, event, msg, image_width=image_width)
 

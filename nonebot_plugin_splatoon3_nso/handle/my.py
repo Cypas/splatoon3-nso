@@ -8,7 +8,7 @@ from pathlib import Path
 import unicodedata
 from nonebot import on_keyword
 
-from .send_msg import bot_send, bot_send_more_nso_help_md
+from .send_msg import bot_send, bot_send_more_nso_help_md, bot_mixed_send
 from .utils import _check_session_handler
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
@@ -37,7 +37,7 @@ async def me(bot: Bot, event: Event):
         from_group = True
 
     msg = await get_me(bot, event, from_group)
-    await bot_send(bot, event, msg, image_width=450)
+    await bot_mixed_send(bot, event, msg, image_width=450)
 
 
 async def get_me(bot, event, from_group):
@@ -339,7 +339,7 @@ async def friends(bot: Bot, event: Event):
     splatoon = Splatoon(bot, event, user)
     msg = await get_friends_md(splatoon)
 
-    await bot_send(bot, event, msg, image_width=600)
+    await bot_mixed_send(bot, event, msg, image_width=600)
 
 
 async def get_friends_md(splatoon, lang='zh-CN'):
@@ -401,7 +401,7 @@ async def ns_friends(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     msg = await get_ns_friends_md(splatoon)
-    await bot_send(bot, event, msg, image_width=680)
+    await bot_mixed_send(bot, event, msg, image_width=680)
 
 
 async def get_ns_friends_md(splatoon: Splatoon):
@@ -693,7 +693,7 @@ async def my_icon(bot: Bot, event: Event, args: Message = CommandArg()):
     else:
         msg = msg_error
 
-    await bot_send(bot, event, message=msg)
+    await bot_mixed_send(bot, event, message=msg)
 
 
 @on_keyword({"我已知晓nso查询使用了第三方接口的风险并重新启用nso查询"}, block=True).handle()
