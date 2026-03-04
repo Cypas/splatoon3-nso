@@ -25,7 +25,7 @@ async def nso_general_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
                    {"key": "img_size", "values": [f"img#{image_width}px #{image_height}px"]},
                    {"key": "img_url", "values": [f"{url}"]}])
     if text_end:
-        text_end = "\r" + text_end.replace("\\n", "\r").replace("\\r", "\r")
+        text_end = "\r" + md_text_replace(text_end)
         params.append({"key": "text_end", "values": [f"{text_end}"]})
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
@@ -190,7 +190,7 @@ async def report_md(user_id, title, msg) -> QQ_Msg:
     keyboard_template_type = "nso_general"
     data1 = f"{msg}"
     data2 = f""
-    data3 = f"查看全部"
+    data3 = f""
     if user_id:
         title = f"<@{user_id}> {title}"
 
@@ -222,13 +222,13 @@ async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: 
 
     params = []
     if title:
-        params.append({"key": "title", "values": [f"{title}"]})
+        params.append({"key": "title", "values": [f"{md_text_replace(title)}"]})
     if data1:
-        params.append({"key": "data1", "values": [f"{data1}"]})
+        params.append({"key": "data1", "values": [f"{md_text_replace(data1)}"]})
     if data2:
-        params.append({"key": "data2", "values": [f"{data2}"]})
+        params.append({"key": "data2", "values": [f"{md_text_replace(data2)}"]})
     if data3:
-        params.append({"key": "data3", "values": [f"{data3}"]})
+        params.append({"key": "data3", "values": [f"{md_text_replace(data3)}"]})
 
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
@@ -375,3 +375,6 @@ async def get_qq_face_md(user_id: str, url: str) -> QQ_Msg:
 
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md)])
     return qq_msg
+
+def md_text_replace(text: str):
+    return text.replace("\\n", "\r").replace("\n", "\r").replace("\\r", "\r")

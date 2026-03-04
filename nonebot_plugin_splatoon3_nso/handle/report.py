@@ -1,7 +1,7 @@
 import datetime
 from datetime import datetime as dt, timedelta
 
-from .send_msg import bot_send, bot_mixed_send_report
+from .send_msg import bot_send, bot_mixed_send_report, bot_send_nso_md, bot_mixed_send
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info, model_get_report, model_get_report_all
 from ..utils.bot import *
@@ -59,17 +59,18 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
         else:
             msg = f"数据准备中，在登陆bot两天后才可获取日报对比数据"
         msg += f'\n查看近30次日报: /report_all\n'
-
-    if isinstance(bot, Kook_Bot):
-        msg = f'```{msg}```'
-    await bot_mixed_send_report(bot, event, title="喷3日报", msg=msg)
+    else:
+        # 有日报数据
+        msg = f"#### {msg}"
+        msg = msg.replace("\n", "<br>").replace("喷喷早报<br>", "喷喷早报\n\n").replace("喷喷小报<br>", "喷喷小报\n\n")
+        await bot_mixed_send(bot, event, message=msg, image_width=500)
 
 
 def get_report(platform, user_id, report_day=None, _type="normal"):
     """获取昨天或指定日期的早报数据"""
-    msg = "\n喷喷早报\n"
+    msg = "喷喷早报\n"
     if report_day:
-        msg = "\n喷喷小报\n"
+        msg = "喷喷小报\n"
 
     u = dict_get_or_set_user_info(platform, user_id, _type=_type)
     report_list = model_get_report(user_id_sp=u.game_sp_id, create_time=report_day)

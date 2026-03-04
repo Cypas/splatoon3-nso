@@ -452,7 +452,8 @@ async def send_report_task():
         try:
             msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:
-                msg = f'```{msg}```'
+                # 主动推送的日报，仍使用纯文本，kook则使用md结构，用户主动查询的才用图片
+                msg = f'```\n{msg}```'
                 # 写日志
                 log_msg = msg.replace('\n', '')
                 report_logger.info(f"get db_id:{user.id},msg_id:{msg_id} report：{log_msg}")
