@@ -41,6 +41,8 @@ async def create_set_report_tasks(is_corn_job=True):
     phase1_semaphore = asyncio.Semaphore(6)
     # 阶段2：报告生成池（并发限制6）
     phase2_semaphore = asyncio.Semaphore(6)
+    # 阶段2消费者数量（与phase2_semaphore相同）
+    num_consumers = 6
 
     # 创建队列用于两个阶段之间的通信
     phase2_queue = asyncio.Queue()
@@ -129,7 +131,31 @@ async def create_set_report_tasks(is_corn_job=True):
             return int(delta.total_seconds())
 
     # ================== 阶段2：报告生成消费者 ==================
+    async def process_phase2(splatoon: Splatoon):
+        """处理单个用户的报告生成任务"""
+        async with phase2_semaphore:
+            if splatoon is None:
+                return
+            result = await set_user_report_task(
+                (splatoon.platform, splatoon.user_id),
+                splatoon
+            )
+            await splatoon.close()
+            del splatoon  # 解除强引用
+            gc.collect()  # 即时回收
+
+            if result:
+                if result == "refresh_tokens fail":
+                    counters["refresh_tokens_fail_count"] += 1
+                if result == "data missing":
+                    counters["data_missing_count"] += 1
+                if result == "no report":
+                    counters["no_report_count"] += 1
+                if result == "success":
+                    counters["set_report_count"] += 1
+
     async def phase2_consumer():
+        """消费者：从队列中取出任务并处理"""
         nonlocal phase2_started
         phase2_started = True
         cron_logger.info("create_set_report_tasks phase2_tasks start".center(60, "="))
@@ -148,29 +174,6 @@ async def create_set_report_tasks(is_corn_job=True):
             try:
                 # 设置超时以避免无限等待
                 splatoon = await asyncio.wait_for(phase2_queue.get(), timeout=1.0)
-
-                async def process_phase2(splatoon: Splatoon):
-                    async with phase2_semaphore:
-                        if splatoon is None:
-                            return
-                        result = await set_user_report_task(
-                            (splatoon.platform, splatoon.user_id),
-                            splatoon
-                        )
-                        await splatoon.close()
-                        del splatoon  # 解除强引用
-                        gc.collect()  # 即时回收
-
-                        if result:
-                            if result == "refresh_tokens fail":
-                                counters["refresh_tokens_fail_count"] += 1
-                            if result == "data missing":
-                                counters["data_missing_count"] += 1
-                            if result == "no report":
-                                counters["no_report_count"] += 1
-                            if result == "success":
-                                counters["set_report_count"] += 1
-
                 await process_phase2(splatoon)
                 phase2_queue.task_done()
             except asyncio.TimeoutError:
@@ -180,8 +183,8 @@ async def create_set_report_tasks(is_corn_job=True):
                 # 否则继续等待新项目
                 continue
 
-    # 创建阶段2消费者任务
-    phase2_task = asyncio.create_task(phase2_consumer())
+    # 创建多个阶段2消费者任务以实现并行处理
+    phase2_tasks = [asyncio.create_task(phase2_consumer()) for _ in range(num_consumers)]
 
     # 执行阶段1任务
     phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
@@ -190,8 +193,8 @@ async def create_set_report_tasks(is_corn_job=True):
     # 标记阶段1已完成
     phase1_completed = True
 
-    # 等待阶段2任务完成
-    await phase2_task
+    # 等待所有阶段2任务完成
+    await asyncio.gather(*phase2_tasks)
 
     # 结果报告
     str_time = convert_td(dt.utcnow() - t)
@@ -449,6 +452,7 @@ async def send_report_task():
         try:
             msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:
+                msg = f'```{msg}```'
                 # 写日志
                 log_msg = msg.replace('\n', '')
                 report_logger.info(f"get db_id:{user.id},msg_id:{msg_id} report：{log_msg}")
