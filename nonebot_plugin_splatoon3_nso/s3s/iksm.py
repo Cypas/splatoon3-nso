@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import threading
+import time
 import urllib
 import random
 import asyncio
@@ -228,8 +229,14 @@ class GlobalRateLimiter:
                 # 令牌桶模式状态
                 if loop in self._token_buckets:
                     bucket = self._token_buckets[loop]
-                    # 将时间戳转换为可读格式
-                    last_refill_time = datetime.datetime.fromtimestamp(bucket["last_refill"]).strftime(
+                    # 将事件循环时间转换为可读格式
+                    # loop.time() 返回的是事件循环的内部时钟时间，需要转换为 Unix 时间戳
+                    # 使用 time.time() 获取当前 Unix 时间戳，然后减去 loop.time() 和 time.time() 的差值
+                    current_loop_time = loop.time()
+                    current_unix_time = time.time()
+                    time_offset = current_unix_time - current_loop_time
+                    unix_timestamp = bucket["last_refill"] + time_offset
+                    last_refill_time = datetime.datetime.fromtimestamp(unix_timestamp).strftime(
                         '%Y-%m-%d %H:%M:%S')
                     return {
                         "mode": self.mode,
