@@ -15,6 +15,7 @@ import asyncio
 from time import sleep
 from typing import Dict, Any, Optional, Union
 from unittest.mock import DEFAULT
+import datetime
 
 import httpx
 import jwt
@@ -136,23 +137,32 @@ class GlobalRateLimiter:
         loop = asyncio.get_running_loop()
         bucket = await self._get_or_create_token_bucket(loop)
 
-        # 补充令牌
-        await self._refill_token_bucket(bucket, loop)
+        # 使用锁保护整个获取令牌的过程
+        async with self._loop_lock:
+            # 补充令牌
+            await self._refill_token_bucket(bucket, loop)
 
-        # 有可用令牌，直接获取
-        if bucket["tokens"] > 0:
-            bucket["tokens"] -= 1
-            return True
+            # 有可用令牌，直接获取
+            if bucket["tokens"] > 0:
+                bucket["tokens"] -= 1
+                return True
 
-        # 无令牌，计算等待时间并等待
-        now = loop.time()
-        time_to_wait = self.token_bucket_time_window - (now - bucket["last_refill"])
+            # 无令牌，计算等待时间并等待
+            now = loop.time()
+            time_to_wait = self.token_bucket_time_window - (now - bucket["last_refill"])
+            # 释放锁后等待，避免阻塞其他协程
+
+        # 等待期间不持有锁
         await asyncio.sleep(time_to_wait)
 
-        # 重新补充令牌并获取
-        await self._refill_token_bucket(bucket, loop)
-        bucket["tokens"] -= 1
-        return True
+        # 重新获取锁
+        async with self._loop_lock:
+            # 重新补充令牌并获取
+            await self._refill_token_bucket(bucket, loop)
+            # 确保不会减到负数
+            if bucket["tokens"] > 0:
+                bucket["tokens"] -= 1
+            return True
 
     async def _release_token_bucket(self):
         """令牌桶模式：释放令牌（无需操作）"""
@@ -218,12 +228,15 @@ class GlobalRateLimiter:
                 # 令牌桶模式状态
                 if loop in self._token_buckets:
                     bucket = self._token_buckets[loop]
+                    # 将时间戳转换为可读格式
+                    last_refill_time = datetime.datetime.fromtimestamp(bucket["last_refill"]).strftime(
+                        '%Y-%m-%d %H:%M:%S')
                     return {
                         "mode": self.mode,
                         "max_rate": self.token_bucket_rate,
                         "time_window": self.token_bucket_time_window,
                         "available_tokens": bucket["tokens"],
-                        "last_refill": bucket["last_refill"],
+                        "last_refill": last_refill_time,
                         "active_loops": len(self._token_buckets)
                     }
                 return {
@@ -231,7 +244,7 @@ class GlobalRateLimiter:
                     "max_rate": self.token_bucket_rate,
                     "time_window": self.token_bucket_time_window,
                     "available_tokens": self.token_bucket_rate,
-                    "last_refill": 0,
+                    "last_refill": "从未补充",
                     "active_loops": 0
                 }
 
