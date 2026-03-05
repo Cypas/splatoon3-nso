@@ -1,5 +1,6 @@
 from datetime import datetime as dt, timedelta
 
+from .b_or_c_tools import get_evaluate_text
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
 from .send_msg import bot_send, bot_send_nso_md, bot_mixed_send
@@ -70,14 +71,33 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
         # nso截图
         await bot_send(bot, event, "正在截图nso页面，请稍等")
 
-    msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
-                                                    get_coop=get_coop,
-                                                    get_equip=get_equip,
-                                                    idx=idx,
-                                                    get_screenshot=get_screenshot, mask=mask)
+    get_battle, b_info, msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
+                                                                        get_coop=get_coop,
+                                                                        get_equip=get_equip,
+                                                                        idx=idx,
+                                                                        get_screenshot=get_screenshot, mask=mask)
+    # 是对战还是打工
+    if get_battle:
+        b_str = "对战"
+    else:
+        b_str = "打工"
+    ss_str = "nso截图" if get_screenshot else ""
+    equip_str = "装备" if get_equip else ""
+    mask_str = "打码" if mask else ""
+
+    if get_battle:
+        judgement = b_info.get("judgement") # 比赛结果
+        score = b_info.get("myTeam").get("result").get("score") # 我方比分
+        weapon = b_info.get("player").get("weapon").get("name") # 武器名
+    else:
+        judgement = ""
+        score = 0
+        weapon = ""
+    evaluate_text = get_evaluate_text(judgement, score, weapon)
 
     if not get_image:
-        await bot_mixed_send(bot, event, msg, image_width=image_width)
+        text_start = f"以下是倒数第 {idx + 1}场{b_str} {ss_str}{equip_str}{mask_str}的数据"
+        await bot_mixed_send(bot, event, msg, image_width=image_width, text_start=text_start, text_end=evaluate_text)
     else:
         await bot_send(bot, event, msg, image_width=image_width)
 
@@ -109,7 +129,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
         splatoon.set_user_info(user_name=user_name)
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
-    if isinstance(splatoon.bot, QQ_Bot) and (splatoon.user_name in ["QQ群", "QQ私信"] or splatoon.user_id == splatoon.user_name):
+    if isinstance(splatoon.bot, QQ_Bot) and (
+            splatoon.user_name in ["QQ群", "QQ私信"] or splatoon.user_id == splatoon.user_name):
         user_name = await get_qq_user_name(splatoon.bot, splatoon.user_id)
         # 更新缓存
         if user_name:
@@ -230,20 +251,22 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     if get_battle:
         # 获取对战数据
         if for_push:
+            # 对战id，对战详情，是对战，是否游玩中
             return battle_id, b_info, True, is_playing
         msg = await get_last_msg(splatoon, battle_id, b_info, idx=idx, is_battle=True, get_equip=get_equip,
                                  get_screenshot=get_screenshot, mask=mask, get_player_code_idx=get_player_code_idx)
         if get_player_code_idx:
             # 为top提供服务
             return msg
-        return msg, is_playing
+        return get_battle, b_info, msg, is_playing
     else:
         # 获取打工数据
         if for_push:
+            # 打工id，打工详情，是对战，是否游玩中
             return coop_id, coop_info, False, is_playing
         msg = await get_last_msg(splatoon, coop_id, coop_info, idx=idx, is_battle=False, get_equip=get_equip,
                                  get_screenshot=get_screenshot, mask=mask)
-        return msg, is_playing
+        return get_battle, coop_info, msg, is_playing
 
 
 async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False,

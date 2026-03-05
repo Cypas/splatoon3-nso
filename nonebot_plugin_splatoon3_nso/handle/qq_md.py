@@ -8,14 +8,23 @@ from ..data.utils import plugin_data, get_or_set_plugin_data
 from ..utils.bot import *
 
 
-async def nso_general_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
+async def nso_general_md(user_id, image_size: tuple, url: str, text_start: str = "", text_end: str = "") -> QQ_Msg:
     """为nso_通用查询拼装md结构"""
     template_id = "102083290_1705920931"
-    keyboard_template_id = "102083290_1767589971"
+    keyboard_template_id = "102083290_1772274396"
     image_width, image_height = image_size
-    text_start = "发送/nso帮助查看详细用法"
-    # text_end作为公告消息
-    text_end = await get_or_set_plugin_data("splatoon3_bot_notice")
+    if text_start:
+        text_start = md_text_replace(text_start)
+    else:
+        text_start = "发送/nso帮助查看详细用法"
+    text_notice = await get_or_set_plugin_data("splatoon3_bot_notice")
+    # 公告消息 作为 text_end
+    if text_notice:
+        text_end = md_text_replace(text_notice)
+    else:
+        if text_end:
+            # 公告消息不存在时允许输出自定义文本
+            text_end = md_text_replace(text_end)
 
     # 如果kv值为空，那只能不传，空值似乎最多只允许一个
     params = []
@@ -173,13 +182,13 @@ async def push_md(user_id) -> QQ_Msg:
 async def more_nso_help_md(user_id) -> QQ_Msg:
     """nso帮助的二级md按钮菜单"""
     keyboard_template_type = "more_nso_help"
-    data1 = f"全部完整的功能和详细用法说明可以点击下面  全部nso指令"
-    data2 = f""
+    data1 = f"nso相关查询功能太多，下面列举的也不是全部功能，只是提供常用功能的一个快捷方式"
+    data2 = f"全部完整的功能和详细用法说明可以点击下面  全部nso指令"
     data3 = f""
     if user_id:
-        title = f"<@{user_id}> nso相关查询功能太多，下面列举的也不是全部功能，只是提供常用功能的一个快捷方式"
+        title = f"<@{user_id}>"
     else:
-        title = f"nso相关查询功能太多，下面列举的也不是全部功能，只是提供常用功能的一个快捷方式"
+        title = f""
 
     return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
                              keyboard_template_type=keyboard_template_type)
@@ -218,7 +227,7 @@ async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: 
         keyboard_template_id = "102083290_1772274485"
     if keyboard_template_type == "nso_general":
         # 也使用nso通用的 按钮模版
-        keyboard_template_id = "102083290_1767589971"
+        keyboard_template_id = "102083290_1772274396"
 
     params = []
     if title:
@@ -375,6 +384,7 @@ async def get_qq_face_md(user_id: str, url: str) -> QQ_Msg:
 
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md)])
     return qq_msg
+
 
 def md_text_replace(text: str):
     return text.replace("\\n", "\r").replace("\n", "\r").replace("\\r", "\r")

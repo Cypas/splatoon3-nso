@@ -67,8 +67,15 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
     elif player_idx == "-1":
         # 全部玩家，且没有上榜数据
         _msg += f"该局对战未查询到任何玩家上榜数据"
+    if not cmd_message:
+        text_start = f"以下是你全部的上榜记录"
+    else:
+        if get_all:
+            text_start = f"以下是倒数第{battle_idx}局对战，所有玩家的上榜记录"
+        else:
+            text_start = f"以下是倒数第{battle_idx}局对战，玩家{player_idx}的上榜记录"
 
-    await bot_mixed_send(bot, event, _msg)
+    await bot_mixed_send(bot, event, _msg, text_start=text_start)
 
 
 async def get_top(bot: Bot, event: Event, battle_idx=None, player_idx=None):
@@ -201,7 +208,8 @@ async def get_top_md(player_code: str | list, player_name=""):
 async def x_top(bot: Bot, event: Event):
     """x_top查询"""
     msg = await get_x_top_msg(bot, event)
-    await bot_mixed_send(bot, event, msg)
+    text_start = f"以下是现在各区各模式下世界top1的记录"
+    await bot_mixed_send(bot, event, msg, text_start=text_start)
 
 
 async def get_x_top_msg(bot, event):

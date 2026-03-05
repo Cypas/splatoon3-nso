@@ -54,16 +54,22 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     user_id = event.get_user_id()
     msg = get_report(platform, user_id, report_day=report_day)
     if not msg:
-        if cmd_list:
+        if report_day:
             msg = f"没有查询到所指定日期的日报数据"
         else:
             msg = f"数据准备中，在登陆bot两天后才可获取日报对比数据"
         msg += f'\n查看近30次日报: /report_all\n'
+        await bot_mixed_send_report(bot, event, title="未获取到日报", msg=msg)
     else:
         # 有日报数据
         msg = f"#### {msg}"
         msg = msg.replace("\n", "<br>").replace("喷喷早报<br>", "喷喷早报\n\n").replace("喷喷小报<br>", "喷喷小报\n\n")
-        await bot_mixed_send(bot, event, message=msg, image_width=500)
+
+        if report_day: # 指定日期
+            text_start = f"以下是你从 {report_day} 开始，到最新日报之间的数据"
+        else:
+            text_start = f"以下是你最新的日报数据"
+        await bot_mixed_send(bot, event, message=msg, image_width=500, text_start=text_start)
 
 
 def get_report(platform, user_id, report_day=None, _type="normal"):

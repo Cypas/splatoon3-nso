@@ -129,8 +129,8 @@ async def notify_to_private(platform: str, user_id: str, msg: str):
         await send_private_msg(bot, user_id, msg)
 
 
-async def bot_mixed_send(bot: Bot, event: Event, message: str | bytes = "", file_name="", image_width=None,
-                         skip_ad=False):
+async def bot_mixed_send(bot: Bot, event: Event, message: str | bytes = "", file_name: str = "", image_width: int = None,
+                         skip_ad: bool = False, text_start: str = "", text_end: str = "") -> None:
     """混合发信函数  使用通用nso md模版
     主要是在bot_send函数基础上，自动判断qq平台是否通过md消息进行发送
     """
@@ -139,7 +139,8 @@ async def bot_mixed_send(bot: Bot, event: Event, message: str | bytes = "", file
         if isinstance(event, QQ_C2CME):
             user_id = ""
         # 这里存在 /last ss 的情况，msg值实际为bytes
-        await bot_send_nso_md(bot, event, message, user_id, image_width=image_width, skip_ad=skip_ad)
+        await bot_send_nso_md(bot, event, message, user_id, image_width=image_width, skip_ad=skip_ad, text_start=text_start,
+                                                         text_end=text_end)
     else:
         await bot_send(bot, event, message, image_width=image_width, skip_ad=skip_ad)
 
@@ -172,6 +173,8 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
             # 需要图片的md消息
             md_type = QQ_md.get("md_type")
             user_id = QQ_md.get("user_id")
+            text_start = QQ_md.get("text_start")
+            text_end = QQ_md.get("text_end")
             if md_type:
                 # 获取图片url
                 url, image_size = await get_image_url_and_size(img_data)
@@ -180,7 +183,8 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
                 match md_type:
                     case "nso_general":
                         # nso查询通用的md
-                        qq_md_msg = await nso_general_md(user_id, image_size=image_size, url=url)
+                        qq_md_msg = await nso_general_md(user_id, image_size=image_size, url=url, text_start=text_start,
+                                                         text_end=text_end)
                     case "push_qq":
                         qq_md_msg = await push_md(user_id)
                     case "more_nso_help":
@@ -207,12 +211,14 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
                 logger.warning(f"QQ send msg error: {e}")
 
 
-
-
-async def bot_send_nso_md(bot: Bot, event: Event, message: str | bytes, user_id: str, image_width=None, skip_ad=False):
+async def bot_send_nso_md(bot: Bot, event: Event, message: str | bytes, user_id: str, image_width=None, skip_ad=False,
+                          text_start="", text_end=""):
     """发送nso通用的 qq md消息"""
     qq_md = {"md_type": "nso_general",
-             "user_id": user_id}
+             "user_id": user_id,
+             "text_start": text_start,
+             "text_end": text_end
+             }
     await bot_send(bot, event, message, image_width=image_width, QQ_md=qq_md, skip_ad=skip_ad)
 
 
