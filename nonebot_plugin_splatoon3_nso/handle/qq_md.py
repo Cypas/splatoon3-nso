@@ -10,8 +10,8 @@ from ..utils.bot import *
 
 async def nso_general_md(user_id, image_size: tuple, url: str, text_start: str = "", text_end: str = "") -> QQ_Msg:
     """为nso_通用查询拼装md结构"""
-    template_id = "102083290_1705920931"
-    keyboard_template_id = "102083290_1772274396"
+    template_id = "102081168_1772700393"
+    keyboard_template_id = "102081168_1772700515"
     image_width, image_height = image_size
     if text_start:
         text_start = md_text_replace(text_start)
@@ -216,7 +216,7 @@ async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: 
     按钮模版类型 若不提供则没有按钮
     """
     # 固定的文本模版id
-    template_id = "102083290_1705923685"
+    template_id = "102081168_1772700452"
 
     keyboard_template_id = ""
     if keyboard_template_type == "kook_url":
@@ -224,10 +224,10 @@ async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: 
         keyboard_template_id = "102083290_1721647351"
     if keyboard_template_type == "more_nso_help":
         # 更多nso指令 按钮模版
-        keyboard_template_id = "102083290_1772274485"
+        keyboard_template_id = "102081168_1772700576"
     if keyboard_template_type == "nso_general":
         # 也使用nso通用的 按钮模版
-        keyboard_template_id = "102083290_1772274396"
+        keyboard_template_id = "102081168_1772700515"
 
     params = []
     if title:
@@ -257,7 +257,7 @@ async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: 
 
 async def c2c_login_md(login_url) -> QQ_Msg:
     """c2c login 自定义卡片  需要原生md权限，已无法使用"""
-    template_id = "102083290_1705923685"
+    template_id = "102081168_1772700452"
     docs_url = "https://docs.qq.com/doc/DSVlLSnloTGZqTmNz"
 
     title = "nso登录"
@@ -320,7 +320,7 @@ async def c2c_login_md(login_url) -> QQ_Msg:
 
 async def url_md(title, content, url_title, url) -> QQ_Msg:
     """仅发一个url的按钮卡片  需要原生md权限，已无法使用"""
-    template_id = "102083290_1705923685"
+    template_id = "102081168_1772700452"
     if not title:
         title = " "
     if not content:
@@ -362,8 +362,7 @@ async def url_md(title, content, url_title, url) -> QQ_Msg:
 
 async def get_qq_face_md(user_id: str, url: str) -> QQ_Msg:
     """转发表情用md结构"""
-    template_id = "102083290_1705920931"
-
+    template_id = "102081168_1772700393"
     image_width, image_height = (500, 500)
 
     text_start = "图片尺寸以下载为准，此处预览不准"
