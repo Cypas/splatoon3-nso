@@ -1,4 +1,4 @@
-import re
+
 
 from nonebot.adapters.qq.models import MessageKeyboard, MessageMarkdown
 from nonebot.adapters.telegram.model import InlineKeyboardMarkup
@@ -183,12 +183,12 @@ async def more_nso_help_md(user_id) -> QQ_Msg:
     """nso帮助的二级md按钮菜单"""
     keyboard_template_type = "more_nso_help"
     data1 = f"nso相关查询功能太多，下面列举的也不是全部功能，只是提供常用功能的一个快捷方式"
-    data2 = f"全部完整的功能和详细用法说明可以点击下面  全部nso指令"
+    data2 = f""
     data3 = f""
     if user_id:
-        title = f"<@{user_id}>"
+        title = f"<@{user_id}> 以下是更多常用nso命令"
     else:
-        title = f""
+        title = f"以下是更多常用nso命令"
 
     return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
                              keyboard_template_type=keyboard_template_type)
@@ -243,6 +243,7 @@ async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: 
         "custom_template_id": f"{template_id}",
         "params": params
     })
+    # print(f'{json.dumps({"custom_template_id": f"{template_id}","params": params})}')
 
     msg_data_list = [QQ_MsgSeg.markdown(md)]
     # 是否添加按钮

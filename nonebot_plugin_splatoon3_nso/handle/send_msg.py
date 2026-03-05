@@ -185,10 +185,6 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
                         # nso查询通用的md
                         qq_md_msg = await nso_general_md(user_id, image_size=image_size, url=url, text_start=text_start,
                                                          text_end=text_end)
-                    case "push_qq":
-                        qq_md_msg = await push_md(user_id)
-                    case "more_nso_help":
-                        qq_md_msg = await more_nso_help_md(user_id)
                 try:
                     await bot.send(event, qq_md_msg)
                 except QQ_ActionFailed as e:
@@ -230,9 +226,8 @@ async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=
 
 async def bot_send_push_md(bot: Bot, event: Event, user_id: str, skip_ad=False):
     """发送push引流至kook的 qq md消息"""
-    qq_md = {"md_type": "push_qq",
-             "user_id": user_id}
-    await bot_send(bot, event, "", QQ_md=qq_md, skip_ad=skip_ad)
+    qq_msg = await push_md(user_id)
+    await bot.send(event, qq_msg)
 
 
 async def bot_mixed_send_report(bot: Bot, event: Event, title: str, msg: str):
@@ -251,9 +246,8 @@ async def bot_mixed_send_report(bot: Bot, event: Event, title: str, msg: str):
 
 async def bot_send_more_nso_help_md(bot: Bot, event: Event, user_id: str, skip_ad=False):
     """发送nso菜单的二级按钮选项"""
-    qq_md = {"md_type": "more_nso_help",
-             "user_id": user_id}
-    await bot_send(bot, event, "", QQ_md=qq_md, skip_ad=skip_ad)
+    qq_msg = await more_nso_help_md(user_id)
+    await bot.send(event, qq_msg)
 
 
 async def bot_send_login_url_md(bot: Bot, event: Event, url):

@@ -73,6 +73,8 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
         if get_all:
             text_start = f"以下是倒数第{battle_idx}局对战，所有玩家的上榜记录"
         else:
+            # 将1-8 转回 a-h
+            player_idx = chr(player_idx - 1 + ord('a'))
             text_start = f"以下是倒数第{battle_idx}局对战，玩家{player_idx}的上榜记录"
 
     await bot_mixed_send(bot, event, _msg, text_start=text_start)
@@ -208,7 +210,7 @@ async def get_top_md(player_code: str | list, player_name=""):
 async def x_top(bot: Bot, event: Event):
     """x_top查询"""
     msg = await get_x_top_msg(bot, event)
-    text_start = f"以下是现在各区各模式下世界top1的记录"
+    text_start = f"以下是现在各区各模式下世界top1"
     await bot_mixed_send(bot, event, msg, text_start=text_start)
 
 

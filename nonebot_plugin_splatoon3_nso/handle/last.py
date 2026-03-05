@@ -60,16 +60,15 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
                 break
 
     image_width = 760
-    if get_equip:
+    if get_screenshot:
+        # nso截图
+        await bot_send(bot, event, "正在截图nso页面，请稍等")
+    elif get_equip:
         # 查询装备
         get_battle = True
         get_coop = False
         image_width = 1000
         await bot_send(bot, event, "查询装备数据会花费更长一些时间，请稍等")
-
-    if get_screenshot:
-        # nso截图
-        await bot_send(bot, event, "正在截图nso页面，请稍等")
 
     get_battle, b_info, msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
                                                                         get_coop=get_coop,
@@ -82,7 +81,10 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     else:
         b_str = "打工"
     ss_str = "nso截图" if get_screenshot else ""
-    equip_str = "装备" if get_equip else ""
+    if not ss_str:
+        equip_str = "装备" if get_equip else ""
+    else:
+        equip_str = ""
     mask_str = "打码" if mask else ""
 
     if get_battle:
@@ -120,6 +122,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     splatoon = Splatoon(bot, event, user)
     battle_t = ""
     coop_t = ""
+    is_playing = False
 
     # 更新平台用户名
     event_info = await get_event_info(bot, event)
@@ -151,7 +154,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                         # 跳过本次循环
                         raise ValueError('no recent_battles')
                     else:
-                        return f"`bot网络错误，请稍后再试.`", False
+                        msg = f"bot网络错误，请稍后再试."
+                        return get_battle, {}, msg, is_playing
             b_info = res['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]
             battle_id = b_info['id']
             battle_t = get_battle_time_or_coop_time(battle_id)
@@ -160,7 +164,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 # 跳过本次循环
                 raise e
             else:
-                return f"`bot网络错误，请稍后再试.`", False
+                msg = f"bot网络错误，请稍后再试."
+                return get_battle, {}, msg, is_playing
         except Exception as e:
             b_info = {}
             battle_id = ""
@@ -178,7 +183,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                         # 跳过本次循环
                         raise ValueError('no coops')
                     else:
-                        return f"`bot网络错误，请稍后再试.`", False
+                        msg = f"bot网络错误，请稍后再试."
+                        return get_battle, {}, msg, is_playing
 
             coop = res['data']['coopResult']
             # /last c 2 指令可能存在跨期查询的问题，idx需要查询每期nodes数量
@@ -198,8 +204,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                     break
             if idx > coop_total_count:
                 msg = "查询索引超出最大打工历史记录，请用更小索引重试，或使用/last b指定为对战模式重新进行查询"
-                is_playing = False
-                return msg, is_playing
+                return get_battle, {}, msg, is_playing
             # 减1变回索引
             idx -= 1
             coop_highest_eggs = 0
@@ -217,7 +222,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 # 跳过本次循环
                 raise e
             else:
-                return f"`bot网络错误，请稍后再试.`", False
+                msg = f"bot网络错误，请稍后再试."
+                return get_battle, {}, msg, is_playing
         except Exception:
             coop_info = {}
             coop_id = ""
@@ -237,7 +243,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 raise ValueError('NetConnectError')
             else:
                 # last等正常请求
-                return f"`bot网络错误，请稍后再试.`", False
+                msg = f"bot网络错误，请稍后再试."
+                return get_battle, {}, msg, is_playing
 
     # 计算是否正在游玩
     str_time = max(battle_t, coop_t)
