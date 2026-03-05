@@ -1,3 +1,4 @@
+import random
 from datetime import datetime as dt, timedelta
 
 from .utils import DICT_RANK_POINT, get_battle_true_id
@@ -6,6 +7,7 @@ from ..data.data_source import model_get_top_player, model_get_temp_image_path, 
     model_get_login_user_by_sp_code, model_get_user_friend
 from ..utils import game_name_replace
 from ..utils.bot import *
+from ..utils.excuse_generator import get_random_excuse
 
 
 async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splatoon = None, idx=0):
@@ -265,6 +267,48 @@ def remove_user_name_icon(name):
             name = name[:idx]
     return name
 
+def get_evaluate_text(judgement:str, score:int, weapon:str):
+    """
+    获取对战评价文本
+    :param judgement: 比赛结果
+    :param score: 比分
+    :param weapon: 武器名
+    """
+    # 完胜的评价语句
+    clean_sweep_dict = [
+        "超鱿型！！！",
+        "超绝完胜！！",
+        f"{weapon}大人太强了！！",
+    ]
+    # 自己掉线评价语句
+    deemed_lose_dict = [
+        "任天堂修修你那破网吧",
+    ]
+    # 队友掉线评价语句
+    exempted_lose_dict = [
+        "任天堂修修你那破网吧",
+    ]
+
+    # judgement有五种情况: "LOSE" | "WIN" | "DEEMED_LOSE" | "EXEMPTED_LOSE" | "DRAW"
+    evaluate = ""
+    match judgement:
+        case "WIN":
+            if score == 100: # 完胜
+                evaluate = random.choice(clean_sweep_dict)
+        case "LOSE":
+            # 输了编造借口
+            evaluate = get_random_excuse()
+        case "DEEMED_LOSE":
+            # DEEMED_LOSE：自己掉线
+            evaluate = random.choice(deemed_lose_dict)
+        case "EXEMPTED_LOSE":
+            # EXEMPTED_LOSE：队友掉线，豁免惩罚
+            evaluate = random.choice(exempted_lose_dict)
+        case "DRAW":
+            # DRAW：无效比赛
+            evaluate = ""
+
+    return evaluate
 
 class PushBattleStatistics:
     """推送期间对战统计"""
