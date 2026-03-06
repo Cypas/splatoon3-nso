@@ -308,7 +308,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
         logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
         job_data.update({"last_battle_id": battle_id})
 
-        msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
+        msg, detail = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
                                  get_screenshot=get_screenshot, mask=mask)
 
         image_width = 680
