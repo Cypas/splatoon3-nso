@@ -1,4 +1,9 @@
+import os
+
+from .utils.time import get_time_now_china_str
+from .utils.utils import DIR_RESOURCE
 from .utils.bot import *
+from pathlib import Path
 
 
 def get_or_init(dictionary: dict, key: str, default=None):
@@ -10,6 +15,17 @@ def get_or_init(dictionary: dict, key: str, default=None):
         return default
     else:
         return dictionary.get(key)
+
+
+def write_unknown_command(msg_id, plain_text):
+    """写未知命令记录到文件"""
+    if plain_text:
+        if "[分享]" not in plain_text:
+            file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+            with open(file_path, "a", encoding="utf-8") as f:
+                f.write(f"{get_time_now_china_str()},{msg_id},{plain_text}\n")  # 每行一个关键词
 
 
 class ChannelInfo:
