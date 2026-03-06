@@ -188,6 +188,7 @@ nso查询过程中使用到了第三方的自动令牌生成接口
 - https://github.com/imink-app/f-API 模拟nso授权步骤的公开接口
 - https://github.com/samuelthomas2774/nxapi-znca-api 模拟nso授权步骤的公开接口
 - [zurl](https://github.com/helloxz/zurl)一个简单易用的短链接服务
+- [喷喷借口生成器](https://github.com/arainwong/excuse-generator)参考了喷喷借口生成器的代码和借口语料
 
 ## ⏳ Star 趋势
 
