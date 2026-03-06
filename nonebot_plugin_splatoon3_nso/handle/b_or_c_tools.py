@@ -278,11 +278,13 @@ def get_evaluate_text(judgement:str, score:int, weapon:str):
     clean_sweep_dict = [
         "超鱿型！！！",
         "超绝完胜！！",
+        "YYYYY！！",
         f"{weapon}大人太强了！！",
     ]
     # 自己掉线评价语句
     deemed_lose_dict = [
         "任天堂修修你那破网吧",
+        "掉线了，别骂了",
     ]
     # 队友掉线评价语句
     exempted_lose_dict = [
