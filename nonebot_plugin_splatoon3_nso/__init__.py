@@ -1,6 +1,7 @@
 from pathlib import Path
 from urllib.parse import quote
 
+from nonebot import on_notice
 from nonebot.adapters.qq.message import Attachment
 from nonebot.internal.rule import Rule
 from nonebot.message import event_preprocessor
@@ -12,12 +13,13 @@ from .data.db_sqlite import init_db
 from .data.transfer import transfer_user_db
 from .handle import *
 from .handle.cron import remove_all_scheduler, scheduler_controller
-from .handle.qq_md import get_qq_face_md
-from .handle.send_msg import bot_send, notify_to_channel
+from .handle.qq_md import get_qq_face_md, new_user_added_md
+from .handle.send_msg import bot_send, notify_to_channel, bot_send_new_user_added_md
 from .s3s.splatnet_image import global_browser
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION, get_time_now_china_str, get_msg_id
 from .utils.bot import *
 from .api.main import app as fastapi_app  # 引入fastapi接口
+
 ### bot.py 中启动fastapi
 # nonebot.init()
 # asgi = nonebot.get_asgi()
@@ -141,6 +143,38 @@ async def _help(bot: Bot, event: Event):
         elif isinstance(bot, All_BOT):
             msg = MSG_HELP_CN
             await bot_send(bot, event, message=msg)
+
+
+@on_notice(rule=is_type(QQ_GAddEvent, QQ_FAddEvent), priority=10, block=True).handle()
+async def bot_added_event(bot: QQ_Bot, event: Event, matcher: Matcher):
+    """qq机器人被个人添加/被群添加"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    title = "你好，我是小鱿鱿bot"
+    msg = (f"我可以提供splatoon3游戏日程，随机武器，配装等基础查询功能\n"
+           f"在登录nso后还可以提供实时查询对战/打工战绩，好友状态，观星导出等nso查询功能\n"
+           f"更多指令可以点击我头像，或是最新版qq在聊天框输入/ 唤起机器人菜单\n")
+
+    if isinstance(event, QQ_GAddEvent):
+        # 群添加
+        if plugin_config.splatoon3_qq_md_mode:
+            if isinstance(event, QQ_FAddEvent):
+                user_id = ""
+            await bot_send_new_user_added_md(bot, event, user_id, title=title, msg=msg)
+        else:
+            msg = f"{title}\n\n{msg}"
+            await bot_send(bot, event, msg)
+    elif isinstance(event, QQ_FAddEvent):
+        if plugin_config.splatoon3_qq_md_mode:
+            qq_msg = await new_user_added_md(user_id, title, msg)
+            # c2c私聊添加
+        else:
+            qq_msg = f"{title}\n\n{msg}"
+        await bot.send_to_c2c(
+            openid=event.get_user_id(),
+            event_id=event.event_id,
+            message=qq_msg
+        )
 
 
 @driver.on_startup

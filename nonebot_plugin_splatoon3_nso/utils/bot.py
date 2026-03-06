@@ -57,6 +57,8 @@ from nonebot.adapters.qq.models import (
     MessageKeyboard as QQ_MsgKeyboard,
     MessageMarkdown as QQ_MsgMarkdown,
 )
+from nonebot.adapters.qq import GroupAddRobotEvent as QQ_GAddEvent
+from nonebot.adapters.qq import FriendAddEvent as QQ_FAddEvent
 
 # bot
 All_BOT = (V11_Bot, V12_Bot, Kook_Bot, Tg_Bot, QQ_Bot)

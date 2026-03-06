@@ -206,6 +206,19 @@ async def report_md(user_id, title, msg) -> QQ_Msg:
     return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
                              keyboard_template_type=keyboard_template_type)
 
+async def new_user_added_md(user_id, title, msg) -> QQ_Msg:
+    """被新用户添加时的md"""
+    keyboard_template_type = "schedule"
+    data1 = f"{msg}"
+    data2 = f""
+    data3 = f""
+    if user_id:
+        title = f"<@{user_id}> {title}"
+    else:
+        title = f"{title}"
+
+    return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                             keyboard_template_type=keyboard_template_type)
 
 async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = "",
                       keyboard_template_type="") -> QQ_Msg:
@@ -228,6 +241,9 @@ async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: 
     if keyboard_template_type == "nso_general":
         # 也使用nso通用的 按钮模版
         keyboard_template_id = "102083290_1772274396"
+    if keyboard_template_type == "schedule":
+        # 日程按钮 模版
+        keyboard_template_id = "102083290_1767587639"
 
     params = []
     if title:
