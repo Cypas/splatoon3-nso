@@ -50,7 +50,7 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
                 if isinstance(event, QQ_C2CME):
                     user_id = ""
                 title = "小鱿鱿没有这个功能指令，点击下方按钮试试吧！"
-                msg = f""
+                msg = f"更多指令可以点击我头像，或是最新版qq在聊天框输入/ 唤起机器人菜单"
                 await bot_send_new_user_added_md(bot, event, user_id, title=title, msg=msg)
             else:
                 msg = "小鱿鱿没有这个功能指令，请发送/help 查看帮助\n或在qq消息框输入/后，手动选择bot指令"
@@ -73,7 +73,7 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
         await matcher.finish()
 
 
-@on_message(rule=is_type(QQ_C2CME), priority=98, block=True).handle()
+@on_message(rule=is_type(QQ_C2CME), priority=96, block=True).handle()
 async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
     """为qq c2c任何未匹配文本进行兜底"""
     plain_text = event.get_message().extract_plain_text().strip()
