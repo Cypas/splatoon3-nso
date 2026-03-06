@@ -193,14 +193,13 @@ async def coop_row_user(p, wave_results, mask=False, is_myself=False, nsa_id=Non
                                                   p["player"]["uniform"]["image"]["url"])
     uniform = f'<img height="18" src="{uniform_img}"/>'
 
-    if mask:
-        p_name = f'~~我是马赛克~~'
-
     player_code, player_name = get_game_sp_id_and_name(p['player'])
     if is_myself:
         p_name, icon = await get_user_name_color(p_name, player_code, is_myself=True, nsa_id=nsa_id)
     else:
         p_name, icon = await get_user_name_color(player_name, player_code)
+        if mask:
+            p_name = f'~~我是马赛克~~'
     # 辅助投蛋数
     if p['goldenAssistCount']:
         golden = f"{p['goldenDeliverCount']}({p['goldenAssistCount']})"
