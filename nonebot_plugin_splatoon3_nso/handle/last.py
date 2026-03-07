@@ -1,6 +1,6 @@
 from datetime import datetime as dt, timedelta
 
-from .b_or_c_tools import get_evaluate_text
+from .b_or_c_evaluate_text import get_evaluate_text
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
 from .send_msg import bot_send, bot_send_nso_md, bot_mixed_send
