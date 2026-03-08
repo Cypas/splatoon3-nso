@@ -1,5 +1,5 @@
 from datetime import datetime as dt, timedelta
-from .send_msg import bot_send
+from .send_msg import bot_send, bot_mixed_send
 from .utils import _check_session_handler, get_battle_time_or_coop_time
 from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info
 from ..s3s.splatoon import Splatoon
@@ -10,6 +10,7 @@ from ..utils.bot import *
 async def history(bot: Bot, event: Event, args: Message = CommandArg()):
     """历史记录查询"""
     _type = 'open'
+    _type_str = '开放'
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     cmd_message = args.extract_plain_text().strip()
@@ -18,16 +19,20 @@ async def history(bot: Bot, event: Event, args: Message = CommandArg()):
         cmd_lst = cmd_message.split()
         if 'o' in cmd_lst or 'open' in cmd_lst:
             _type = 'open'
+            _type_str = '开放'
         if 'e' in cmd_lst or 'event' in cmd_lst:
             _type = 'event'
+            _type_str = '活动'
         if 'f' in cmd_lst or 'fest' in cmd_lst:
             _type = 'fest'
+            _type_str = '祭典单排'
 
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
-    await bot_send(bot, event, "开始努力作图，请稍等~", skip_log_cmd=True)
+    await bot_send(bot, event, "开始努力作图，请稍等~")
     msg = await get_history_md(splatoon, _type=_type)
-    await bot_send(bot, event, msg, image_width=1000)
+    text_start = f"下面是最近一个时段的全部 {_type_str} 对战数据"
+    await bot_mixed_send(bot, event, msg, image_width=1000, text_start=text_start)
 
 
 async def get_history_md(splatoon: Splatoon, _type='open'):

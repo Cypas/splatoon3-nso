@@ -1,8 +1,9 @@
 from datetime import datetime as dt, timedelta
 
+from .b_or_c_evaluate_text import get_evaluate_text
 from .battle import get_battle_msg_md
 from .coop import get_coop_msg_md
-from .send_msg import bot_send, bot_send_last_md
+from .send_msg import bot_send, bot_send_nso_md, bot_mixed_send
 from .utils import _check_session_handler, get_game_sp_id_and_name, get_battle_time_or_coop_time, get_event_info, \
     get_qq_user_name
 from .. import plugin_config
@@ -59,28 +60,42 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
                 break
 
     image_width = 760
-    if get_equip:
+    if get_screenshot:
+        # nso截图
+        await bot_send(bot, event, "正在截图nso页面，请稍等")
+    elif get_equip:
         # 查询装备
         get_battle = True
         get_coop = False
         image_width = 1000
         await bot_send(bot, event, "查询装备数据会花费更长一些时间，请稍等")
 
-    if get_screenshot:
-        # nso截图
-        await bot_send(bot, event, "正在截图nso页面，请稍等")
+    get_battle, detail, msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
+                                                                        get_coop=get_coop,
+                                                                        get_equip=get_equip,
+                                                                        idx=idx,
+                                                                        get_screenshot=get_screenshot, mask=mask)
+    # 是对战还是打工
+    if get_battle:
+        b_str = "对战"
+    else:
+        b_str = "打工"
+    ss_str = "nso截图" if get_screenshot else ""
+    if not ss_str:
+        equip_str = "装备" if get_equip else ""
+    else:
+        equip_str = ""
+    mask_str = "打码" if mask else ""
 
-    msg, is_playing = await get_last_battle_or_coop(bot, event, get_battle=get_battle,
-                                                    get_coop=get_coop,
-                                                    get_equip=get_equip,
-                                                    idx=idx,
-                                                    get_screenshot=get_screenshot, mask=mask)
+    evaluate_text = await get_evaluate_text(get_battle, detail)
+    # 将评价文本也拼接在图片里面
+    if evaluate_text and msg.startswith("#### "):
+        msg += f"</br>小鱿鱿的嘴替或评价是: {evaluate_text}"
 
-    if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode and not get_image:
-        if isinstance(event, QQ_C2CME):
-            user_id = ""
-        # 这里存在 /last ss 的情况，msg值实际为bytes
-        await bot_send_last_md(bot, event, msg, user_id, image_width=image_width)
+    if not get_image:
+        text_start = f"以下是倒数第 {idx + 1}场{b_str} {ss_str}{equip_str}{mask_str}的数据"
+        evaluate_text = f"小鱿鱿的嘴替或评价是: {evaluate_text}"
+        await bot_mixed_send(bot, event, msg, image_width=image_width, text_start=text_start, text_end=evaluate_text)
     else:
         await bot_send(bot, event, msg, image_width=image_width)
 
@@ -103,6 +118,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     splatoon = Splatoon(bot, event, user)
     battle_t = ""
     coop_t = ""
+    is_playing = False
 
     # 更新平台用户名
     event_info = await get_event_info(bot, event)
@@ -112,7 +128,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
         splatoon.set_user_info(user_name=user_name)
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
-    if isinstance(splatoon.bot, QQ_Bot) and (splatoon.user_name in ["QQ群", "QQ私信"] or splatoon.user_id == splatoon.user_name):
+    if isinstance(splatoon.bot, QQ_Bot) and (
+            splatoon.user_name in ["QQ群", "QQ私信"] or splatoon.user_id == splatoon.user_name):
         user_name = await get_qq_user_name(splatoon.bot, splatoon.user_id)
         # 更新缓存
         if user_name:
@@ -133,7 +150,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                         # 跳过本次循环
                         raise ValueError('no recent_battles')
                     else:
-                        return f"`bot网络错误，请稍后再试.`", False
+                        msg = f"bot网络错误，请稍后再试."
+                        return get_battle, None, msg, is_playing
             b_info = res['data']['latestBattleHistories']['historyGroups']['nodes'][0]['historyDetails']['nodes'][idx]
             battle_id = b_info['id']
             battle_t = get_battle_time_or_coop_time(battle_id)
@@ -142,7 +160,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 # 跳过本次循环
                 raise e
             else:
-                return f"`bot网络错误，请稍后再试.`", False
+                msg = f"bot网络错误，请稍后再试."
+                return get_battle, None, msg, is_playing
         except Exception as e:
             b_info = {}
             battle_id = ""
@@ -160,7 +179,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                         # 跳过本次循环
                         raise ValueError('no coops')
                     else:
-                        return f"`bot网络错误，请稍后再试.`", False
+                        msg = f"bot网络错误，请稍后再试."
+                        return get_battle, None, msg, is_playing
 
             coop = res['data']['coopResult']
             # /last c 2 指令可能存在跨期查询的问题，idx需要查询每期nodes数量
@@ -180,8 +200,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                     break
             if idx > coop_total_count:
                 msg = "查询索引超出最大打工历史记录，请用更小索引重试，或使用/last b指定为对战模式重新进行查询"
-                is_playing = False
-                return msg, is_playing
+                return get_battle, None, msg, is_playing
             # 减1变回索引
             idx -= 1
             coop_highest_eggs = 0
@@ -199,7 +218,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 # 跳过本次循环
                 raise e
             else:
-                return f"`bot网络错误，请稍后再试.`", False
+                msg = f"bot网络错误，请稍后再试."
+                return get_battle, None, msg, is_playing
         except Exception:
             coop_info = {}
             coop_id = ""
@@ -219,7 +239,8 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 raise ValueError('NetConnectError')
             else:
                 # last等正常请求
-                return f"`bot网络错误，请稍后再试.`", False
+                msg = f"bot网络错误，请稍后再试."
+                return get_battle, None, msg, is_playing
 
     # 计算是否正在游玩
     str_time = max(battle_t, coop_t)
@@ -233,26 +254,31 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
     if get_battle:
         # 获取对战数据
         if for_push:
+            # 对战id，对战详情，是对战，是否游玩中
             return battle_id, b_info, True, is_playing
-        msg = await get_last_msg(splatoon, battle_id, b_info, idx=idx, is_battle=True, get_equip=get_equip,
-                                 get_screenshot=get_screenshot, mask=mask, get_player_code_idx=get_player_code_idx)
+        msg, detail = await get_last_msg(splatoon, battle_id, b_info, idx=idx, is_battle=True, get_equip=get_equip,
+                                         get_screenshot=get_screenshot, mask=mask,
+                                         get_player_code_idx=get_player_code_idx)
         if get_player_code_idx:
             # 为top提供服务
             return msg
-        return msg, is_playing
+        return get_battle, detail, msg, is_playing
     else:
         # 获取打工数据
         if for_push:
+            # 打工id，打工详情，是对战，是否游玩中
             return coop_id, coop_info, False, is_playing
-        msg = await get_last_msg(splatoon, coop_id, coop_info, idx=idx, is_battle=False, get_equip=get_equip,
-                                 get_screenshot=get_screenshot, mask=mask)
-        return msg, is_playing
+        msg, detail = await get_last_msg(splatoon, coop_id, coop_info, idx=idx, is_battle=False, get_equip=get_equip,
+                                         get_screenshot=get_screenshot, mask=mask)
+        return get_battle, detail, msg, is_playing
 
 
 async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=True, get_equip=False,
                        get_screenshot=False, mask=False,
                        push_statistics=None, get_player_code_idx: int = 0):
     # 获取最后对战或打工的md文本
+    battle_detail = None
+    coop_detail = None
     try:
         if is_battle:
             if get_screenshot:
@@ -264,13 +290,13 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                                        "本次nso截图需要刷新token，请求耗时会比平时更长一些，请稍等...")
                         suss = await splatoon.refresh_gtoken_and_bullettoken()
                         if not suss:
-                            return "bot网络错误，请稍后再试"
+                            return "bot网络错误，请稍后再试", None
 
                     pic = await get_app_screenshot(splatoon, url=url, mask=mask)
                 except Exception as e:
                     logger.exception(e)
                     pic = None
-                return pic
+                return pic, None
             battle_detail = await splatoon.get_battle_detail(_id)
             if not battle_detail:
                 battle_detail = await splatoon.get_battle_detail(_id)
@@ -289,13 +315,13 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                     _idx = min(_idx, len(p_lst))
                     p = p_lst[_idx]
                     player_code, player_name = get_game_sp_id_and_name(p)
-                    return player_code, player_name
+                    return (player_code, player_name), None
                 else:
                     ret = []
                     for p in p_lst:
                         player_code, player_name = get_game_sp_id_and_name(p)
                         ret.append((player_code, player_name))
-                    return ret
+                    return ret, None
 
             # 取用户本人game_sp_id
             if not splatoon.user_db_info.game_sp_id or not splatoon.user_db_info.game_name:
@@ -319,12 +345,14 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                         await bot_send(splatoon.bot, splatoon.event,
                                        "本次nso截图需要刷新token，请求耗时会比平时更长一些，请稍等...")
                         suss = await splatoon.refresh_gtoken_and_bullettoken()
+                        if not suss:
+                            return "bot网络错误，请稍后再试", None
 
                     pic = await get_app_screenshot(splatoon, url=url, mask=mask)
                 except Exception as e:
                     logger.exception(e)
                     pic = None
-                return pic
+                return pic, None
             coop_detail = await splatoon.get_coop_detail(_id)
             if not coop_detail:
                 coop_detail = await splatoon.get_coop_detail(_id)
@@ -344,7 +372,12 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
     except Exception as e:
         logger.exception(e)
         msg = f'bot网络错误，获取最近 {"对战" if is_battle else "打工"}数据失败，请稍后再试'
-    return msg
+    # 最终输出
+    if is_battle:
+        detail = battle_detail
+    else:
+        detail = coop_detail
+    return msg, detail
 
 
 def get_coop_defeat_statistics(coop_statistics_res) -> dict:

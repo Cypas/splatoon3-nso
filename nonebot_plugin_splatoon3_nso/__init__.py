@@ -1,6 +1,6 @@
-from pathlib import Path
 from urllib.parse import quote
 
+from nonebot import on_notice
 from nonebot.adapters.qq.message import Attachment
 from nonebot.internal.rule import Rule
 from nonebot.message import event_preprocessor
@@ -12,20 +12,13 @@ from .data.db_sqlite import init_db
 from .data.transfer import transfer_user_db
 from .handle import *
 from .handle.cron import remove_all_scheduler, scheduler_controller
-from .handle.qq_md import get_qq_face_md
-from .handle.send_msg import bot_send, notify_to_channel
+from .handle.qq_md import get_qq_face_md, new_user_added_md
+from .handle.send_msg import bot_send, notify_to_channel, bot_send_new_user_added_md
 from .s3s.splatnet_image import global_browser
+from .util import write_unknown_command
 from .utils import MSG_HELP_QQ, MSG_HELP_CN, MSG_HELP, BOT_VERSION, get_time_now_china_str, get_msg_id
 from .utils.bot import *
 from .api.main import app as fastapi_app  # 引入fastapi接口
-### bot.py 中启动fastapi
-# nonebot.init()
-# asgi = nonebot.get_asgi()
-# driver = nonebot.get_driver()
-# driver.register_adapter(OneBotV11Adapter)
-# nonebot.load_plugins("plugins")
-# asgi.mount("/api", fastapi_app)
-###
 
 __plugin_meta__ = PluginMetadata(
     name="splatoon3游戏nso查询",
@@ -53,9 +46,17 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
         if isinstance(bot, Tg_Bot):
             msg = "Sorry, I didn't understand that command. /help"
         elif isinstance(bot, QQ_Bot):
-            msg = "无效指令，请发送 /help 查看帮助\n或在消息框输入/后，手动选择bot命令"
+            if plugin_config.splatoon3_qq_md_mode:
+                if isinstance(event, QQ_C2CME):
+                    user_id = ""
+                title = "小鱿鱿没有这个功能指令，点击下方按钮试试吧！"
+                msg = f"更多指令可以点击我头像，或是最新版qq在聊天框输入/ 唤起机器人菜单"
+                await bot_send_new_user_added_md(bot, event, user_id, title=title, msg=msg)
+            else:
+                msg = "小鱿鱿没有这个功能指令，请发送/help 查看帮助\n或在qq消息框输入/后，手动选择bot指令"
+                await bot.send(event, message=msg)
         elif isinstance(bot, All_BOT):
-            msg = "无效指令，请发送 /help 查看帮助"
+            msg = "小鱿鱿没有这个功能指令，请发送/help 查看帮助"
         kook_black_list = plugin_config.splatoon3_unknown_command_fallback_reply_kook_black_list
         if len(kook_black_list) > 0:
             if isinstance(bot, Kook_Bot):
@@ -65,19 +66,14 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
                 if server_id in kook_black_list:
                     msg = ""
                     logger.info("kook指定兜底黑名单服务器，不进行兜底消息提示")
-        if msg:
+        if msg and not isinstance(bot, QQ_Bot):
             await bot.send(event, message=msg)
-            if plain_text:
-                if "[分享]" not in plain_text:
-                    file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
-                    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                    # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
-                    with open(file_path, "a", encoding="utf-8") as f:
-                        f.write(f"{get_time_now_china_str()},{msg_id},{plain_text}\n")  # 每行一个关键词
+        # 写未知命令
+        write_unknown_command(msg_id, plain_text)
         await matcher.finish()
 
 
-@on_message(rule=is_type(QQ_C2CME), priority=98, block=True).handle()
+@on_message(rule=is_type(QQ_C2CME), priority=96, block=True).handle()
 async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
     """为qq c2c任何未匹配文本进行兜底"""
     plain_text = event.get_message().extract_plain_text().strip()
@@ -85,29 +81,29 @@ async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
     logger.info(f'unknown_command from {event.get_event_name()}')
-    msg = "无效指令，请发送/help 查看帮助\n或在消息框输入/后，手动选择bot命令"
-    if plain_text:
-        file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
-        with open(file_path, "a", encoding="utf-8") as f:
-            f.write(f"{get_time_now_china_str()},{msg_id},{plain_text}\n")  # 每行一个关键词
-    await matcher.finish(msg)
+
+    # 写未知命令
+    write_unknown_command(msg_id, plain_text)
+    if isinstance(bot, QQ_Bot) and plugin_config.splatoon3_qq_md_mode:
+        if isinstance(event, QQ_C2CME):
+            user_id = ""
+        title = "小鱿鱿没有这个功能指令，点击下方按钮试试吧！"
+        msg = (f"小鱿鱿可以提供splatoon3游戏日程，随机武器，配装等基础查询功能\n"
+               f"在登录nso后还可以提供实时查询对战/打工战绩，好友状态，观星导出等nso查询功能\n"
+               f"更多指令可以点击我头像，或是最新版qq在聊天框输入/ 唤起机器人菜单")
+        await bot_send_new_user_added_md(bot, event, user_id, title=title, msg=msg)
+    else:
+        msg = "小鱿鱿没有这个功能指令，请发送/help 查看帮助\n或在qq消息框输入/后，手动选择bot指令"
+        await bot_send(bot, event, msg)
 
 
 # rule函数
 async def qq_is_my_face_img(event: Event) -> bool:
     plain_text = event.get_message().extract_plain_text()
-    if "faceType=6" in plain_text:
-        return True
-    else:
-        return False
+    return True if "faceType=6" in plain_text else False
 
 
-rule_is_type_qq_c2cme = Rule(qq_is_my_face_img)
-
-
-@on_message(rule=is_type(QQ_C2CME) & rule_is_type_qq_c2cme, priority=50, block=True).handle()
+@on_message(rule=is_type(QQ_C2CME) & Rule(qq_is_my_face_img), priority=50, block=True).handle()
 async def c2c_face_image_command(bot: Bot, event: Event, matcher: Matcher):
     """为qq c2c 下表情导出"""
     massage = event.get_message()
@@ -122,6 +118,7 @@ async def c2c_face_image_command(bot: Bot, event: Event, matcher: Matcher):
                 await bot.send(event, message=await get_qq_face_md(user_id="", url=encoded_url))
             except QQ_ActionFailed as e:
                 logger.error(f"qq转发表情失败,res:{e.message},url:{encoded_url}")
+                await matcher.finish("qq表情解析失败了，请再发一次")
             except Exception as e:
                 logger.error(f"qq转发表情失败:url:{encoded_url},error:{e}")
             matcher.stop_propagation()
@@ -141,6 +138,25 @@ async def _help(bot: Bot, event: Event):
         elif isinstance(bot, All_BOT):
             msg = MSG_HELP_CN
             await bot_send(bot, event, message=msg)
+
+
+@on_notice(rule=is_type(QQ_GAddEvent, QQ_FAddEvent), priority=10, block=True).handle()
+async def bot_added_event(bot: QQ_Bot, event: Event, matcher: Matcher):
+    """qq机器人被个人添加/被群添加"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    title = "你好，我是小鱿鱿bot"
+    msg = (f"我可以提供splatoon3游戏日程，随机武器，配装等基础查询功能\n"
+           f"在登录nso后还可以提供实时查询对战/打工战绩，好友状态，观星导出等nso查询功能\n"
+           f"更多指令可以点击我头像，或是最新版qq在聊天框输入/ 唤起机器人菜单\n")
+
+    if plugin_config.splatoon3_qq_md_mode:
+        if isinstance(event, QQ_FAddEvent):
+            user_id = ""
+        await bot_send_new_user_added_md(bot, event, user_id, title=title, msg=msg)
+    else:
+        msg = f"{title}\n\n{msg}"
+        await bot_send(bot, event, msg)
 
 
 @driver.on_startup

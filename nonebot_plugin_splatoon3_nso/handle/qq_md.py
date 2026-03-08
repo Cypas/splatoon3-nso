@@ -1,4 +1,4 @@
-import re
+
 
 from nonebot.adapters.qq.models import MessageKeyboard, MessageMarkdown
 from nonebot.adapters.telegram.model import InlineKeyboardMarkup
@@ -8,25 +8,23 @@ from ..data.utils import plugin_data, get_or_set_plugin_data
 from ..utils.bot import *
 
 
-async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
-    """为/last查询拼装md结构"""
+async def nso_general_md(user_id, image_size: tuple, url: str, text_start: str = "", text_end: str = "") -> QQ_Msg:
+    """为nso_通用查询拼装md结构"""
     template_id = "102083290_1705920931"
-    keyboard_template_id = "102083290_1767589971"
+    keyboard_template_id = "102083290_1772274396"
     image_width, image_height = image_size
-    text_start = "发送/nso帮助查看详细用法"
-    # text_end作为公告消息
-    text_end = await get_or_set_plugin_data("splatoon3_bot_notice")
-    button_show = "查对战或打工"
-    button_cmd = "/last"
-
-    button_show2 = "查对战"
-    button_cmd2 = "/last b"
-
-    button_show3 = "查打工"
-    button_cmd3 = "/last c"
-
-    button_show4 = "bot官方群"
-    button_cmd4 = "http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=zGefDQ4GQYFPAB-hFkeFLlyQ8qbG5S2w&authKey=j0b9yXmtSzYry6qQQ%2FFXxw7U%2Fp6kXyET0xj%2BRHWxeRa20zvJeN8W91noNrJDmDyO&noverify=0&group_code=827977720"
+    if text_start:
+        text_start = md_text_replace(text_start)
+    else:
+        text_start = "发送/nso帮助查看详细用法"
+    text_notice = await get_or_set_plugin_data("splatoon3_bot_notice")
+    # 公告消息 作为 text_end
+    if text_notice:
+        text_end = "公告消息:" + md_text_replace(text_notice)
+    else:
+        if text_end:
+            # 公告消息不存在时允许输出自定义文本
+            text_end = md_text_replace(text_end)
 
     # 如果kv值为空，那只能不传，空值似乎最多只允许一个
     params = []
@@ -36,7 +34,7 @@ async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
                    {"key": "img_size", "values": [f"img#{image_width}px #{image_height}px"]},
                    {"key": "img_url", "values": [f"{url}"]}])
     if text_end:
-        text_end = "\r" + text_end.replace("\\n", "\r").replace("\\r", "\r")
+        text_end = "\r" + md_text_replace(text_end)
         params.append({"key": "text_end", "values": [f"{text_end}"]})
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
@@ -141,7 +139,7 @@ async def last_md(user_id, image_size: tuple, url: str) -> QQ_Msg:
     return qq_msg
 
 
-def login_md(user_id, check_session=False) -> QQ_Msg:
+async def login_md(user_id, check_session=False) -> QQ_Msg:
     """无法使用login时转kook登录的md卡片提示"""
     keyboard_template_type = "kook_url"
     data1 = ""
@@ -162,10 +160,11 @@ def login_md(user_id, check_session=False) -> QQ_Msg:
         else:
             title = f"当前平台无法登录"
 
-    return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
-                       keyboard_template_type=keyboard_template_type)
+    return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                             keyboard_template_type=keyboard_template_type)
 
-def push_md(user_id) -> QQ_Msg:
+
+async def push_md(user_id) -> QQ_Msg:
     """无法使用login时转kook登录的md卡片提示"""
     keyboard_template_type = "kook_url"
     data1 = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用"
@@ -176,16 +175,57 @@ def push_md(user_id) -> QQ_Msg:
     else:
         title = f"当前平台无法使用此功能"
 
-    return text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
-                       keyboard_template_type=keyboard_template_type)
+    return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                             keyboard_template_type=keyboard_template_type)
 
 
-def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = "",
-                keyboard_template_type="") -> QQ_Msg:
+async def more_nso_help_md(user_id) -> QQ_Msg:
+    """nso帮助的二级md按钮菜单"""
+    keyboard_template_type = "more_nso_help"
+    data1 = f"nso相关查询功能太多，下面列举的也不是全部功能，只是提供常用功能的一个快捷方式"
+    data2 = f""
+    data3 = f""
+    if user_id:
+        title = f"<@{user_id}> 以下是更多常用nso命令"
+    else:
+        title = f"以下是更多常用nso命令"
+
+    return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                             keyboard_template_type=keyboard_template_type)
+
+
+async def report_md(user_id, title, msg) -> QQ_Msg:
+    """日报md菜单，将日报文本展示在文本md中，按钮使用nso通用按钮组"""
+    keyboard_template_type = "nso_general"
+    data1 = f"{msg}"
+    data2 = f""
+    data3 = f""
+    if user_id:
+        title = f"<@{user_id}> {title}"
+
+    return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                             keyboard_template_type=keyboard_template_type)
+
+async def new_user_added_md(user_id, title, msg) -> QQ_Msg:
+    """被新用户添加时的md"""
+    keyboard_template_type = "schedule"
+    data1 = f"{msg}"
+    data2 = f""
+    data3 = f""
+    if user_id:
+        title = f"<@{user_id}> {title}"
+    else:
+        title = f"{title}"
+
+    return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
+                             keyboard_template_type=keyboard_template_type)
+
+async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = "",
+                      keyboard_template_type="") -> QQ_Msg:
     """
     通用的 文本引用消息md模版
-    可提供 titile
-    引用文本  data1，data2，data3  这三个也支持\n进行换行
+    可提供 titile  title模版前面是引号开头
+    引用文本  data1，data2，data3  这三个也支持\n进行换行   至少需要提供一个data1 data2和data3可以不给
     按钮模版类型 若不提供则没有按钮
     """
     # 固定的文本模版id
@@ -195,21 +235,31 @@ def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = 
     if keyboard_template_type == "kook_url":
         # kook 服务器的链接 按钮模版
         keyboard_template_id = "102083290_1721647351"
+    if keyboard_template_type == "more_nso_help":
+        # 更多nso指令 按钮模版
+        keyboard_template_id = "102083290_1772274485"
+    if keyboard_template_type == "nso_general":
+        # 也使用nso通用的 按钮模版
+        keyboard_template_id = "102083290_1772274396"
+    if keyboard_template_type == "schedule":
+        # 日程按钮 模版
+        keyboard_template_id = "102083290_1767587639"
 
     params = []
     if title:
-        params.append({"key": "title", "values": [f"{title}"]})
+        params.append({"key": "title", "values": [f"{md_text_replace(title)}"]})
     if data1:
-        params.append({"key": "data1", "values": [f"{data1}"]})
+        params.append({"key": "data1", "values": [f"{md_text_replace(data1)}"]})
     if data2:
-        params.append({"key": "data2", "values": [f"{data2}"]})
+        params.append({"key": "data2", "values": [f"{md_text_replace(data2)}"]})
     if data3:
-        params.append({"key": "data3", "values": [f"{data3}"]})
+        params.append({"key": "data3", "values": [f"{md_text_replace(data3)}"]})
 
     md = MessageMarkdown.model_validate({
         "custom_template_id": f"{template_id}",
         "params": params
     })
+    # print(f'{json.dumps({"custom_template_id": f"{template_id}","params": params})}')
 
     msg_data_list = [QQ_MsgSeg.markdown(md)]
     # 是否添加按钮
@@ -222,8 +272,8 @@ def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = 
     return qq_msg
 
 
-def c2c_login_md(login_url) -> QQ_Msg:
-    """c2c login卡片"""
+async def c2c_login_md(login_url) -> QQ_Msg:
+    """c2c login 自定义卡片  需要原生md权限，已无法使用"""
     template_id = "102083290_1705923685"
     docs_url = "https://docs.qq.com/doc/DSVlLSnloTGZqTmNz"
 
@@ -285,8 +335,8 @@ def c2c_login_md(login_url) -> QQ_Msg:
     return qq_msg
 
 
-def url_md(title, content, url_title, url) -> QQ_Msg:
-    """仅发一个url的按钮卡片"""
+async def url_md(title, content, url_title, url) -> QQ_Msg:
+    """仅发一个url的按钮卡片  需要原生md权限，已无法使用"""
     template_id = "102083290_1705923685"
     if not title:
         title = " "
@@ -351,3 +401,7 @@ async def get_qq_face_md(user_id: str, url: str) -> QQ_Msg:
 
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md)])
     return qq_msg
+
+
+def md_text_replace(text: str):
+    return text.replace("\\n", "\r").replace("\n", "\r").replace("\\r", "\r")

@@ -338,7 +338,11 @@ async def get_qq_user_name(bot: QQ_Bot, user_id):
         res = await AsHttpReq.get(api, with_proxy=False, params=params)
         data = res.json()
         user_name = data.get("名字", "")
-        return user_name
+        if isinstance(user_name, str):
+            return user_name
+        else:
+            # 返回的不知道是什么鬼东西，不处理，直接返回为空
+            return ""
     except Exception as e:
         if res and res.text:
             logger.warning(f"QQ get username error:{e} res:{res.text}")

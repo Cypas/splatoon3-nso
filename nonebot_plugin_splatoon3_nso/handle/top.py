@@ -1,7 +1,7 @@
 from datetime import datetime as dt, timedelta
 
 from .last import get_last_battle_or_coop
-from .send_msg import bot_send
+from .send_msg import bot_send, bot_mixed_send
 from .utils import _check_session_handler
 from ..data.data_source import model_get_temp_image_path, dict_get_or_set_user_info, model_get_all_top_all
 from ..s3s.splatoon import Splatoon
@@ -67,8 +67,17 @@ async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
     elif player_idx == "-1":
         # 全部玩家，且没有上榜数据
         _msg += f"该局对战未查询到任何玩家上榜数据"
+    if not cmd_message:
+        text_start = f"以下是你全部的上榜记录"
+    else:
+        if get_all:
+            text_start = f"以下是倒数第{battle_idx}局对战，所有玩家的上榜记录"
+        else:
+            # 将1-8 转回 a-h
+            player_idx = chr(player_idx - 1 + ord('a'))
+            text_start = f"以下是倒数第{battle_idx}局对战，玩家{player_idx}的上榜记录"
 
-    await bot_send(bot, event, _msg)
+    await bot_mixed_send(bot, event, _msg, text_start=text_start)
 
 
 async def get_top(bot: Bot, event: Event, battle_idx=None, player_idx=None):
@@ -201,7 +210,8 @@ async def get_top_md(player_code: str | list, player_name=""):
 async def x_top(bot: Bot, event: Event):
     """x_top查询"""
     msg = await get_x_top_msg(bot, event)
-    await bot_send(bot, event, msg)
+    text_start = f"以下是现在各区各模式下世界top1"
+    await bot_mixed_send(bot, event, msg, text_start=text_start)
 
 
 async def get_x_top_msg(bot, event):

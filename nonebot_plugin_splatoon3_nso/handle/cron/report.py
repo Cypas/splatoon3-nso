@@ -37,10 +37,20 @@ async def create_set_report_tasks(is_corn_job=True):
                 "set_report_count": 0,
                 }
 
-    # 阶段1：认证刷新池（并发限制2）
+    # 阶段1：认证刷新池（并发限制6）
     phase1_semaphore = asyncio.Semaphore(6)
-    # 阶段2：报告生成池（并发限制4）
+    # 阶段2：报告生成池（并发限制6）
     phase2_semaphore = asyncio.Semaphore(6)
+    # 阶段2消费者数量（与phase2_semaphore相同）
+    num_consumers = 6
+
+    # 创建队列用于两个阶段之间的通信
+    phase2_queue = asyncio.Queue()
+
+    # 用于跟踪阶段1是否完成的标志
+    phase1_completed = False
+    # 用于跟踪阶段2是否已启动的标志
+    phase2_started = False
 
     # ================== 阶段1：认证刷新 ==================
     async def process_phase1(p_and_id):
@@ -51,7 +61,10 @@ async def create_set_report_tasks(is_corn_job=True):
             # 检查全局缓存
             global_user_info = global_user_info_dict.get(msg_id)
             if global_user_info:
-                return Splatoon(None, None, global_user_info)  # 直接返回已存在的对象
+                splatoon = Splatoon(None, None, global_user_info)  # 直接返回已存在的对象
+                success = await splatoon.test_page()
+                await phase2_queue.put(splatoon)  # 将结果加入队列
+                return splatoon
 
             # 新建cron任务对象
             u = dict_get_or_set_user_info(platform, user_id, _type="cron")
@@ -63,15 +76,12 @@ async def create_set_report_tasks(is_corn_job=True):
                 # 测试访问并刷新
                 # success = await splatoon.test_page()
                 success = await splatoon.refresh_gtoken_and_bullettoken()
+                await phase2_queue.put(splatoon)  # 将结果加入队列
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
                 if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'has be banned']):
                     cron_logger.info(f"跳过无效用户: {msg_id}，reason:{e}")
                     return None
-
-    # 阶段1
-    phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
-    phase1_splatoons = await asyncio.gather(*phase1_tasks)
 
     # ================== 等待 UTC 0 点后再执行阶段2 ==================
     def get_seconds_until_utc_midnight() -> int:
@@ -120,20 +130,9 @@ async def create_set_report_tasks(is_corn_job=True):
             delta = next_midnight - now_utc
             return int(delta.total_seconds())
 
-    # 计算需要等待的秒数
-    wait_seconds = get_seconds_until_utc_midnight()
-    if wait_seconds > 0:
-        cron_logger.info(f"阶段2需等待 UTC 0 点，当前等待秒数：{wait_seconds}s")
-        # 异步等待（不阻塞事件循环）
-        await asyncio.sleep(wait_seconds)
-    else:
-        cron_logger.info("当前已过 UTC 0 点，直接执行阶段2")
-
-    # ================== 阶段2：报告生成 ==================
-    cron_logger.info("create_set_report_tasks phase2_tasks start".center(60, "="))
-    valid_splatoons = [s for s in phase1_splatoons if s is not None]
-
+    # ================== 阶段2：报告生成消费者 ==================
     async def process_phase2(splatoon: Splatoon):
+        """处理单个用户的报告生成任务"""
         async with phase2_semaphore:
             if splatoon is None:
                 return
@@ -155,12 +154,51 @@ async def create_set_report_tasks(is_corn_job=True):
                 if result == "success":
                     counters["set_report_count"] += 1
 
-    # 阶段2
-    phase2_tasks = [process_phase2(s) for s in valid_splatoons]
+    async def phase2_consumer():
+        """消费者：从队列中取出任务并处理"""
+        nonlocal phase2_started
+        phase2_started = True
+        cron_logger.info("create_set_report_tasks phase2_tasks start".center(60, "="))
+
+        # 计算需要等待的秒数
+        wait_seconds = get_seconds_until_utc_midnight()
+        if wait_seconds > 0:
+            cron_logger.info(f"阶段2需等待 UTC 0 点，当前等待秒数：{wait_seconds}s")
+            # 异步等待（不阻塞事件循环）
+            await asyncio.sleep(wait_seconds)
+        else:
+            cron_logger.info("当前已过 UTC 0 点，直接执行阶段2")
+
+        # 处理队列中的所有项目
+        while True:
+            try:
+                # 设置超时以避免无限等待
+                splatoon = await asyncio.wait_for(phase2_queue.get(), timeout=1.0)
+                await process_phase2(splatoon)
+                phase2_queue.task_done()
+            except asyncio.TimeoutError:
+                # 如果超时且阶段1已完成，则退出循环
+                if phase1_completed and phase2_queue.empty():
+                    break
+                # 否则继续等待新项目
+                continue
+
+    # 创建多个阶段2消费者任务以实现并行处理
+    phase2_tasks = [asyncio.create_task(phase2_consumer()) for _ in range(num_consumers)]
+
+    # 执行阶段1任务
+    phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
+    phase1_splatoons = await asyncio.gather(*phase1_tasks)
+
+    # 标记阶段1已完成
+    phase1_completed = True
+
+    # 等待所有阶段2任务完成
     await asyncio.gather(*phase2_tasks)
 
     # 结果报告
     str_time = convert_td(dt.utcnow() - t)
+    valid_splatoons = [s for s in phase1_splatoons if s is not None]
     cron_msg = (f"create_set_report_tasks end: {str_time}\n"
                 f"全部用户: {len(list_user)}\n"
                 f"有效用户: {len(valid_splatoons)}\n"
@@ -186,15 +224,16 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
     """任务: 写用户最后游玩数据及日报数据（精确处理版，修复内存泄漏）"""
     platform, user_id = p_and_id
     msg_id = get_msg_id(platform, user_id)
+    db_id = splatoon.user_db_info.db_id
 
-    cron_logger.info(f'start set_report: {msg_id}, {splatoon.user_name}')
+    cron_logger.info(f'start set_report: {db_id},{msg_id}, {splatoon.user_name}')
     # 再次校验是否有访问权限
     success = False
     try:
         success = await splatoon.test_page()
     except ValueError as e:
         # 预期错误，token更新失败
-        cron_logger.debug(f'set_report error: {msg_id}, {splatoon.user_name},reason：{e}')
+        cron_logger.debug(f'set_report error: {db_id},{msg_id}, {splatoon.user_name},reason：{e}')
         # 失败时立即清理
         await splatoon.close()
         del splatoon
@@ -203,7 +242,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
 
     if not success:
         # 无效token
-        cron_logger.error(f'set_report error: {msg_id}, {splatoon.user_name},refresh_tokens fail')
+        cron_logger.error(f'set_report error: {db_id},{msg_id}, {splatoon.user_name},refresh_tokens fail')
         # 失败时立即清理
         await splatoon.close()
         del splatoon
@@ -278,7 +317,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
                 splatoon.user_db_info.db_id, res_summary, res_coop,
                 last_play_time, splatoon, game_sp_id, all_data
             )
-            cron_logger.info(f'set_user_report_task success: {msg_id}')
+            cron_logger.info(f'set_user_report_task success: {db_id},{msg_id},{splatoon.user_name}')
             # 成功
             return "success"
 
@@ -408,11 +447,13 @@ async def send_report_task():
         if user.platform == "QQ" or not user.report_notify:
             continue
         counters["can_send_report_count"] += 1
-        # 每次循环强制睡眠0.5s，使一分钟内不超过120次发信阈值
-        await asyncio.sleep(0.5)
+        # 每次循环强制睡眠0.1s，使一分钟内不超过120次发信阈值
+        await asyncio.sleep(0.1)
         try:
             msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:
+                # 主动推送的日报，仍使用纯文本，kook则使用md结构，用户主动查询的才用图片
+                msg = f'```\n{msg}```'
                 # 写日志
                 log_msg = msg.replace('\n', '')
                 report_logger.info(f"get db_id:{user.id},msg_id:{msg_id} report：{log_msg}")
@@ -425,7 +466,7 @@ async def send_report_task():
             if e.status_code == 40000:
                 if e.message.startswith("无法发起私信"):
                     counters["error_kook_send_limit"] += 1
-                    time.sleep(10)
+                    await asyncio.sleep(10)
                 elif e.message.startswith("你已被对方屏蔽"):
                     model_get_or_set_user(user.platform, user.user_id, stat_notify=0, report_notify=0)
                     cron_logger.warning(

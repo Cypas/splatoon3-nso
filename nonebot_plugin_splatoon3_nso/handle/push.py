@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime as dt, timedelta
 from threading import Lock
+
+from .b_or_c_evaluate_text import get_evaluate_text
 from .b_or_c_tools import PushStatistics
 from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, PUSH_INTERVAL
@@ -25,6 +27,8 @@ is_running_lock = Lock()  # 全局锁
 @matcher_start_push.handle(parameterless=[Depends(_check_session_handler)])
 async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
     if isinstance(bot, QQ_Bot):
         # 发送md引流到kook
         if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
@@ -250,7 +254,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
             logger.info(
                 f"push too much error,auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
-            await bot_send(bot, event, message=msg, skip_log_cmd=True)
+            await bot_send(bot, event, message=msg)
             msg = f"#{msg_id} {user.game_name or ''}\n 连续多次请求报错，停止推送，推送持续 {push_time_minute}分钟"
             await notify_to_channel(msg)
             with is_running_lock:
@@ -286,7 +290,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                 logger.info(
                     f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
-                await bot_send(bot, event, message=msg, skip_log_cmd=True)
+                await bot_send(bot, event, message=msg)
                 with is_running_lock:
                     is_running_dict.pop(msg_id)
                 if user.stat_key:
@@ -306,11 +310,15 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
         logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
         job_data.update({"last_battle_id": battle_id})
 
-        msg = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
+        msg, detail = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
                                  get_screenshot=get_screenshot, mask=mask)
 
         image_width = 680
-        r = await bot_send(bot, event, message=msg, image_width=image_width, skip_log_cmd=True)
+        evaluate_text = await get_evaluate_text(is_battle, detail)
+        # 将评价文本也拼接在图片里面
+        if evaluate_text and msg.startswith("#### "):
+            msg += f"</br>小鱿鱿的嘴替或评价是: {evaluate_text}"
+        r = await bot_send(bot, event, message=msg, image_width=image_width)
 
         # tg撤回上一条push的消息
         if job_data.get('channel_id') and r:

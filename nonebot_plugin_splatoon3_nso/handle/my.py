@@ -8,8 +8,9 @@ from pathlib import Path
 import unicodedata
 from nonebot import on_keyword
 
-from .send_msg import bot_send
+from .send_msg import bot_send, bot_send_more_nso_help_md, bot_mixed_send
 from .utils import _check_session_handler
+from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
     model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict, \
     model_get_all_top_all
@@ -36,7 +37,9 @@ async def me(bot: Bot, event: Event):
         from_group = True
 
     msg = await get_me(bot, event, from_group)
-    await bot_send(bot, event, msg, image_width=450)
+
+    text_start = f"以下是喷3个人总览数据"
+    await bot_mixed_send(bot, event, msg, image_width=450, text_start=text_start)
 
 
 async def get_me(bot, event, from_group):
@@ -338,7 +341,8 @@ async def friends(bot: Bot, event: Event):
     splatoon = Splatoon(bot, event, user)
     msg = await get_friends_md(splatoon)
 
-    await bot_send(bot, event, msg, image_width=600)
+    text_start = f"以下是喷3好友的在线情况数据"
+    await bot_mixed_send(bot, event, msg, image_width=600, text_start=text_start)
 
 
 async def get_friends_md(splatoon, lang='zh-CN'):
@@ -400,7 +404,9 @@ async def ns_friends(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id)
     splatoon = Splatoon(bot, event, user)
     msg = await get_ns_friends_md(splatoon)
-    await bot_send(bot, event, msg, image_width=680)
+
+    text_start = f"以下是ns好友的在线情况数据"
+    await bot_mixed_send(bot, event, msg, image_width=680, text_start=text_start)
 
 
 async def get_ns_friends_md(splatoon: Splatoon):
@@ -692,7 +698,8 @@ async def my_icon(bot: Bot, event: Event, args: Message = CommandArg()):
     else:
         msg = msg_error
 
-    await bot_send(bot, event, message=msg)
+    text_start = f"以下是你的ns头像"
+    await bot_mixed_send(bot, event, message=msg, text_start=text_start)
 
 
 @on_keyword({"我已知晓nso查询使用了第三方接口的风险并重新启用nso查询"}, block=True).handle()
@@ -864,3 +871,23 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
         NSO_WEB_CACHE_DICT[msg_id] = d
         msg3 = f"xyy-nsoweb-{secret_code}"
         await bot_send(bot, event, message=msg3, skip_ad=True)
+
+
+@on_command("更多nso指令", block=True).handle()
+async def more_nso_help(bot: Bot, event: Event, args: Message = CommandArg()):
+    """发送更多nso帮助的二级md菜单"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    if isinstance(bot, QQ_Bot):
+        if plugin_config.splatoon3_qq_md_mode:
+            # 发送md
+            if isinstance(event, QQ_C2CME):
+                user_id = ""
+            # 发送md
+            await bot_send_more_nso_help_md(bot, event, user_id)
+            return
+        else:
+            # 发送文本
+            msg = "未开启md模版选项，二级md菜单功能不可用"
+            await bot_send(bot, event, msg)
+            return

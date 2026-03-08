@@ -1,4 +1,4 @@
-from .send_msg import bot_send
+from .send_msg import bot_send, bot_mixed_send
 from .utils import _check_session_handler
 from ..data.data_source import dict_get_or_set_user_info
 from ..s3s.iksm import S3S
@@ -52,7 +52,8 @@ async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = 
     except Exception as e:
         logger.exception(e)
         message = "bot网络错误，请稍后再试"
-    await bot_send(bot, event, message=message, skip_ad=True)
+    text_start = f"以下是 {key} 页面的nso截图"
+    await bot_mixed_send(bot, event, message=message, skip_ad=True, text_start=text_start)
     if isinstance(message, bytes):
         msg2 = "你也可以私聊小鱿鱿试试新功能 /nso网页版"
         await bot_send(bot, event, message=msg2, skip_ad=True)

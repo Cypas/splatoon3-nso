@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from .qq_md import last_md, login_md, c2c_login_md, push_md
+from .qq_md import nso_general_md, login_md, c2c_login_md, push_md, more_nso_help_md, report_md, new_user_added_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
 from ..config import plugin_config
@@ -129,7 +129,25 @@ async def notify_to_private(platform: str, user_id: str, msg: str):
         await send_private_msg(bot, user_id, msg)
 
 
-async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name="", image_width=None, skip_log_cmd=True,
+async def bot_mixed_send(bot: Bot, event: Event, message: str | bytes = "", file_name: str = "",
+                         image_width: int = None,
+                         skip_ad: bool = False, text_start: str = "", text_end: str = "") -> None:
+    """混合发信函数  使用通用nso md模版
+    主要是在bot_send函数基础上，自动判断qq平台是否通过md消息进行发送
+    """
+    user_id = event.get_user_id()
+    if isinstance(bot, QQ_Bot) and plugin_config.splatoon3_qq_md_mode:
+        if isinstance(event, QQ_C2CME):
+            user_id = ""
+        # 这里存在 /last ss 的情况，msg值实际为bytes
+        await bot_send_nso_md(bot, event, message, user_id, image_width=image_width, skip_ad=skip_ad,
+                              text_start=text_start,
+                              text_end=text_end)
+    else:
+        await bot_send(bot, event, message, image_width=image_width, skip_ad=skip_ad)
+
+
+async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name="", image_width=None,
                    QQ_md=None, skip_ad=False):
     """综合发信函数
     如果为bytes模式时传递了filename,改为文件模式执行上传
@@ -157,14 +175,18 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
             # 需要图片的md消息
             md_type = QQ_md.get("md_type")
             user_id = QQ_md.get("user_id")
+            text_start = QQ_md.get("text_start")
+            text_end = QQ_md.get("text_end")
             if md_type:
                 # 获取图片url
                 url, image_size = await get_image_url_and_size(img_data)
                 # 根据不同type渲染不同md
                 qq_md_msg = ""
                 match md_type:
-                    case "last":
-                        qq_md_msg = await last_md(user_id, image_size=image_size, url=url)
+                    case "nso_general":
+                        # nso查询通用的md
+                        qq_md_msg = await nso_general_md(user_id, image_size=image_size, url=url, text_start=text_start,
+                                                         text_end=text_end)
                 try:
                     await bot.send(event, qq_md_msg)
                 except QQ_ActionFailed as e:
@@ -173,8 +195,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
                     else:
                         logger.warning(f"QQ send msg error: {e}")
 
-        # if not kwargs.get('skip_log_cmd'):
-        #     await log_cmd_to_db(bot, event)
+
     else:
         # 下面为文字消息
         try:
@@ -187,32 +208,59 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
             else:
                 logger.warning(f"QQ send msg error: {e}")
 
-        # if not kwargs.get('skip_log_cmd'):
-        #     await log_cmd_to_db(bot, event)
 
-
-async def bot_send_last_md(bot: Bot, event: Event, message: str | bytes, user_id: str, image_width=None):
-    """发送qq md消息"""
-    QQ_md = {"md_type": "last",
-             "user_id": user_id}
-    await bot_send(bot, event, message, image_width=image_width, QQ_md=QQ_md)
+async def bot_send_nso_md(bot: Bot, event: Event, message: str | bytes, user_id: str, image_width=None, skip_ad=False,
+                          text_start="", text_end=""):
+    """发送nso通用的 qq md消息"""
+    qq_md = {"md_type": "nso_general",
+             "user_id": user_id,
+             "text_start": text_start,
+             "text_end": text_end
+             }
+    await bot_send(bot, event, message, image_width=image_width, QQ_md=qq_md, skip_ad=skip_ad)
 
 
 async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=False):
     """发送login md消息"""
-    qq_msg = login_md(user_id, check_session=check_session)
+    qq_msg = await login_md(user_id, check_session=check_session)
     await bot.send(event, qq_msg)
 
 
-async def bot_send_push_md(bot: Bot, event: Event, user_id: str):
-    """发送push引流kook md消息"""
-    qq_msg = push_md(user_id)
+async def bot_send_push_md(bot: Bot, event: Event, user_id: str, skip_ad=False):
+    """发送push引流至kook的 qq md消息"""
+    qq_msg = await push_md(user_id)
+    await bot.send(event, qq_msg)
+
+
+async def bot_mixed_send_report(bot: Bot, event: Event, title: str, msg: str):
+    """混合发送日报 函数
+    主要是在bot_send函数基础上，自动判断qq平台是否通过md消息进行发送
+    """
+    user_id = event.get_user_id()
+    if isinstance(bot, QQ_Bot) and plugin_config.splatoon3_qq_md_mode:
+        if isinstance(event, QQ_C2CME):
+            user_id = ""
+        qq_msg = await report_md(user_id, title, msg)
+        await bot.send(event, qq_msg)
+    else:
+        await bot_send(bot, event, msg)
+
+
+async def bot_send_new_user_added_md(bot: Bot, event: Event, user_id: str, title: str, msg: str, skip_ad=False):
+    """发送nso菜单的二级按钮选项"""
+    qq_msg = await new_user_added_md(user_id, title, msg)
+    await bot.send(event, qq_msg)
+
+
+async def bot_send_more_nso_help_md(bot: Bot, event: Event, user_id: str, skip_ad=False):
+    """发送nso菜单的二级按钮选项"""
+    qq_msg = await more_nso_help_md(user_id)
     await bot.send(event, qq_msg)
 
 
 async def bot_send_login_url_md(bot: Bot, event: Event, url):
     """发送url md消息"""
-    qq_msg = c2c_login_md(url)
+    qq_msg = await c2c_login_md(url)
     await bot.send(event, qq_msg)
 
 

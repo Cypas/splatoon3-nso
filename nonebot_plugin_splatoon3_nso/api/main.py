@@ -9,6 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from ..utils.utils import DIR_RESOURCE, get_jwt_exp_info
 from ..utils.redis import api_rget_json_file_name, api_rdel_json_file_name, api_rget_info
 
+### bot.py 中启动fastapi
+# nonebot.init()
+# asgi = nonebot.get_asgi()
+# driver = nonebot.get_driver()
+# driver.register_adapter(OneBotV11Adapter)
+# nonebot.load_plugins("plugins")
+# asgi.mount("/api", fastapi_app)
+###
+
 fast_logger = logger.bind(fastapi=True)
 app = FastAPI(
     title="小鱿鱿外部fastapi接口",

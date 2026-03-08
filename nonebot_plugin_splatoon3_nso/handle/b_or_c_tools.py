@@ -524,3 +524,4 @@ class PushStatistics:
         msg += "```"
 
         return msg
+
