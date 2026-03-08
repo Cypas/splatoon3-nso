@@ -241,9 +241,9 @@ class BattleResultProcessor:
         能进入这个函数，self.my_team_disconnected_count必然不为0了"""
         # 定义所有可能的评价语句及其条件
         evaluations = [
-            {"text": ["rtt修修你那破网吧", "3打4怎么可能赢呢？", "至少不用扣分了", "不如去打工吧", "难道是有人裸连打喷"],
+            {"text": ["rtt修修你那破网吧", "至少不用扣分了", "不如去打工吧", "难道是有人裸连打喷"],
              "condition": None},
-            {"text": [f"{4 - self.my_team_disconnected_count}打4这也太难了"],
+            {"text": [f"{4 - self.my_team_disconnected_count}打4这也太难了",f"{4 - self.my_team_disconnected_count}打4怎么可能赢呢？"],
              "condition": lambda: not self.other_team_disconnected_count, "weight": 4},
             {"text": [
                 f"怎么突然变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，rtt全责"],
