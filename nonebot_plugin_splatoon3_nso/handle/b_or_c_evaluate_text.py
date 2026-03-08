@@ -34,6 +34,8 @@ class BattleResultProcessor:
         score_diff_is_1: 我方队伍分数和对方分数相差数值为1且不为0
         is_thursday: 今天是否是星期四
         my_kd_under_1: 自己kd是否小于1
+        my_team_disconnected_count: 我方队伍掉线人数
+        other_team_disconnected_count: 对方队伍掉线人数
 
     Args:
         my_data: 玩家数据字典，包含武器名称等信息
@@ -78,6 +80,10 @@ class BattleResultProcessor:
         self.is_thursday = stats.get('is_thursday', False)
         # 14.自己kd是否小于1
         self.my_kd_under_1 = stats.get('my_kd_under_1', False)
+        # 15.我方队伍掉线人数
+        self.my_team_disconnected_count = stats.get('my_team_disconnected_count', 0)
+        # 16.对方队伍掉线人数
+        self.other_team_disconnected_count = stats.get('other_team_disconnected_count', 0)
 
     @staticmethod
     def _select_evaluation(evaluations):
@@ -116,7 +122,7 @@ class BattleResultProcessor:
         """
         # 定义所有可能的评价语句及其条件
         evaluations = [
-            {"text": ["超鱿型！！！", "超绝完胜！！", "YYYYY！！", "你跟队友出色的配合，可以驾驶eva了",
+            {"text": ["超绝完胜！！", "YYYYY！！", "你跟队友出色的配合，可以驾驶eva了",
                       "此地图已经完全被你们占领了！"],
              "condition": lambda: is_clean_sweep},
             {"text": [f"{self.my_weapon_name}大人太强了！！"],
@@ -131,7 +137,7 @@ class BattleResultProcessor:
              "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1},
             {"text": ["太强了，如果你是我队友我会直接穿上婚纱", "太强了，我本来也打算打成这样的"],
              "condition": lambda: self.i_am_max_kill and self.my_kill_over_20},
-            {"text": ["好鱿章法！", "手感好好！"], "condition": None},
+            {"text": ["好鱿章法！", "手感好好！", "超鱿型！！！"], "condition": None},
             {"text": [f"kd神!竟然已经{self.my_kd}kd了"], "condition": lambda: self.my_kd_over_5 and self.i_am_max_kd},
             {"text": [f"kill神!竟然已经{self.my_kill}kill了"],
              "condition": lambda: self.my_kill_over_20 and self.i_am_max_kill},
@@ -140,6 +146,13 @@ class BattleResultProcessor:
              "condition": lambda: self.my_weapon_name.startswith("斯普拉射击枪") and self.my_kill_over_20},
             {"text": ["超解一时爽，一直超解一直爽！！"],
              "condition": lambda: self.my_weapon_name.startswith("可变形滚筒") and self.my_kill_over_20},
+            {"text": [f"{4 - self.my_team_disconnected_count}打4赢了也太强了"],
+             "condition": lambda: self.my_team_disconnected_count and not self.other_team_disconnected_count},
+            {"text": [
+                f"怎么突然变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，好诶"],
+                "condition": lambda: self.my_team_disconnected_count and self.other_team_disconnected_count},
+            {"text": ["太刺激了，一分险胜", "老大绝境翻盘了喵！"],
+             "condition": lambda: self.score_diff_is_1},
         ]
 
         return self._select_evaluation(evaluations)
@@ -178,6 +191,13 @@ class BattleResultProcessor:
              "condition": lambda: self.other_team_has_x_my_team_no_x == 2},
             {"text": ["我打银X？真的假的"],
              "condition": lambda: self.other_team_has_x_my_team_no_x == 1},
+            {"text": [f"{4 - self.my_team_disconnected_count}打4这也太难了"],
+             "condition": lambda: self.my_team_disconnected_count and not self.other_team_disconnected_count},
+            {"text": [
+                f"怎么突然变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，rtt全责"],
+                "condition": lambda: self.my_team_disconnected_count and self.other_team_disconnected_count},
+            {"text": ["就差一分！！！好气啊！！", "这也能翻盘？"],
+             "condition": lambda: self.score_diff_is_1},
         ]
 
         # 60%概率使用条件评价，40%概率使用随机借口
@@ -195,7 +215,6 @@ class BattleResultProcessor:
                 if evaluation:
                     return evaluation
                 else:
-                    print(f"没有满足条件的评价语句，使用随机借口")
                     return get_random_excuse(seed)
             else:
                 return get_random_excuse(seed)
@@ -282,6 +301,7 @@ async def get_evaluate_text(is_battle, detail):
         """
         # 安全获取result数据
         result = p.get('result') if p else None
+        is_disconnected = result is None  # 如果result为None，表示玩家掉线
         if not result:
             result = {"kill": 0, "death": 0, "assist": 0, "special": 0}
 
@@ -299,6 +319,7 @@ async def get_evaluate_text(is_battle, detail):
             "weapon_name": weapon.get('name', ''),  # 武器名称
             "weapon_id": weapon.get('id', ''),  # 武器ID
             "is_myself": is_myself,  # 是否是自己
+            "is_disconnected": is_disconnected,  # 是否掉线
         }
         player_code, player_name = get_game_sp_id_and_name(p)
         # X 五百强分数
@@ -320,6 +341,7 @@ async def get_evaluate_text(is_battle, detail):
         max_kill = 0
         max_kd_is_myself = False
         max_kill_is_myself = False
+        disconnected_count = 0  # 掉线人数，默认值为0
 
         for player in team_data:
             # 检查是否有金X (假设数据中有is_gold_x字段或类似标识)
@@ -328,6 +350,10 @@ async def get_evaluate_text(is_battle, detail):
             # 检查是否有银X (假设数据中有is_silver_x字段或类似标识)
             if player.get('is_silver_x', False):
                 has_silver_x = True
+
+            # 检查是否掉线
+            if player.get('is_disconnected', False):
+                disconnected_count += 1
 
             # 计算并更新最高KD (假设数据中有kill和death字段)
             if player.get('death', 0) > 0:
@@ -347,7 +373,8 @@ async def get_evaluate_text(is_battle, detail):
             'max_kd': round(max_kd, 1),
             'max_kill': max_kill,
             'max_kd_is_myself': max_kd_is_myself,
-            'max_kill_is_myself': max_kill_is_myself
+            'max_kill_is_myself': max_kill_is_myself,
+            'disconnected_count': disconnected_count  # 掉线人数
         }
 
     judgement = detail.get("judgement")  # 比赛结果
@@ -390,7 +417,9 @@ async def get_evaluate_text(is_battle, detail):
             'i_have_zero_death': False,  # 11.自己是否0死亡，my_d为0
             'score_diff_is_1': False,  # 12.我方队伍分数和对方分数相差数值为1
             'is_thursday': False,  # 13.今天是否是星期四,0是周一，3是周四
-            'my_kd_under_1': False  # 14.自己kd是否小于1
+            'my_kd_under_1': False,  # 14.自己kd是否小于1
+            'my_team_disconnected_count': 0,  # 15.我方队伍掉线人数
+            'other_team_disconnected_count': 0  # 16.对方队伍掉线人数
         }
 
         # 1.自己队伍是否有金x或银x，且对面没有任何金x银x
@@ -460,6 +489,12 @@ async def get_evaluate_text(is_battle, detail):
             my_kd = my_data.get('kill', 0) / my_data.get('death', 1)
             if my_kd < 1:
                 stats['my_kd_under_1'] = True
+
+        # 15.我方队伍掉线人数
+        stats['my_team_disconnected_count'] = my_team_analysis.get('disconnected_count', 0)
+
+        # 16.对方队伍掉线人数
+        stats['other_team_disconnected_count'] = other_team_analysis.get('disconnected_count', 0)
 
         return stats
 
