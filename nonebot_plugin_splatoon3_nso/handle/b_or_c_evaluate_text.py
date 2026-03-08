@@ -90,30 +90,33 @@ class BattleResultProcessor:
         """从评价语句列表中选择一条满足条件的评价语句
 
         Args:
-            evaluations: 评价语句列表，每个元素包含text和condition字段
+            evaluations: 评价语句列表，每个元素包含text、condition和weight字段
 
         Returns:
             评价语句文本，如果没有满足条件的评价语句则返回空字符串
         """
-        # 筛选出满足条件的评价语句的文本
+        # 筛选出满足条件的评价语句
         valid_evaluations = []
         for e in evaluations:
             if e["condition"] is None or (callable(e["condition"]) and e["condition"]()):
-                # 如果text是列表，则将每个文本项都添加到valid_evaluations中
-                if isinstance(e["text"], list):
-                    valid_evaluations.extend(e["text"])
-                else:
-                    valid_evaluations.append(e["text"])
+                valid_evaluations.append(e)
 
-        # 打印满足条件的文本
-        print(f"满足条件的评价文本: {valid_evaluations}")
-
-        # 如果有满足条件的评价语句，随机选择一条
-        if valid_evaluations:
-            return random.choice(valid_evaluations)
+        # 打印满足条件的评价语句
+        # print(f"满足条件的评价语句: {valid_evaluations}")
 
         # 如果没有满足条件的评价语句，返回空字符串
-        return ""
+        if not valid_evaluations:
+            return ""
+
+        # 根据权重随机选择评价语句
+        weights = [e.get('weight', 1) for e in valid_evaluations]
+        selected_evaluation = random.choices(valid_evaluations, weights=weights, k=1)[0]
+
+        # 从选中的评价语句中随机选择一个文本
+        if isinstance(selected_evaluation["text"], list):
+            return random.choice(selected_evaluation["text"])
+        else:
+            return selected_evaluation["text"]
 
     def _get_win_evaluations(self, is_clean_sweep=False):
         """获取评价语句及其条件
@@ -124,35 +127,39 @@ class BattleResultProcessor:
         evaluations = [
             {"text": ["超绝完胜！！", "YYYYY！！", "你跟队友出色的配合，可以驾驶eva了",
                       "此地图已经完全被你们占领了！"],
-             "condition": lambda: is_clean_sweep},
+             "condition": lambda: is_clean_sweep, "weight": 5},
             {"text": [f"{self.my_weapon_name}大人太强了！！"],
-             "condition": lambda: self.i_am_max_kill and self.i_am_max_kd},
+             "condition": lambda: self.i_am_max_kill and self.i_am_max_kd, "weight": 5},
             {"text": ["又躺赢了", "我去完全躺赢", "我们四个太强了！"],
-             "condition": lambda: self.i_am_last_contributor},
+             "condition": lambda: self.i_am_last_contributor, "weight": 5},
             {"text": ["带飞队友咯", "不愧是我，我真是太强了"],
-             "condition": lambda: self.i_am_max_kill},
+             "condition": lambda: self.i_am_max_kill, "weight": 5},
             {"text": ["绝对的强者，由此而生的孤独，教会你爱的将会是！？"],
-             "condition": lambda: self.i_am_max_kill and self.i_am_max_kd and self.my_kill_over_20},
+             "condition": lambda: self.i_am_max_kill and self.i_am_max_kd and self.my_kill_over_20, "weight": 20},
             {"text": ["老大能加你吗？你上线我上线", "老大请用力地揍我...！", "你不许排我对面……", "有手就行嗷"],
-             "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1},
+             "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1, "weight": 10},
             {"text": ["太强了，如果你是我队友我会直接穿上婚纱", "太强了，我本来也打算打成这样的"],
-             "condition": lambda: self.i_am_max_kill and self.my_kill_over_20},
+             "condition": lambda: self.i_am_max_kill and self.my_kill_over_20, "weight": 10},
             {"text": ["好鱿章法！", "手感好好！", "超鱿型！！！"], "condition": None},
-            {"text": [f"kd神!竟然已经{self.my_kd}kd了"], "condition": lambda: self.my_kd_over_5 and self.i_am_max_kd},
+            {"text": [f"kd神!竟然已经{self.my_kd}kd了"], "condition": lambda: self.my_kd_over_5 and self.i_am_max_kd,
+             "weight": 20},
             {"text": [f"kill神!竟然已经{self.my_kill}kill了"],
-             "condition": lambda: self.my_kill_over_20 and self.i_am_max_kill},
-            {"text": ["你简直是天选海产，竟然全程0死亡"], "condition": lambda: self.i_have_zero_death},
+             "condition": lambda: self.my_kill_over_20 and self.i_am_max_kill, "weight": 20},
+            {"text": ["你简直是天选海产，竟然全程0死亡"], "condition": lambda: self.i_have_zero_death, "weight": 20},
             {"text": ["看来是相同类型的替身呢！难怪你也这么强"],
-             "condition": lambda: self.my_weapon_name.startswith("斯普拉射击枪") and self.my_kill_over_20},
+             "condition": lambda: self.my_weapon_name.startswith("斯普拉射击枪") and self.my_kill_over_20,
+             "weight": 30},
             {"text": ["超解一时爽，一直超解一直爽！！"],
-             "condition": lambda: self.my_weapon_name.startswith("可变形滚筒") and self.my_kill_over_20},
+             "condition": lambda: self.my_weapon_name.startswith("可变形滚筒") and self.my_kill_over_20, "weight": 30},
             {"text": [f"{4 - self.my_team_disconnected_count}打4赢了也太强了"],
-             "condition": lambda: self.my_team_disconnected_count and not self.other_team_disconnected_count},
+             "condition": lambda: self.my_team_disconnected_count and not self.other_team_disconnected_count,
+             "weight": 90},
             {"text": [
                 f"怎么突然变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，好诶"],
-                "condition": lambda: self.my_team_disconnected_count and self.other_team_disconnected_count},
+                "condition": lambda: self.my_team_disconnected_count and self.other_team_disconnected_count,
+                "weight": 50},
             {"text": ["太刺激了，一分险胜", "老大绝境翻盘了喵！"],
-             "condition": lambda: self.score_diff_is_1},
+             "condition": lambda: self.score_diff_is_1, "weight": 90},
         ]
 
         return self._select_evaluation(evaluations)
@@ -173,31 +180,28 @@ class BattleResultProcessor:
              "condition": lambda: self.my_weapon_name.startswith("四重弹跳手枪") and self.i_am_max_kill},
             {"text": ["救救我救救我救救我救救我", "elo大人我的春天何时才能到来阿…", "拼尽全力无法战胜", "野人不配赢",
                       "rtt修修你的匹配吧🙏😭🙏😭🙏", "燃尽了………", "太努力了……rtt欠你一把完胜"],
-             "condition": lambda: self.i_am_max_kill and self.i_am_first_contributor and self.i_have_three_gold},
+             "condition": lambda: self.i_am_max_kill and self.i_am_first_contributor and self.i_have_three_gold,
+             "weight": 50},
             {"text": ["elo大人下把该轮到我赢了吧！", "这能输？", "这对吗？", ],
-             "condition": lambda: self.i_am_max_kill},
+             "condition": lambda: self.i_am_max_kill, "weight": 5},
             {"text": ["野人少死一点能赢", "野人全责", "拼尽全力无法战胜", "老大没事吧喵", "老大要不去打工吧喵",
                       "拼尽全力无法战胜"],
              "condition": None},
             {"text": ["今天没吃疯狂星期四，打喷没力气"],
-             "condition": lambda: self.is_thursday},
+             "condition": lambda: self.is_thursday, "weight": 10},
             {"text": ["队友是人吗"],
-             "condition": lambda: self.i_am_max_kill and self.my_kill_over_20 and self.i_am_first_contributor and self.i_have_three_gold and self.i_am_max_kd},
+             "condition": lambda: self.i_am_max_kill and self.my_kill_over_20 and self.i_am_first_contributor and self.i_have_three_gold and self.i_am_max_kd,
+             "weight": 90},
             {"text": ["你那金X不如给我戴"],
-             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 2},
+             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 2, "weight": 20},
             {"text": ["你那银X不如给我戴"],
-             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 1},
+             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 1, "weight": 20},
             {"text": ["我打金X？真的假的"],
-             "condition": lambda: self.other_team_has_x_my_team_no_x == 2},
+             "condition": lambda: self.other_team_has_x_my_team_no_x == 2, "weight": 20},
             {"text": ["我打银X？真的假的"],
-             "condition": lambda: self.other_team_has_x_my_team_no_x == 1},
-            {"text": [f"{4 - self.my_team_disconnected_count}打4这也太难了"],
-             "condition": lambda: self.my_team_disconnected_count and not self.other_team_disconnected_count},
-            {"text": [
-                f"怎么突然变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，rtt全责"],
-                "condition": lambda: self.my_team_disconnected_count and self.other_team_disconnected_count},
+             "condition": lambda: self.other_team_has_x_my_team_no_x == 1, "weight": 20},
             {"text": ["就差一分！！！好气啊！！", "这也能翻盘？"],
-             "condition": lambda: self.score_diff_is_1},
+             "condition": lambda: self.score_diff_is_1, "weight": 90},
         ]
 
         # 60%概率使用条件评价，40%概率使用随机借口
@@ -233,11 +237,17 @@ class BattleResultProcessor:
         return self._select_evaluation(evaluations)
 
     def process_exempted_lose(self):
-        """处理队友掉线情况"""
+        """处理队友掉线情况，算作失败，但豁免惩罚
+        能进入这个函数，self.my_team_disconnected_count必然不为0了"""
         # 定义所有可能的评价语句及其条件
         evaluations = [
             {"text": ["rtt修修你那破网吧", "3打4怎么可能赢呢？", "至少不用扣分了", "不如去打工吧", "难道是有人裸连打喷"],
              "condition": None},
+            {"text": [f"{4 - self.my_team_disconnected_count}打4这也太难了"],
+             "condition": lambda: not self.other_team_disconnected_count, "weight": 4},
+            {"text": [
+                f"怎么突然变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，rtt全责"],
+                "condition": lambda: self.other_team_disconnected_count, "weight": 2},
         ]
 
         return self._select_evaluation(evaluations)
@@ -247,7 +257,7 @@ class BattleResultProcessor:
         # 定义所有可能的评价语句及其条件
         evaluations = [
             {"text": ["海产嘉宾遗憾离场…", "求别掉", "rrt的土豆服务器太拉了", "rtt在浪费海产的时间！", "不如来跳舞吧～",
-                      "不如来一局占斗士吧", "不如去打工吧"],
+                      "不如来一局占斗士吧", "不如去打工吧", "又白打了...."],
              "condition": None},
         ]
 
