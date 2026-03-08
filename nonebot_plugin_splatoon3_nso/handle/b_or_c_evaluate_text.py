@@ -2,6 +2,8 @@ import random
 import time
 from datetime import datetime as dt
 
+from nonebot import logger
+
 from .utils import get_game_sp_id_and_name
 from ..data.data_source import model_get_top_player
 from ..utils.excuse_generator import get_random_excuse
@@ -114,9 +116,13 @@ class BattleResultProcessor:
 
         # 从选中的评价语句中随机选择一个文本
         if isinstance(selected_evaluation["text"], list):
-            return random.choice(selected_evaluation["text"])
+            text = random.choice(selected_evaluation["text"])
+            logger.info(f'对战评价语为 {text}')
+            return text
         else:
-            return selected_evaluation["text"]
+            text = selected_evaluation["text"]
+            logger.info(f'对战评价语为 {text}')
+            return text
 
     def _get_win_evaluations(self, is_clean_sweep=False):
         """获取评价语句及其条件
@@ -388,8 +394,8 @@ async def get_evaluate_text(is_battle, detail):
         }
 
     judgement = detail.get("judgement")  # 比赛结果
-    my_score = detail.get("myTeam").get("result").get("score", 0)  # 我方比分
-    other_score = detail.get("otherTeams")[0].get("result").get("score", 0)  # 对方比分
+    my_score = detail.get("myTeam",{}).get("result",{}).get("score", 0)  # 我方比分
+    other_score = detail.get("otherTeams")[0].get("result",{}).get("score", 0)  # 对方比分
     # 我方队伍和地方队伍数据
     my_team_players_list = detail.get("myTeam").get("players")
     other_team_players = detail.get("otherTeams")[0].get("players")
