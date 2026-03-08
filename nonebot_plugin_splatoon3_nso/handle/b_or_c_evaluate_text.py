@@ -46,9 +46,9 @@ class BattleResultProcessor:
 
     def __init__(self, my_data, stats):
         self.my_data = my_data
-        self.my_weapon_name: str = my_data.get('weapon_name', '')
-        self.my_kill = my_data.get('kill', 0)
-        self.my_kd = my_data.get('kd', 0)
+        self.my_weapon_name: str = my_data.get('weapon_name', '') if my_data else ''
+        self.my_kill = my_data.get('kill', 0) if my_data else 0
+        self.my_kd = my_data.get('kd', 0) if my_data else 0
         self.stats = stats
 
         # 将stats中的每个值解析为类的属性
@@ -285,9 +285,13 @@ async def get_evaluate_text(is_battle, detail):
     if not detail:
         return ""
     # 这里detail是该次对局的 battle详情或coop详情数据
-    detail = detail['data']['vsHistoryDetail']
+    data = detail.get('data', {})
+    detail = data.get('vsHistoryDetail')
+    if not detail:
+        return ""
     # 排除掉任何祭典对局
-    mode = detail['vsMode']['mode']
+    vs_mode = detail.get('vsMode', {})
+    mode = vs_mode.get('mode', '')
     if mode == "FEST":
         return ""
     # 排除私房
@@ -394,8 +398,15 @@ async def get_evaluate_text(is_battle, detail):
         }
 
     judgement = detail.get("judgement")  # 比赛结果
-    my_score = detail.get("myTeam",{}).get("result",{}).get("score", 0)  # 我方比分
-    other_score = detail.get("otherTeams")[0].get("result",{}).get("score", 0)  # 对方比分
+    # 处理我方比分，兼容result层可能不存在或为None的情况
+    my_team = detail.get("myTeam", {})
+    my_result = my_team.get("result") if isinstance(my_team, dict) else None
+    my_score = my_result.get("score", 0) if my_result and isinstance(my_result, dict) else 0
+    # 处理对方比分，兼容result层可能不存在或为None的情况
+    other_teams = detail.get("otherTeams", [])
+    other_team = other_teams[0] if other_teams and isinstance(other_teams, list) else {}
+    other_result = other_team.get("result") if isinstance(other_team, dict) else None
+    other_score = other_result.get("score", 0) if other_result and isinstance(other_result, dict) else 0
     # 我方队伍和地方队伍数据
     my_team_players_list = detail.get("myTeam").get("players")
     other_team_players = detail.get("otherTeams")[0].get("players")
