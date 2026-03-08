@@ -20,7 +20,7 @@ async def nso_general_md(user_id, image_size: tuple, url: str, text_start: str =
     text_notice = await get_or_set_plugin_data("splatoon3_bot_notice")
     # 公告消息 作为 text_end
     if text_notice:
-        text_end = md_text_replace(text_notice)
+        text_end = "公告消息:" + md_text_replace(text_notice)
     else:
         if text_end:
             # 公告消息不存在时允许输出自定义文本

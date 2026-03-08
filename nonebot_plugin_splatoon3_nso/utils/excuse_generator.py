@@ -200,9 +200,12 @@ class ExcuseGenerator:
 _excuse_generator = None
 
 
-def get_random_excuse():
+def get_random_excuse(seed=None):
     """
     快速获取一个随机借口
+
+    Args:
+        seed: 可选，随机数种子，用于确保结果可重现
 
     Returns:
         str: 返回一个随机生成的借口文本字符串
@@ -213,6 +216,10 @@ def get_random_excuse():
         "队友太弱"
     """
     global _excuse_generator
+
+    # 如果提供了随机种子，则设置随机种子
+    if seed is not None:
+        random.seed(seed)
 
     # 首次调用时初始化借口生成器
     if _excuse_generator is None:

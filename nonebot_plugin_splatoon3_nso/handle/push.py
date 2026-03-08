@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime as dt, timedelta
 from threading import Lock
+
+from .b_or_c_evaluate_text import get_evaluate_text
 from .b_or_c_tools import PushStatistics
 from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, PUSH_INTERVAL
@@ -312,6 +314,10 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                                  get_screenshot=get_screenshot, mask=mask)
 
         image_width = 680
+        evaluate_text = await get_evaluate_text(is_battle, detail)
+        # 将评价文本也拼接在图片里面
+        if evaluate_text and msg.startswith("#### "):
+            msg += f"</br>小鱿鱿的嘴替或评价是: {evaluate_text}"
         r = await bot_send(bot, event, message=msg, image_width=image_width)
 
         # tg撤回上一条push的消息

@@ -150,26 +150,13 @@ async def bot_added_event(bot: QQ_Bot, event: Event, matcher: Matcher):
            f"在登录nso后还可以提供实时查询对战/打工战绩，好友状态，观星导出等nso查询功能\n"
            f"更多指令可以点击我头像，或是最新版qq在聊天框输入/ 唤起机器人菜单\n")
 
-    if isinstance(event, QQ_GAddEvent):
-        # 群添加
-        if plugin_config.splatoon3_qq_md_mode:
-            if isinstance(event, QQ_FAddEvent):
-                user_id = ""
-            await bot_send_new_user_added_md(bot, event, user_id, title=title, msg=msg)
-        else:
-            msg = f"{title}\n\n{msg}"
-            await bot_send(bot, event, msg)
-    elif isinstance(event, QQ_FAddEvent):
-        if plugin_config.splatoon3_qq_md_mode:
-            qq_msg = await new_user_added_md(user_id, title, msg)
-            # c2c私聊添加
-        else:
-            qq_msg = f"{title}\n\n{msg}"
-        await bot.send_to_c2c(
-            openid=event.get_user_id(),
-            event_id=event.event_id,
-            message=qq_msg
-        )
+    if plugin_config.splatoon3_qq_md_mode:
+        if isinstance(event, QQ_FAddEvent):
+            user_id = ""
+        await bot_send_new_user_added_md(bot, event, user_id, title=title, msg=msg)
+    else:
+        msg = f"{title}\n\n{msg}"
+        await bot_send(bot, event, msg)
 
 
 @driver.on_startup

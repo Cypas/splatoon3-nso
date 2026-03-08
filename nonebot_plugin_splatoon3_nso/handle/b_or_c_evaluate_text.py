@@ -1,4 +1,5 @@
 import random
+import time
 from datetime import datetime as dt
 
 from .utils import get_game_sp_id_and_name
@@ -41,16 +42,18 @@ class BattleResultProcessor:
 
     def __init__(self, my_data, stats):
         self.my_data = my_data
-        self.my_weapon_name = my_data.get('weapon_name', '')
+        self.my_weapon_name: str = my_data.get('weapon_name', '')
         self.my_kill = my_data.get('kill', 0)
         self.my_kd = my_data.get('kd', 0)
         self.stats = stats
 
         # 将stats中的每个值解析为类的属性
         # 1.自己队伍是否有金x或银x，且对面没有任何金x银x
-        self.my_team_has_x_other_team_no_x = stats.get('my_team_has_x_other_team_no_x', False)
+        # 值为0表示没有金x银x，1表示有银x，2表示有金x（同时有金和银时优先金）
+        self.my_team_has_x_other_team_no_x = stats.get('my_team_has_x_other_team_no_x', 0)
         # 2.对面有金x或银x，自己队伍没有金x银x
-        self.other_team_has_x_my_team_no_x = stats.get('other_team_has_x_my_team_no_x', False)
+        # 值为0表示没有金x银x，1表示有银x，2表示有金x（同时有金和银时优先金）
+        self.other_team_has_x_my_team_no_x = stats.get('other_team_has_x_my_team_no_x', 0)
         # 3.自己队伍以及自己在内kd是否超过5
         self.my_kd_over_5 = stats.get('my_kd_over_5', False)
         # 4.最高kd是否是自己
@@ -76,6 +79,36 @@ class BattleResultProcessor:
         # 14.自己kd是否小于1
         self.my_kd_under_1 = stats.get('my_kd_under_1', False)
 
+    @staticmethod
+    def _select_evaluation(evaluations):
+        """从评价语句列表中选择一条满足条件的评价语句
+
+        Args:
+            evaluations: 评价语句列表，每个元素包含text和condition字段
+
+        Returns:
+            评价语句文本，如果没有满足条件的评价语句则返回空字符串
+        """
+        # 筛选出满足条件的评价语句的文本
+        valid_evaluations = []
+        for e in evaluations:
+            if e["condition"] is None or (callable(e["condition"]) and e["condition"]()):
+                # 如果text是列表，则将每个文本项都添加到valid_evaluations中
+                if isinstance(e["text"], list):
+                    valid_evaluations.extend(e["text"])
+                else:
+                    valid_evaluations.append(e["text"])
+
+        # 打印满足条件的文本
+        print(f"满足条件的评价文本: {valid_evaluations}")
+
+        # 如果有满足条件的评价语句，随机选择一条
+        if valid_evaluations:
+            return random.choice(valid_evaluations)
+
+        # 如果没有满足条件的评价语句，返回空字符串
+        return ""
+
     def _get_win_evaluations(self, is_clean_sweep=False):
         """获取评价语句及其条件
         :param is_clean_sweep: 是否完胜
@@ -83,40 +116,33 @@ class BattleResultProcessor:
         """
         # 定义所有可能的评价语句及其条件
         evaluations = [
-            {"text": "超鱿型！！！", "condition": lambda: is_clean_sweep},
-            {"text": "超绝完胜！！", "condition": lambda: is_clean_sweep},
-            {"text": "YYYYY！！", "condition": lambda: is_clean_sweep},
-            {"text": f"{self.weapon_name}大人太强了！！", "condition": lambda: self.i_am_max_kill and self.i_am_max_kd},
-            {"text": "又躺赢了", "condition": lambda: self.i_am_last_contributor},
-            {"text": "我去完全躺赢", "condition": lambda: self.i_am_last_contributor},
-            {"text": "带飞队友", "condition": lambda: self.i_am_max_kill},
-            {"text": "我们四个太强了！", "condition": lambda: self.i_am_last_contributor},
-            {"text": "绝对的强者，由此而生的孤独，教会你爱的将会是！？",
+            {"text": ["超鱿型！！！", "超绝完胜！！", "YYYYY！！", "你跟队友出色的配合，可以驾驶eva了",
+                      "此地图已经完全被你们占领了！"],
+             "condition": lambda: is_clean_sweep},
+            {"text": [f"{self.my_weapon_name}大人太强了！！"],
+             "condition": lambda: self.i_am_max_kill and self.i_am_max_kd},
+            {"text": ["又躺赢了", "我去完全躺赢", "我们四个太强了！"],
+             "condition": lambda: self.i_am_last_contributor},
+            {"text": ["带飞队友咯", "不愧是我，我真是太强了"],
+             "condition": lambda: self.i_am_max_kill},
+            {"text": ["绝对的强者，由此而生的孤独，教会你爱的将会是！？"],
              "condition": lambda: self.i_am_max_kill and self.i_am_max_kd and self.my_kill_over_20},
-            {"text": "老大能加你吗？你上线我下线", "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1},
-            {"text": "老大请用力地揍我...！", "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1},
-            {"text": "你不许排我对面……", "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1},
-            {"text": "太强了，如果你是我队友我会直接穿上婚纱",
+            {"text": ["老大能加你吗？你上线我上线", "老大请用力地揍我...！", "你不许排我对面……", "有手就行嗷"],
+             "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1},
+            {"text": ["太强了，如果你是我队友我会直接穿上婚纱", "太强了，我本来也打算打成这样的"],
              "condition": lambda: self.i_am_max_kill and self.my_kill_over_20},
-            {"text": "太强了，我本来也打算打成这样的",
-             "condition": lambda: self.i_am_max_kill and self.my_kill_over_20},
-            {"text": "有手就行嗷", "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1},
-            {"text": "好鱿章法！", "condition": None},
-            {"text": "手感好好！", "condition": None},
-            {"text": "你跟队友出色的配合，可以驾驶eva了", "condition": lambda: is_clean_sweep},
-            {"text": "此地图已经完全被你们占领了！", "condition": lambda: is_clean_sweep},
+            {"text": ["好鱿章法！", "手感好好！"], "condition": None},
+            {"text": [f"kd神!竟然已经{self.my_kd}kd了"], "condition": lambda: self.my_kd_over_5 and self.i_am_max_kd},
+            {"text": [f"kill神!竟然已经{self.my_kill}kill了"],
+             "condition": lambda: self.my_kill_over_20 and self.i_am_max_kill},
+            {"text": ["你简直是天选海产，竟然全程0死亡"], "condition": lambda: self.i_have_zero_death},
+            {"text": ["看来是相同类型的替身呢！难怪你也这么强"],
+             "condition": lambda: self.my_weapon_name.startswith("斯普拉射击枪") and self.my_kill_over_20},
+            {"text": ["超解一时爽，一直超解一直爽！！"],
+             "condition": lambda: self.my_weapon_name.startswith("可变形滚筒") and self.my_kill_over_20},
         ]
 
-        # 筛选出满足条件的评价语句
-        valid_evaluations = [e for e in evaluations if
-                             e["condition"] is None or (callable(e["condition"]) and e["condition"]())]
-
-        # 如果有满足条件的评价语句，随机选择一条
-        if valid_evaluations:
-            return random.choice(valid_evaluations)["text"]
-
-        # 如果没有满足条件的评价语句，返回空字符串
-        return ""
+        return self._select_evaluation(evaluations)
 
     def process_clean_sweep(self):
         """处理完胜情况"""
@@ -128,27 +154,85 @@ class BattleResultProcessor:
 
     def process_lose(self):
         """处理失败情况"""
-        # 输了编造借口
-        return get_random_excuse()
+        # 定义所有可能的评价语句及其条件
+        evaluations = [
+            {"text": ["队友都是气垫，那气垫是什么"],
+             "condition": lambda: self.my_weapon_name.startswith("四重弹跳手枪") and self.i_am_max_kill},
+            {"text": ["救救我救救我救救我救救我", "elo大人我的春天何时才能到来阿…", "拼尽全力无法战胜", "野人不配赢",
+                      "rtt修修你的匹配吧🙏😭🙏😭🙏", "燃尽了………", "太努力了……rtt欠你一把完胜"],
+             "condition": lambda: self.i_am_max_kill and self.i_am_first_contributor and self.i_have_three_gold},
+            {"text": ["elo大人下把该轮到我赢了吧！", "这能输？", "这对吗？", ],
+             "condition": lambda: self.i_am_max_kill},
+            {"text": ["野人少死一点能赢", "野人全责", "拼尽全力无法战胜", "老大没事吧喵", "老大要不去打工吧喵",
+                      "拼尽全力无法战胜"],
+             "condition": None},
+            {"text": ["今天没吃疯狂星期四，打喷没力气"],
+             "condition": lambda: self.is_thursday},
+            {"text": ["队友是人吗"],
+             "condition": lambda: self.i_am_max_kill and self.my_kill_over_20 and self.i_am_first_contributor and self.i_have_three_gold and self.i_am_max_kd},
+            {"text": ["你那金X不如给我戴"],
+             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 2},
+            {"text": ["你那银X不如给我戴"],
+             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 1},
+            {"text": ["我打金X？真的假的"],
+             "condition": lambda: self.other_team_has_x_my_team_no_x == 2},
+            {"text": ["我打银X？真的假的"],
+             "condition": lambda: self.other_team_has_x_my_team_no_x == 1},
+        ]
+
+        # 60%概率使用条件评价，40%概率使用随机借口
+        # 设置随机种子，确保外部和ExcuseGenerator内部都使用相同的随机种子
+        seed = int(time.time() * 1000)  # 使用当前时间作为随机种子
+        random.seed(seed)
+
+        # 保存当前随机种子状态
+        seed_state = random.getstate()
+
+        try:
+            if random.random() < 0.6:
+                evaluation = self._select_evaluation(evaluations)
+                # 如果没有满足条件的评价语句，则使用随机借口
+                if evaluation:
+                    return evaluation
+                else:
+                    print(f"没有满足条件的评价语句，使用随机借口")
+                    return get_random_excuse(seed)
+            else:
+                return get_random_excuse(seed)
+        finally:
+            # 恢复随机种子状态
+            random.setstate(seed_state)
 
     def process_deemed_lose(self):
         """处理自己掉线情况"""
-        deemed_lose_dict = [
-            "任天堂修修你那破网吧",
+        # 定义所有可能的评价语句及其条件
+        evaluations = [
+            {"text": ["rtt修修你那破网吧", "哦不，都是rtt的错", "希望别进小黑屋，求求了", "为了我，对rtt使用炎拳吧！"],
+             "condition": None},
         ]
-        return random.choice(deemed_lose_dict)
+
+        return self._select_evaluation(evaluations)
 
     def process_exempted_lose(self):
         """处理队友掉线情况"""
-        exempted_lose_dict = [
-            "任天堂修修你那破网吧",
+        # 定义所有可能的评价语句及其条件
+        evaluations = [
+            {"text": ["rtt修修你那破网吧", "3打4怎么可能赢呢？", "至少不用扣分了", "不如去打工吧", "难道是有人裸连打喷"],
+             "condition": None},
         ]
-        return random.choice(exempted_lose_dict)
+
+        return self._select_evaluation(evaluations)
 
     def process_draw(self):
-        """处理平局情况"""
-        # DRAW：无效比赛
-        return ""
+        """处理不到一分钟的无效对局"""
+        # 定义所有可能的评价语句及其条件
+        evaluations = [
+            {"text": ["海产嘉宾遗憾离场…", "求别掉", "rrt的土豆服务器太拉了", "rtt在浪费海产的时间！", "不如来跳舞吧～",
+                      "不如来一局占斗士吧", "不如去打工吧"],
+             "condition": None},
+        ]
+
+        return self._select_evaluation(evaluations)
 
 
 async def get_evaluate_text(is_battle, detail):
@@ -157,6 +241,9 @@ async def get_evaluate_text(is_battle, detail):
     :param is_battle: 是否是对战
     :param detail: 对战详情或打工详情
     """
+    # 记录开始时间
+    # start_time = time.time()
+
     if not is_battle:
         # 打工，不做评价
         return ""
@@ -168,14 +255,18 @@ async def get_evaluate_text(is_battle, detail):
     mode = detail['vsMode']['mode']
     if mode == "FEST":
         return ""
+    # 排除私房
+    if mode == "PRIVATE":
+        return ""
 
     def get_kd(p: dict) -> float:
         """获取kd"""
-        re = p['result']
+        # 安全获取result数据
+        re = p.get('result') if p else None
         if not re:
             re = {"kill": 0, "death": 0, "assist": 0, "special": 0}
-        k = re['kill'] - re['assist']
-        d = re['death']
+        k = re.get('kill', 0) - re.get('assist', 0)
+        d = re.get('death', 0)
         # 避免除数和被除数为0的情况
         if k != 0:
             if d == 0:
@@ -189,14 +280,24 @@ async def get_evaluate_text(is_battle, detail):
     async def get_p_data(p: dict, is_myself: bool = False) -> dict:
         """对每个成员进行分析，取成员的数据字典
         """
+        # 安全获取result数据
+        result = p.get('result') if p else None
+        if not result:
+            result = {"kill": 0, "death": 0, "assist": 0, "special": 0}
+
+        # 安全获取weapon数据
+        weapon = p.get('weapon') if p else None
+        if not weapon:
+            weapon = {"name": "", "id": ""}
+
         d = {
             "is_gold_x": False,  # 金X
             "is_silver_x": False,  # 银X
-            "kd": get_kd(p),  # kd
-            "kill": p['result']['kill'],  # 击杀数(含助攻)
-            "death": p['result']['death'],  # 击杀数(含助攻)
-            "weapon_name": p["weapon"]["name"],
-            "weapon_id": p["weapon"]["id"],
+            "kd": get_kd(p) if p else 0,  # kd
+            "kill": result.get('kill', 0),  # 击杀数(含助攻)
+            "death": result.get('death', 0),  # 击杀数(含助攻)
+            "weapon_name": weapon.get('name', ''),  # 武器名称
+            "weapon_id": weapon.get('id', ''),  # 武器ID
             "is_myself": is_myself,  # 是否是自己
         }
         player_code, player_name = get_game_sp_id_and_name(p)
@@ -254,7 +355,7 @@ async def get_evaluate_text(is_battle, detail):
     other_score = detail.get("otherTeams")[0].get("result").get("score", 0)  # 对方比分
     # 我方队伍和地方队伍数据
     my_team_players_list = detail.get("myTeam").get("players")
-    other_team_players = detail.get("otherTeams").get("players")
+    other_team_players = detail.get("otherTeams")[0].get("players")
 
     # 三金牌
     awards = detail.get("awards")
@@ -266,7 +367,6 @@ async def get_evaluate_text(is_battle, detail):
     # 我的数据
     my_idx = next((i for i, p in enumerate(my_team_players_list) if p.get("isMyself")), None)
     my_data = next((p for p in my_team_data if p.get("is_myself")), None)
-    my_weapon_name = my_data.get("weapon_name")  # 武器名
     # 分析两支队伍的数据
     my_team_analysis = analyze_team_data(my_team_data)
     other_team_analysis = analyze_team_data(other_team_data)
@@ -277,8 +377,8 @@ async def get_evaluate_text(is_battle, detail):
 
         # 统计结果字典
         stats = {
-            'my_team_has_x_other_team_no_x': False,  # 1.自己队伍是否有金x或银x，且对面没有任何金x银x
-            'other_team_has_x_my_team_no_x': False,  # 2.对面有金x或银x，自己队伍没有金x银x
+            'my_team_has_x_other_team_no_x': 0,  # 1.自己队伍是否有金x或银x，且对面没有任何金x银x（0=无，1=银x，2=金x）
+            'other_team_has_x_my_team_no_x': 0,  # 2.对面有金x或银x，自己队伍没有金x银x（0=无，1=银x，2=金x）
             'my_kd_over_5': False,  # 3.自己队伍以及自己在内kd是否超过5
             'i_am_max_kd': False,  # 4.最高kd是否是自己
             'my_kill_over_20': False,  # 5.自己队伍以及自己在内最高kill是否超过20
@@ -294,14 +394,22 @@ async def get_evaluate_text(is_battle, detail):
         }
 
         # 1.自己队伍是否有金x或银x，且对面没有任何金x银x
+        # 值为0表示没有金x银x，1表示有银x，2表示有金x（同时有金和银时优先金）
         if (my_team_analysis['has_gold_x'] or my_team_analysis['has_silver_x']) and not (
                 other_team_analysis['has_gold_x'] or other_team_analysis['has_silver_x']):
-            stats['my_team_has_x_other_team_no_x'] = True
+            if my_team_analysis['has_gold_x']:
+                stats['my_team_has_x_other_team_no_x'] = 2
+            else:
+                stats['my_team_has_x_other_team_no_x'] = 1
 
         # 2.对面有金x或银x，自己队伍没有金x银x
+        # 值为0表示没有金x银x，1表示有银x，2表示有金x（同时有金和银时优先金）
         if (other_team_analysis['has_gold_x'] or other_team_analysis['has_silver_x']) and not (
                 my_team_analysis['has_gold_x'] or my_team_analysis['has_silver_x']):
-            stats['other_team_has_x_my_team_no_x'] = True
+            if other_team_analysis['has_gold_x']:
+                stats['other_team_has_x_my_team_no_x'] = 2
+            else:
+                stats['other_team_has_x_my_team_no_x'] = 1
 
         # 3.自己队伍以及自己在内kd是否超过5
         if my_team_analysis['max_kd'] > 5:
@@ -377,5 +485,10 @@ async def get_evaluate_text(is_battle, detail):
             evaluate = result_processor.process_exempted_lose()
         case "DRAW":
             evaluate = result_processor.process_draw()
+
+    # 计算并打印执行时间
+    # end_time = time.time()
+    # execution_time = end_time - start_time
+    # print(f"get_evaluate_text 执行时间: {execution_time:.4f} 秒")
 
     return evaluate
