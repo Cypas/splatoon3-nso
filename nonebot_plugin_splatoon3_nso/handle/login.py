@@ -22,7 +22,7 @@ MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
 global_login_code_dict: dict = {}
 
-matcher_login_in = on_command("login", aliases={'登录'}, priority=10, block=True)
+matcher_login_in = on_command("login", aliases={'登录', 'nso登录', 'nso_login', 'nsologin'}, priority=10, block=True)
 
 
 @matcher_login_in.handle()
