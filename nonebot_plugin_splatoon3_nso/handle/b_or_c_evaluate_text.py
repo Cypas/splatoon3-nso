@@ -117,12 +117,10 @@ class BattleResultProcessor:
         # 从选中的评价语句中随机选择一个文本
         if isinstance(selected_evaluation["text"], list):
             text = random.choice(selected_evaluation["text"])
-            logger.info(f'对战评价语为 {text}')
-            return text
         else:
             text = selected_evaluation["text"]
-            logger.info(f'对战评价语为 {text}')
-            return text
+        logger.info(f'对战评价语为 {text}')
+        return text
 
     def _get_win_evaluations(self, is_clean_sweep=False):
         """获取评价语句及其条件
@@ -249,7 +247,8 @@ class BattleResultProcessor:
         evaluations = [
             {"text": ["rtt修修你那破网吧", "至少不用扣分了", "不如去打工吧", "难道是有人裸连打喷"],
              "condition": None},
-            {"text": [f"{4 - self.my_team_disconnected_count}打4这也太难了",f"{4 - self.my_team_disconnected_count}打4怎么可能赢呢？"],
+            {"text": [f"{4 - self.my_team_disconnected_count}打4这也太难了",
+                      f"{4 - self.my_team_disconnected_count}打4怎么可能赢呢？"],
              "condition": lambda: not self.other_team_disconnected_count, "weight": 4},
             {"text": [
                 f"怎么突然变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，rtt全责"],
@@ -335,7 +334,7 @@ async def get_evaluate_text(is_battle, detail):
             "is_silver_x": False,  # 银X
             "kd": get_kd(p) if p else 0,  # kd
             "kill": result.get('kill', 0),  # 击杀数(含助攻)
-            "death": result.get('death', 0),  # 击杀数(含助攻)
+            "death": result.get('death', 0),  # 死亡数
             "weapon_name": weapon.get('name', ''),  # 武器名称
             "weapon_id": weapon.get('id', ''),  # 武器ID
             "is_myself": is_myself,  # 是否是自己
@@ -375,12 +374,11 @@ async def get_evaluate_text(is_battle, detail):
             if player.get('is_disconnected', False):
                 disconnected_count += 1
 
-            # 计算并更新最高KD (假设数据中有kill和death字段)
-            if player.get('death', 0) > 0:
-                kd = player.get('kill', 0) / player.get('death', 1)
-                if kd > max_kd:
-                    max_kd = kd
-                    max_kd_is_myself = player.get('is_myself', False)
+            # 计算并更新最高KD (使用player字典中已有的kd值)
+            kd = player.get('kd', 0)
+            if kd > max_kd:
+                max_kd = kd
+                max_kd_is_myself = player.get('is_myself', False)
 
             # 更新最高击杀数
             if player.get('kill', 0) > max_kill:
@@ -512,10 +510,8 @@ async def get_evaluate_text(is_battle, detail):
             stats['is_thursday'] = True
 
         # 14.自己kd是否小于1
-        if my_data and my_data.get('death', 0) > 0:
-            my_kd = my_data.get('kill', 0) / my_data.get('death', 1)
-            if my_kd < 1:
-                stats['my_kd_under_1'] = True
+        if my_data and my_data.get('kd', 0) < 1:
+            stats['my_kd_under_1'] = True
 
         # 15.我方队伍掉线人数
         stats['my_team_disconnected_count'] = my_team_analysis.get('disconnected_count', 0)
