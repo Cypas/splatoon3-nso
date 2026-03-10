@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import datetime
 import json
@@ -67,7 +68,7 @@ async def parse_x_data(top_id, splatoon):
         except Exception as ex:
             cron_logger.error(f'get_top_x error: {top_id}, {x_type}, error:{ex}')
             continue
-        time.sleep(5)
+        await asyncio.sleep(5)
 
 
 async def get_top_x(data_row, top_id, x_type, mode_hash, splatoon=None):

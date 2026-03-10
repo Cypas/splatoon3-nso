@@ -29,8 +29,6 @@ async def get_battle_msg_md(b_info, battle_detail, get_equip=False, idx=0, splat
     mode = battle_detail['vsMode']['mode']
     # 胜负
     judgement: str = battle_detail['judgement']
-    # 取胜负的翻译
-    judgement.replace("DEEMED_LOSE", "自己掉线").replace("EXEMPTED_LOSE", "队友掉线，免除惩罚")
     # 标题 点数 进度(0-3)
     title, sub_title, point, b_process = await get_battle_msg_title(b_info, battle_detail, splatoon=splatoon,
                                                                     mask=False, idx=idx)
@@ -407,6 +405,11 @@ async def get_battle_msg_title(b_info, battle_detail, splatoon=None, mask=False,
     mode = battle_detail['vsMode']['mode']
     rule = battle_detail['vsRule']['name']
     judgement = battle_detail['judgement']
+    # 取胜负的翻译
+    judgement = (judgement.replace("DEEMED_LOSE", "自己掉线")
+                 .replace("EXEMPTED_LOSE", "队友掉线，免除惩罚")
+                 .replace("DRAW", "一分钟内有人掉线，无效对局")
+                 )
     stage = battle_detail['vsStage']['name']
     bankara_match = (battle_detail.get('bankaraMatch') or {}).get('mode') or ''
 

@@ -136,7 +136,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
         if old.event_bronze != new.event_bronze:
             str_event += f' 🥉+{new.event_bronze - old.event_bronze}'
         if old.event_none != new.event_none:
-            str_event += f' +{new.event_none - old.event_none}'
+            str_event += f' ♉+{new.event_none - old.event_none}'
         msg += f'活动: {str_event}\n'
     if (old.open_gold + old.open_silver + old.open_bronze + old.open_none) != (
             new.open_gold + new.open_silver + new.open_bronze + new.open_none):
@@ -148,7 +148,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
         if old.open_bronze != new.open_bronze:
             str_open += f' 🥉+{new.open_bronze - old.open_bronze}'
         if old.open_none != new.open_none:
-            str_open += f' +{new.open_none - old.open_none}'
+            str_open += f' ♉+{new.open_none - old.open_none}'
         msg += f'开放: {str_open}\n'
 
     if old.coop_cnt != new.coop_cnt:
