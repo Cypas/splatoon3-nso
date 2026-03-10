@@ -20,6 +20,9 @@ class BattleResultProcessor:
         my_kill: 玩家的击杀数
         my_kd: 玩家的KD值
         stats: 统计数据字典
+        my_team_max_kill_player: 我方队伍最高kill的玩家数据
+        other_team_max_kill_player: 对方队伍最高kill的玩家数据
+        max_kill_diff: 我方最高kill与对方最高kill的差值（正数为我方领先，负数为对方领先）
 
         # 战斗统计数据属性
         my_team_has_x_other_team_no_x: 自己队伍是否有金x或银x，且对面没有任何金x银x
@@ -42,14 +45,25 @@ class BattleResultProcessor:
     Args:
         my_data: 玩家数据字典，包含武器名称等信息
         stats: 统计数据字典，包含上述所有属性对应的字段
+        my_team_max_kill_player: 我方队伍最高kill的玩家数据
+        other_team_max_kill_player: 对方队伍最高kill的玩家数据
     """
 
-    def __init__(self, my_data, stats):
+    def __init__(self, my_data, stats, my_team_max_kill_player=None, other_team_max_kill_player=None):
         self.my_data = my_data
         self.my_weapon_name: str = my_data.get('weapon_name', '') if my_data else ''
         self.my_kill = my_data.get('kill', 0) if my_data else 0
         self.my_kd = my_data.get('kd', 0) if my_data else 0
         self.stats = stats
+        self.my_team_max_kill_player = my_team_max_kill_player
+        self.other_team_max_kill_player = other_team_max_kill_player
+        self.other_p_weapon_name = other_team_max_kill_player.get('weapon_name',
+                                                                  '') if other_team_max_kill_player else ''
+
+        # 计算我方最高kill与对方最高kill的差值
+        my_team_max_kill = my_team_max_kill_player.get('kill', 0) if my_team_max_kill_player else 0
+        other_team_max_kill = other_team_max_kill_player.get('kill', 0) if other_team_max_kill_player else 0
+        self.max_kill_diff = my_team_max_kill - other_team_max_kill
 
         # 将stats中的每个值解析为类的属性
         # 1.自己队伍是否有金x或银x，且对面没有任何金x银x
@@ -130,10 +144,14 @@ class BattleResultProcessor:
         # 定义所有可能的评价语句及其条件
         evaluations = [
             {"text": ["超绝完胜！！", "YYYYY！！", "你跟队友出色的配合，可以驾驶eva了",
-                      "此地图已经完全被你们占领了！"],
+                      "此地图已经完全被你们占领了！", "这就是……完全碾压吗？太强了！"],
              "condition": lambda: is_clean_sweep, "weight": 5},
-            {"text": [f"{self.my_weapon_name}大人太强了！！"],
-             "condition": lambda: self.i_am_max_kill and self.i_am_max_kd, "weight": 5},
+            {"text": [f"{self.my_weapon_name}大人太强了！！", "这战绩简直是降维打击！"],
+             "condition": lambda: self.i_am_max_kill and self.i_am_max_kd and self.max_kill_diff > 2 and self.my_kill > 15,
+             "weight": 5},
+            {"text": [f"全程鱿鱼心流也太爽了"],
+             "condition": lambda: self.i_am_max_kill and self.i_have_zero_death and self.my_kill > 15,
+             "weight": 20},
             {"text": ["又躺赢了", "我去完全躺赢", "我们四个太强了！"],
              "condition": lambda: self.i_am_last_contributor, "weight": 5},
             {"text": ["带飞队友咯", "不愧是我，我真是太强了"],
@@ -144,18 +162,22 @@ class BattleResultProcessor:
              "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1, "weight": 10},
             {"text": ["太强了，如果你是我队友我会直接穿上婚纱", "太强了，我本来也打算打成这样的"],
              "condition": lambda: self.i_am_max_kill and self.my_kill_over_20, "weight": 10},
-            {"text": ["好鱿章法！", "手感好好！", "超鱿型！！！"], "condition": None},
+            {"text": ["好鱿章法！", "手感好好！", "超鱿型！！！", "(((Veemo!)))", "(((Woomy!)))"], "condition": None},
             {"text": [f"kd神!竟然已经{self.my_kd}kd了"], "condition": lambda: self.my_kd_over_5 and self.i_am_max_kd,
              "weight": 20},
-            {"text": [f"kill神!竟然已经{self.my_kill}kill了"],
+            {"text": [f"kill神!竟然已经{self.my_kill}kill了", "心流一时爽，一直心流一直爽！！"],
              "condition": lambda: self.my_kill_over_20 and self.i_am_max_kill, "weight": 20},
-            {"text": ["你简直是天选海产，竟然全程0死亡"], "condition": lambda: self.i_have_zero_death, "weight": 20},
-            {"text": ["看来是相同类型的替身呢！难怪你也这么强"],
+            {"text": ["这才是以小博大，以弱胜强的智慧", "偷家成功"],
+             "condition": lambda: self.max_kill_diff <= -5, "weight": 10},
+            {"text": ["你简直是天选海产，竟然全程0死亡", "这是吃了无敌星吗，全程都没死过一次诶", "0死亡太强了！"],
+             "condition": lambda: self.i_have_zero_death and not self.my_kd_under_1, "weight": 20},
+            {"text": ["看来是相同类型的替身呢！难怪你也这么强", "小绿才是喷喷的主宰！"],
              "condition": lambda: self.my_weapon_name.startswith("斯普拉射击枪") and self.my_kill_over_20,
              "weight": 30},
             {"text": ["超解一时爽，一直超解一直爽！！"],
              "condition": lambda: self.my_weapon_name.startswith("可变形滚筒") and self.my_kill_over_20, "weight": 30},
-            {"text": [f"{4 - self.my_team_disconnected_count}打4赢了也太强了"],
+            {"text": [f"{4 - self.my_team_disconnected_count}打4赢了也太强了",
+                      f"{4 - self.my_team_disconnected_count}打4还能赢？这就是实力！", "这局太励志了！"],
              "condition": lambda: self.my_team_disconnected_count and not self.other_team_disconnected_count,
              "weight": 90},
             {"text": [
@@ -189,11 +211,15 @@ class BattleResultProcessor:
             {"text": ["elo大人下把该轮到我赢了吧！", "这能输？", "这对吗？", ],
              "condition": lambda: self.i_am_max_kill, "weight": 5},
             {"text": ["野人少死一点能赢", "野人全责", "拼尽全力无法战胜", "老大没事吧喵", "老大要不去打工吧喵",
-                      "拼尽全力无法战胜"],
+                      "拼尽全力无法战胜", "rtt什么时候给我匹配点大腿", "然而沼跃鱼早已看清了一切"],
              "condition": None},
-            {"text": ["今天没吃疯狂星期四，打喷没力气"],
+            {"text": ["沉迷击杀不推规则可不好"],
+             "condition": lambda: self.max_kill_diff > 5, "weight": 10},
+            {"text": ["对面炸鱼啊", "rtt这匹配一点都不公平"],
+             "condition": lambda: self.max_kill_diff <= -7, "weight": 40},
+            {"text": ["今天没吃疯狂星期四，打喷没力气", "今天没吃疯狂星期四，状态不好！"],
              "condition": lambda: self.is_thursday, "weight": 10},
-            {"text": ["队友是人吗"],
+            {"text": ["三金MVP最高击杀还是输了？队友是人吗！", "我再也不会大喊大叫了🙃"],
              "condition": lambda: self.i_am_max_kill and self.my_kill_over_20 and self.i_am_first_contributor and self.i_have_three_gold and self.i_am_max_kd,
              "weight": 90},
             {"text": ["你那金X不如给我戴"],
@@ -223,9 +249,13 @@ class BattleResultProcessor:
                 if evaluation:
                     return evaluation
                 else:
-                    return get_random_excuse(seed)
+                    text = get_random_excuse(seed)
+                    logger.info(f'对战评价语为 {text}')
+                    return text
             else:
-                return get_random_excuse(seed)
+                text = get_random_excuse(seed)
+                logger.info(f'对战评价语为 {text}')
+                return text
         finally:
             # 恢复随机种子状态
             random.setstate(seed_state)
@@ -234,7 +264,8 @@ class BattleResultProcessor:
         """处理自己掉线情况"""
         # 定义所有可能的评价语句及其条件
         evaluations = [
-            {"text": ["rtt修修你那破网吧", "哦不，都是rtt的错", "希望别进小黑屋，求求了", "为了我，对rtt使用炎拳吧！"],
+            {"text": ["rtt修修你那破网吧", "哦不，都是rtt的错", "希望别进小黑屋，求求了", "为了我，对rtt使用炎拳吧！",
+                      "总不能一直倒霉吧"],
              "condition": None},
         ]
 
@@ -262,7 +293,7 @@ class BattleResultProcessor:
         # 定义所有可能的评价语句及其条件
         evaluations = [
             {"text": ["海产嘉宾遗憾离场…", "求别掉", "rtt的土豆服务器太拉了", "rtt在浪费海产的时间！", "不如来跳舞吧～",
-                      "不如来一局占斗士吧", "不如去打工吧", "又白打了...."],
+                      "不如来一局占地斗士吧", "不如去打工吧", "又白打了...."],
              "condition": None},
         ]
 
@@ -523,8 +554,22 @@ async def get_evaluate_text(is_battle, detail):
 
     # 获取统计数据
     battle_status = get_battle_statistics()
+
+    # 获取我方队伍最高kill的玩家数据
+    my_team_max_kill_player = None
+    if my_team_data:
+        # 找到我方队伍中kill最高的玩家
+        my_team_max_kill_player = max(my_team_data, key=lambda x: x.get('kill', 0))
+
+    # 获取对方队伍最高kill的玩家数据
+    other_team_max_kill_player = None
+    if other_team_data:
+        # 找到对方队伍中kill最高的玩家
+        other_team_max_kill_player = max(other_team_data, key=lambda x: x.get('kill', 0))
+
     # 创建结果处理器实例
-    result_processor = BattleResultProcessor(my_data, battle_status)
+    result_processor = BattleResultProcessor(my_data, battle_status, my_team_max_kill_player,
+                                             other_team_max_kill_player)
 
     # judgement有五种情况: "LOSE" | "WIN" | "DEEMED_LOSE" | "EXEMPTED_LOSE" | "DRAW"
     evaluate = ""
