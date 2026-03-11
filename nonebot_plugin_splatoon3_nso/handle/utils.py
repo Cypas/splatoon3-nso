@@ -2,6 +2,8 @@ import base64
 import json
 import os
 import random
+import time
+from collections import deque
 
 from .send_msg import bot_send_login_md
 from ..config import plugin_config
@@ -10,10 +12,18 @@ from ..data.utils import get_or_set_plugin_data
 from ..utils import DIR_RESOURCE, AsHttpReq
 from ..utils.bot import *
 from ..utils.short_url import zurl
+from ..utils.utils import get_msg_id
 
 # 图标文件夹
 icons_folder = os.path.join(DIR_RESOURCE, "icons")
 PUSH_INTERVAL = 20  # push推送循环时间
+
+# QPS限制配置
+QPS_LIMIT_COUNT = 10  # 60秒内最多请求次数
+QPS_LIMIT_TIME = 60  # 时间窗口(秒)
+
+# 用户请求时间戳记录 {user_key: deque([timestamp1, timestamp2, ...])}
+user_request_times = {}
 
 # 真格入场券点数
 DICT_RANK_POINT = {
@@ -199,6 +209,24 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
     """ nonebot 子依赖注入    Check if user has logged in."""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
+    user_key = get_msg_id(platform, user_id)
+    
+    # QPS检测
+    current_time = time.time()
+    if user_key not in user_request_times:
+        user_request_times[user_key] = deque()
+    
+    # 移除超过时间窗口的记录
+    while user_request_times[user_key] and current_time - user_request_times[user_key][0] > QPS_LIMIT_TIME:
+        user_request_times[user_key].popleft()
+    
+    # 检查请求次数是否超过限制
+    if len(user_request_times[user_key]) >= QPS_LIMIT_COUNT:
+        await matcher.finish("请勿频繁请求")
+    
+    # 记录当前请求时间
+    user_request_times[user_key].append(current_time)
+    
     user_info = dict_get_or_set_user_info(platform, user_id)
     if plugin_config.splatoon3_maintenance_mode:
         # 尝试获取公告信息
