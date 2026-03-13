@@ -13,7 +13,7 @@ special, 腱鞘炎犯了
 special, 椅子不舒服了
 special, 十字键串键了
 special, 路由器着火了
-special, 我靠！手柄断触
+special, 我去！手柄断触
 special, 刚换手柄还没适应
 special, 游戏掉帧
 special, 注意力不集中了
@@ -94,32 +94,6 @@ positive_neutral_decorations, 好烦
 positive_neutral_decorations, 有点烦
 positive_neutral_decorations, 的错
 positive_neutral_decorations, 真猥琐
-
-negative_person_nouns, 队友
-negative_person_nouns, 野人
-
-negative_person_decorations, 好弱
-negative_person_decorations, 在干嘛？
-negative_person_decorations, 跟不上
-negative_person_decorations, 没点意识
-negative_person_decorations, 纯送
-negative_person_decorations, 别乱跑行不？
-negative_person_decorations, 瞎打
-negative_person_decorations, 真怂
-negative_person_decorations, 菜比
-negative_person_decorations, 好菜啊
-negative_person_decorations, 笨比
-negative_person_decorations, 好笨啊
-negative_person_decorations, 漏人了
-negative_person_decorations, 啥比啊
-negative_person_decorations, 脑子有病
-negative_person_decorations, 不懂规则啊
-negative_person_decorations, 玩啥呢
-negative_person_decorations, 不如挂机
-negative_person_decorations, 能不能拔线？
-negative_person_decorations, 是这分段吗
-negative_person_decorations, 没事吧？
-negative_person_decorations, 别叫
 
 negative_object_nouns, 这网络
 negative_object_nouns, 配合

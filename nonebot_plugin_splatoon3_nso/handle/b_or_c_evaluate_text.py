@@ -143,35 +143,36 @@ class BattleResultProcessor:
         """
         # 定义所有可能的评价语句及其条件
         evaluations = [
-            {"text": ["超绝完胜！！", "YYYYY！！", "你跟队友出色的配合，可以驾驶eva了",
-                      "此地图已经完全被你们占领了！", "这就是……完全碾压吗？太强了！"],
+            {"text": ["超绝完胜！！", "YYYYY！！", "不要小瞧我们四个人的羁绊啊…",
+                      "这就是……完全碾压吗？", "太强了！", "你的人格类型是 天选格p", ],
              "condition": lambda: is_clean_sweep, "weight": 5},
             {"text": [f"{self.my_weapon_name}大人太强了！！", "这战绩简直是降维打击！"],
              "condition": lambda: self.i_am_max_kill and self.i_am_max_kd and self.max_kill_diff > 2 and self.my_kill > 15,
              "weight": 5},
-            {"text": [f"全程鱿鱼心流也太爽了"],
+            {"text": [f"冲上去就是干", "猪突猛进!", "塔塔开"],
              "condition": lambda: self.i_am_max_kill and self.i_have_zero_death and self.my_kill > 15,
              "weight": 20},
-            {"text": ["又躺赢了", "我去完全躺赢", "我们四个太强了！"],
+            {"text": ["我们四个太强了！", "野生的大佬出现了"],
              "condition": lambda: self.i_am_last_contributor, "weight": 5},
-            {"text": ["带飞队友咯", "不愧是我，我真是太强了"],
+            {"text": ["💓☺️大小姐\nit's time to go to win💪🏻", "不愧是我，我真是太强了"],
              "condition": lambda: self.i_am_max_kill, "weight": 5},
             {"text": ["绝对的强者，由此而生的孤独，教会你爱的将会是！？"],
              "condition": lambda: self.i_am_max_kill and self.i_am_max_kd and self.my_kill_over_20, "weight": 20},
-            {"text": ["老大能加你吗？你上线我上线", "老大请用力地揍我...！", "你不许排我对面……", "有手就行嗷"],
+            {"text": ["老大能加你吗？你上线我上线", "老大请用力地揍我...！", "你不许排我对面……"],
              "condition": lambda: self.i_am_max_kill and not self.my_kd_under_1, "weight": 10},
-            {"text": ["太强了，如果你是我队友我会直接穿上婚纱", "太强了，我本来也打算打成这样的"],
+            {"text": ["太强了，我本来也打算打成这样的"],
              "condition": lambda: self.i_am_max_kill and self.my_kill_over_20, "weight": 10},
-            {"text": ["好鱿章法！", "手感好好！", "超鱿型！！！", "(((Veemo!)))", "(((Woomy!)))"], "condition": None},
+            {"text": ["好鱿章法！", "超鱿型！！！", "(((Veemo!)))", "(((Woomy!)))", "(((赞!)))"],
+             "condition": None},
             {"text": [f"kd神!竟然已经{self.my_kd}kd了"], "condition": lambda: self.my_kd_over_5 and self.i_am_max_kd,
              "weight": 20},
             {"text": [f"kill神!竟然已经{self.my_kill}kill了", "心流一时爽，一直心流一直爽！！"],
              "condition": lambda: self.my_kill_over_20 and self.i_am_max_kill, "weight": 20},
-            {"text": ["这才是以小博大，以弱胜强的智慧", "偷家成功"],
+            {"text": ["我们好强!", "偷家成功"],
              "condition": lambda: self.max_kill_diff <= -5, "weight": 10},
-            {"text": ["你简直是天选海产，竟然全程0死亡", "这是吃了无敌星吗，全程都没死过一次诶", "0死亡太强了！"],
+            {"text": ["简直是天选海产，全程0死亡", "这是吃了无敌星吗，全程都没死过一次", "0死亡太强了！"],
              "condition": lambda: self.i_have_zero_death and not self.my_kd_under_1, "weight": 20},
-            {"text": ["看来是相同类型的替身呢！难怪你也这么强", "小绿才是喷喷的主宰！"],
+            {"text": ["看来是相同类型的替身呢！", "小绿才是喷喷的主宰！"],
              "condition": lambda: self.my_weapon_name.startswith("斯普拉射击枪") and self.my_kill_over_20,
              "weight": 30},
             {"text": ["超解一时爽，一直超解一直爽！！"],
@@ -186,6 +187,8 @@ class BattleResultProcessor:
                 "weight": 50},
             {"text": ["太刺激了，一分险胜", "老大绝境翻盘了喵！"],
              "condition": lambda: self.score_diff_is_1, "weight": 90},
+            {"text": ["重生之我在蛮颓当皇帝", "一觉起来,全世界splatoon水平下降一半,只有我不变"],
+             "condition": lambda: self.other_team_has_x_my_team_no_x > 0, "weight": 20},
         ]
 
         return self._select_evaluation(evaluations)
@@ -202,24 +205,26 @@ class BattleResultProcessor:
         """处理失败情况"""
         # 定义所有可能的评价语句及其条件
         evaluations = [
-            {"text": ["队友都是气垫，那气垫是什么"],
-             "condition": lambda: self.my_weapon_name.startswith("四重弹跳手枪") and self.i_am_max_kill},
             {"text": ["救救我救救我救救我救救我", "elo大人我的春天何时才能到来阿…", "拼尽全力无法战胜", "野人不配赢",
                       "rtt修修你的匹配吧🙏😭🙏😭🙏", "燃尽了………", "太努力了……rtt欠你一把完胜"],
              "condition": lambda: self.i_am_max_kill and self.i_am_first_contributor and self.i_have_three_gold,
              "weight": 50},
             {"text": ["elo大人下把该轮到我赢了吧！", "这能输？", "这对吗？", ],
              "condition": lambda: self.i_am_max_kill, "weight": 5},
-            {"text": ["野人少死一点能赢", "野人全责", "拼尽全力无法战胜", "老大没事吧喵", "老大要不去打工吧喵",
-                      "拼尽全力无法战胜", "rtt什么时候给我匹配点大腿", "然而沼跃鱼早已看清了一切"],
+            {"text": ["拼尽全力无法战胜", "老大没事吧喵", "老大要不去打工吧喵",
+                      "拼尽全力无法战胜", "rtt什么时候给我匹配点大腿", "然而沼跃鱼早已看清了一切",
+                      "打斯普拉遁前我纯良温,打斯普拉遁后我尖叫辱骂撒泼打滚蛮横自私小肚鸡肠贪婪奸诈",
+                      "玩斯普拉遁的时候脸一直热热烫烫的，我是不是恋爱了？",
+                      "splatoon3可有意思了,你也来试试吧", "我有鱿鱼症",
+                      "你刚刚做噩梦了吧,一直在说鱿鱼,章鱼,血条什么的…"],
              "condition": None},
-            {"text": ["沉迷击杀不推规则可不好"],
+            {"text": ["被偷家了"],
              "condition": lambda: self.max_kill_diff > 5, "weight": 10},
             {"text": ["对面炸鱼啊", "rtt这匹配一点都不公平"],
              "condition": lambda: self.max_kill_diff <= -7, "weight": 40},
             {"text": ["今天没吃疯狂星期四，打喷没力气", "今天没吃疯狂星期四，状态不好！"],
-             "condition": lambda: self.is_thursday, "weight": 10},
-            {"text": ["三金MVP最高击杀还是输了？队友是人吗！", "我再也不会大喊大叫了🙃"],
+             "condition": lambda: self.is_thursday, "weight": 1},
+            {"text": ["三金MVP最高击杀还是输了，好气啊", "我再也不会大喊大叫了"],
              "condition": lambda: self.i_am_max_kill and self.my_kill_over_20 and self.i_am_first_contributor and self.i_have_three_gold and self.i_am_max_kd,
              "weight": 90},
             {"text": ["你那金X不如给我戴"],
@@ -276,13 +281,13 @@ class BattleResultProcessor:
         能进入这个函数，self.my_team_disconnected_count必然不为0了"""
         # 定义所有可能的评价语句及其条件
         evaluations = [
-            {"text": ["rtt修修你那破网吧", "至少不用扣分了", "不如去打工吧", "难道是有人裸连打喷"],
+            {"text": ["rtt修修你那破网吧", "至少不用扣分了", "不如去打工吧", ],
              "condition": None},
             {"text": [f"{4 - self.my_team_disconnected_count}打4这也太难了",
-                      f"{4 - self.my_team_disconnected_count}打4怎么可能赢呢？"],
+                      f"{4 - self.my_team_disconnected_count}打4输了也没关系啦"],
              "condition": lambda: not self.other_team_disconnected_count, "weight": 4},
             {"text": [
-                f"怎么突然变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，rtt全责"],
+                f"怎么变成{4 - self.my_team_disconnected_count}打{4 - self.other_team_disconnected_count}了，rtt全责"],
                 "condition": lambda: self.other_team_disconnected_count, "weight": 2},
         ]
 
@@ -293,7 +298,7 @@ class BattleResultProcessor:
         # 定义所有可能的评价语句及其条件
         evaluations = [
             {"text": ["海产嘉宾遗憾离场…", "求别掉", "rtt的土豆服务器太拉了", "rtt在浪费海产的时间！", "不如来跳舞吧～",
-                      "不如来一局占地斗士吧", "不如去打工吧", "又白打了...."],
+                      "不如来一局占地斗士吧", "又白打了....", "任天堂服务器404无响应"],
              "condition": None},
         ]
 
