@@ -1,3 +1,4 @@
+import json
 import os
 import secrets
 import time
@@ -462,6 +463,10 @@ async def get_ns_friends_md(splatoon: Splatoon):
             continue
         u_name = f.get('name') or ''
         u_name = game_name_replace(u_name)
+        u_name_note = f.get('note') or ''
+        u_name_note = game_name_replace(u_name_note)
+        if u_name_note:
+            u_name += f"<br>备注:{u_name_note}"
 
         img_type = "ns_friend_icon"
         # 储存名使用friend_id
