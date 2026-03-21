@@ -1,3 +1,4 @@
+import json
 import random
 import time
 from datetime import datetime as dt
@@ -144,7 +145,8 @@ class BattleResultProcessor:
             text = selected_evaluation["text"]
         t = f"对战评价语为 {text}"
         logger.info(f'user_id:{self.user_id} {t}')
-        write_unknown_command(self.user_id, t)
+        write_unknown_command(self.user_id,
+                              f"{t}, user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}")
         return text
 
     def _get_win_evaluations(self, is_clean_sweep=False):
@@ -239,9 +241,11 @@ class BattleResultProcessor:
              "condition": lambda: self.i_am_max_kill and self.my_kill_over_20 and self.i_am_first_contributor and self.i_have_three_gold and self.i_am_max_kd,
              "weight": 90},
             {"text": ["你那金X不如给我戴"],
-             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 2 and self.my_x_top == 0, "weight": 20},
+             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 2 and self.my_x_top == 0,
+             "weight": 20},
             {"text": ["你那银X不如给我戴"],
-             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 1 and self.my_x_top == 0, "weight": 20},
+             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 1 and self.my_x_top == 0,
+             "weight": 20},
             {"text": ["我打金X？真的假的"],
              "condition": lambda: self.other_team_has_x_my_team_no_x == 2, "weight": 20},
             {"text": ["我打银X？真的假的"],
@@ -268,13 +272,15 @@ class BattleResultProcessor:
                     text = get_random_excuse(seed)
                     t = f"对战评价语为 {text}"
                     logger.info(f'user_id:{self.user_id} {t}')
-                    write_unknown_command(self.user_id, t)
+                    write_unknown_command(self.user_id,
+                                          f"{t}, user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}")
                     return text
             else:
                 text = get_random_excuse(seed)
                 t = f"对战评价语为 {text}"
                 logger.info(f'user_id:{self.user_id} {t}')
-                write_unknown_command(self.user_id, t)
+                write_unknown_command(self.user_id,
+                                      f"{t}, user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}")
                 return text
         finally:
             # 恢复随机种子状态
@@ -589,7 +595,7 @@ async def get_evaluate_text(user_id, is_battle, detail):
         other_team_max_kill_player = max(other_team_data, key=lambda x: x.get('kill', 0))
 
     # 创建结果处理器实例
-    result_processor = BattleResultProcessor(my_data, battle_status, my_team_max_kill_player,
+    result_processor = BattleResultProcessor(user_id, my_data, battle_status, my_team_max_kill_player,
                                              other_team_max_kill_player)
 
     # judgement有五种情况: "LOSE" | "WIN" | "DEEMED_LOSE" | "EXEMPTED_LOSE" | "DRAW"
