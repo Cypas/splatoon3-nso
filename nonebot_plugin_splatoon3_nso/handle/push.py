@@ -314,7 +314,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                                  get_screenshot=get_screenshot, mask=mask)
 
         image_width = 680
-        evaluate_text = await get_evaluate_text(is_battle, detail)
+        evaluate_text = await get_evaluate_text(user_id, is_battle, detail)
         # 将评价文本也拼接在图片里面
         if evaluate_text and msg.startswith("#### "):
             msg += f"</br>小鱿鱿的嘴替或评价是: {evaluate_text}"

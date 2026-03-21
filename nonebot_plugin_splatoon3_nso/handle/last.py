@@ -87,7 +87,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
         equip_str = ""
     mask_str = "打码" if mask else ""
 
-    evaluate_text = await get_evaluate_text(get_battle, detail)
+    evaluate_text = await get_evaluate_text(user_id, get_battle, detail)
     # 将评价文本也拼接在图片里面
     if evaluate_text and msg.startswith("#### "):
         msg += f"</br>小鱿鱿的嘴替或评价是: {evaluate_text}"

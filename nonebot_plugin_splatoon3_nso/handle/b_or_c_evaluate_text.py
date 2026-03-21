@@ -5,6 +5,7 @@ from datetime import datetime as dt
 from nonebot import logger
 
 from .utils import get_game_sp_id_and_name
+from ..util import write_unknown_command
 from ..data.data_source import model_get_top_player
 from ..utils.excuse_generator import get_random_excuse
 
@@ -43,13 +44,15 @@ class BattleResultProcessor:
         other_team_disconnected_count: 对方队伍掉线人数
 
     Args:
+        user_id: 用户id
         my_data: 玩家数据字典，包含武器名称等信息
         stats: 统计数据字典，包含上述所有属性对应的字段
         my_team_max_kill_player: 我方队伍最高kill的玩家数据
         other_team_max_kill_player: 对方队伍最高kill的玩家数据
     """
 
-    def __init__(self, my_data, stats, my_team_max_kill_player=None, other_team_max_kill_player=None):
+    def __init__(self, user_id, my_data, stats, my_team_max_kill_player=None, other_team_max_kill_player=None):
+        self.user_id = user_id
         self.my_data = my_data
         self.my_weapon_name: str = my_data.get('weapon_name', '') if my_data else ''
         self.my_kill = my_data.get('kill', 0) if my_data else 0
@@ -108,8 +111,7 @@ class BattleResultProcessor:
         # 16.对方队伍掉线人数
         self.other_team_disconnected_count = stats.get('other_team_disconnected_count', 0)
 
-    @staticmethod
-    def _select_evaluation(evaluations):
+    def _select_evaluation(self, evaluations):
         """从评价语句列表中选择一条满足条件的评价语句
 
         Args:
@@ -140,7 +142,9 @@ class BattleResultProcessor:
             text = random.choice(selected_evaluation["text"])
         else:
             text = selected_evaluation["text"]
-        logger.info(f'对战评价语为 {text}')
+        t = f"对战评价语为 {text}"
+        logger.info(f'user_id:{self.user_id} {t}')
+        write_unknown_command(self.user_id, t)
         return text
 
     def _get_win_evaluations(self, is_clean_sweep=False):
@@ -262,11 +266,15 @@ class BattleResultProcessor:
                     return evaluation
                 else:
                     text = get_random_excuse(seed)
-                    logger.info(f'对战评价语为 {text}')
+                    t = f"对战评价语为 {text}"
+                    logger.info(f'user_id:{self.user_id} {t}')
+                    write_unknown_command(self.user_id, t)
                     return text
             else:
                 text = get_random_excuse(seed)
-                logger.info(f'对战评价语为 {text}')
+                t = f"对战评价语为 {text}"
+                logger.info(f'user_id:{self.user_id} {t}')
+                write_unknown_command(self.user_id, t)
                 return text
         finally:
             # 恢复随机种子状态
@@ -312,9 +320,10 @@ class BattleResultProcessor:
         return self._select_evaluation(evaluations)
 
 
-async def get_evaluate_text(is_battle, detail):
+async def get_evaluate_text(user_id, is_battle, detail):
     """
     获取对战评价文本
+    :param user_id: 用户id
     :param is_battle: 是否是对战
     :param detail: 对战详情或打工详情
     """
