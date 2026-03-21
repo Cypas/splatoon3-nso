@@ -54,6 +54,13 @@ class BattleResultProcessor:
         self.my_weapon_name: str = my_data.get('weapon_name', '') if my_data else ''
         self.my_kill = my_data.get('kill', 0) if my_data else 0
         self.my_kd = my_data.get('kd', 0) if my_data else 0
+        if my_data.get('is_gold_x', False):
+            my_x_top = 2
+        elif my_data.get('is_silver_x', False):
+            my_x_top = 1
+        else:
+            my_x_top = 0
+        self.my_x_top = my_x_top
         self.stats = stats
         self.my_team_max_kill_player = my_team_max_kill_player
         self.other_team_max_kill_player = other_team_max_kill_player
@@ -228,9 +235,9 @@ class BattleResultProcessor:
              "condition": lambda: self.i_am_max_kill and self.my_kill_over_20 and self.i_am_first_contributor and self.i_have_three_gold and self.i_am_max_kd,
              "weight": 90},
             {"text": ["你那金X不如给我戴"],
-             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 2, "weight": 20},
+             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 2 and self.my_x_top == 0, "weight": 20},
             {"text": ["你那银X不如给我戴"],
-             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 1, "weight": 20},
+             "condition": lambda: self.i_am_max_kill and self.my_team_has_x_other_team_no_x == 1 and self.my_x_top == 0, "weight": 20},
             {"text": ["我打金X？真的假的"],
              "condition": lambda: self.other_team_has_x_my_team_no_x == 2, "weight": 20},
             {"text": ["我打银X？真的假的"],
