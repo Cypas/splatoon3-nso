@@ -29,7 +29,7 @@ from .utils import user_remove_duplicates, cron_logger
 from ...utils.bot import Kook_ActionFailed
 
 # 错误对局，没有会员，nso被ban，无效登录凭证
-expected_str_list = ["status: 500", "Membership required", "has be banned", "invalid_grant"]
+expected_str_list = ["status: 500", "Membership required", 'NSA not linked', "has be banned", "invalid_grant"]
 
 
 async def sync_stat_ink():
@@ -97,7 +97,6 @@ async def sync_stat_ink():
                 counters["battle_total"] += battle_cnt
             if coop_cnt:
                 counters["coop_total"] += coop_cnt
-
 
     # 动态提交所有任务
     tasks = [process_user(db_user) for db_user in db_users]
@@ -170,7 +169,7 @@ async def sync_stat_ink_func(db_user: UserTable):
             is_error = True
             if "status: 500" in error_msg:
                 is_battle_error = True
-            if "Membership required" in error_msg or "Membership_required" in error_msg:
+            if "Membership required" in error_msg or "Membership_required" in error_msg or 'NSA not linked' in error_msg:
                 is_membership_error = True
             if "invalid_grant" in error_msg:
                 is_invalid_grant = True

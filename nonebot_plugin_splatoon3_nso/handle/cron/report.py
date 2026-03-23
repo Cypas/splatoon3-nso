@@ -79,7 +79,7 @@ async def create_set_report_tasks(is_corn_job=True):
                 await phase2_queue.put(splatoon)  # 将结果加入队列
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
-                if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'has be banned']):
+                if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'NSA not linked', 'has be banned']):
                     cron_logger.info(f"跳过无效用户: {msg_id}，reason:{e}")
                     return None
 

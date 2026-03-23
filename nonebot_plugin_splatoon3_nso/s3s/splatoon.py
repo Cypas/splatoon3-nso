@@ -155,6 +155,26 @@ class Splatoon:
 
                             raise ValueError('Membership required')
                         return False
+                    elif "NSA not linked" in str(e):
+                        # 未绑定任何游戏机
+                        self.logger.warning(
+                            f"nsa not linked: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}")
+                        # 待发送文本
+                        msg = f"该任天堂账号从未游玩过splatoon3在线对战，是不是登错账号了，请发送/clear_db_info 清除登陆账号信息后重新登陆"
+                        if self.bot and self.event:
+                            msg += ",无法使用nso查询功能"
+                            self.logger.warning(f'db_id:{user.db_id},nsa not linked notify')
+                            # 来自用户主动请求
+                            await bot_send(self.bot, self.event, msg)
+                        else:
+                            msg += ",无法更新日报"
+                            # msg += "\n/report_notify close 关闭每日日报推送"
+                            # 来自定时任务
+                            # if user.report_notify:
+                            #     await notify_to_private(self.platform, self.user_id, msg)
+
+                            raise ValueError('NSA not linked')
+                        return False
                 return False
 
         if new_g_token:
