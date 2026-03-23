@@ -21,11 +21,24 @@ def write_unknown_command(msg_id, plain_text):
     """写未知命令记录到文件"""
     if plain_text:
         if "[分享]" not in plain_text:
+            plain_text = plain_text.replace("\n", " ").replace("\r", " ")
             file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
             with open(file_path, "a", encoding="utf-8") as f:
-                f.write(f"{get_time_now_china_str()},{msg_id},{plain_text}\n")  # 每行一个关键词
+                f.write(f"{get_time_now_china_str()},{msg_id:<32},{plain_text}\n")  # 每行一个关键词
+
+
+def write_evaluate_text(msg_id: str, evaluate_text: str, data_json_str: str):
+    """写评价文本记录到文件"""
+    if evaluate_text:
+        evaluate_text = evaluate_text.replace("\n", " ").replace("\r", " ")
+        file_path = Path(os.path.join(DIR_RESOURCE, "nso评价文本.txt"))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+        with open(file_path, "a", encoding="utf-8") as f:
+            # user_id左对齐32位字符，评价文本左对齐20字符
+            f.write(f"{get_time_now_china_str()},{msg_id:<32},{evaluate_text[:20]:<20},{data_json_str}\n")
 
 
 class ChannelInfo:

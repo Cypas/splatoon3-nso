@@ -6,7 +6,7 @@ from datetime import datetime as dt
 from nonebot import logger
 
 from .utils import get_game_sp_id_and_name
-from ..util import write_unknown_command
+from ..util import write_unknown_command, write_evaluate_text
 from ..data.data_source import model_get_top_player
 from ..utils.excuse_generator import get_random_excuse
 
@@ -143,10 +143,11 @@ class BattleResultProcessor:
             text = random.choice(selected_evaluation["text"])
         else:
             text = selected_evaluation["text"]
-        t = f"对战评价语为 {text}"
-        logger.info(f'user_id:{self.user_id} {t}')
-        write_unknown_command(self.user_id,
-                              f"{t}, user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}")
+        # t = f"对战评价语为 {text}"
+        # logger.info(f'user_id:{self.user_id} {t}')
+        evaluate_text = f"{text}"
+        data_json_str = f"user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}"
+        write_evaluate_text(self.user_id, evaluate_text=evaluate_text, data_json_str=data_json_str)
         return text
 
     def _get_win_evaluations(self, is_clean_sweep=False):
@@ -270,17 +271,19 @@ class BattleResultProcessor:
                     return evaluation
                 else:
                     text = get_random_excuse(seed)
-                    t = f"对战评价语为 {text}"
-                    logger.info(f'user_id:{self.user_id} {t}')
-                    write_unknown_command(self.user_id,
-                                          f"{t}, user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}")
+                    # t = f"对战评价语为 {text}"
+                    # logger.info(f'user_id:{self.user_id} {t}')
+                    evaluate_text = f"{text}"
+                    data_json_str = f"user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}"
+                    write_evaluate_text(self.user_id, evaluate_text=evaluate_text, data_json_str=data_json_str)
                     return text
             else:
                 text = get_random_excuse(seed)
-                t = f"对战评价语为 {text}"
-                logger.info(f'user_id:{self.user_id} {t}')
-                write_unknown_command(self.user_id,
-                                      f"{t}, user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}")
+                # t = f"对战评价语为 {text}"
+                # logger.info(f'user_id:{self.user_id} {t}')
+                evaluate_text = f"{text}"
+                data_json_str = f"user_data:{self.my_data}, stats:{self.stats}, my_team_max_kill_player:{self.my_team_max_kill_player}, other_team_max_kill_player:{self.other_team_max_kill_player}"
+                write_evaluate_text(self.user_id, evaluate_text=evaluate_text, data_json_str=data_json_str)
                 return text
         finally:
             # 恢复随机种子状态
