@@ -308,7 +308,11 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             return "data missing"
 
         # ================== 时间计算 ==================
+        first_play_time = dt.strptime(res_summary['data']['playHistory']['gameStartTime'], '%Y%m%dT%H%M%S')
         last_play_time = max(dt.strptime(battle_t, '%Y%m%dT%H%M%S'), dt.strptime(coop_t, '%Y%m%dT%H%M%S'))
+        # 同时更新user表里面相同game_sp_id 的全部账号的  first_play_time 与 last_play_time
+        splatoon.set_user_info(first_play_time=first_play_time, last_play_time=last_play_time)
+        splatoon.refresh_another_account()
 
         # ================== 剩余业务逻辑 ==================
         # 上次游玩时间位于一天内
