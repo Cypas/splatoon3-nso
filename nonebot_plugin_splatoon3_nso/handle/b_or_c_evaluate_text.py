@@ -264,7 +264,8 @@ class BattleResultProcessor:
         seed_state = random.getstate()
 
         try:
-            if random.random() < 0.6:
+            # if random.random() < 0.6:
+            if True:
                 evaluation = self._select_evaluation(evaluations)
                 # 如果没有满足条件的评价语句，则使用随机借口
                 if evaluation:
@@ -278,6 +279,7 @@ class BattleResultProcessor:
                     write_evaluate_text(self.user_id, evaluate_text=evaluate_text, data_json_str=data_json_str)
                     return text
             else:
+                # 不再使用任何随机接口
                 text = get_random_excuse(seed)
                 # t = f"对战评价语为 {text}"
                 # logger.info(f'user_id:{self.user_id} {t}')
