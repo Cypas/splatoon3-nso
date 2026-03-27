@@ -94,7 +94,8 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
 
     if not get_image:
         text_start = f"以下是倒数第 {idx + 1}场{b_str} {ss_str}{equip_str}{mask_str}的数据"
-        evaluate_text = f"小鱿鱿的嘴替或评价是: {evaluate_text}"
+        if evaluate_text:
+            evaluate_text = f"小鱿鱿的嘴替或评价是: {evaluate_text}"
         await bot_mixed_send(bot, event, msg, image_width=image_width, text_start=text_start, text_end=evaluate_text)
     else:
         await bot_send(bot, event, msg, image_width=image_width)
