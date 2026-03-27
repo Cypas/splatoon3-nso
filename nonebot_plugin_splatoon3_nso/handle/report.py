@@ -10,6 +10,9 @@ from ..utils.bot import *
 @on_command("report", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     """日报统计查询"""
+    await bot_mixed_send_report(bot, event, title="未获取到日报", msg="日报功能暂不可用")
+    return
+
     cmd_list = args.extract_plain_text().strip()
     report_day = ''
     if cmd_list:
