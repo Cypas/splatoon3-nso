@@ -55,12 +55,12 @@ class RateLimitMode:
 
 
 # 配置项 - 可根据需要调整
-DEFAULT_MODE = RateLimitMode.TOKEN_BUCKET
+DEFAULT_MODE = RateLimitMode.SEMAPHORE
 # 令牌桶模式配置
 FAPI_RATE = 3  # 令牌桶：时间窗口内最大请求数
 FAPI_TIME_WINDOW = 10  # 令牌桶：时间窗口（秒）
 # 信号量模式配置
-FAPI_SEMAPHORE_LIMIT = 2  # 信号量：最大并发数
+FAPI_SEMAPHORE_LIMIT = 1  # 信号量：最大并发数
 
 # 限流器实例
 rate_limiter = None
