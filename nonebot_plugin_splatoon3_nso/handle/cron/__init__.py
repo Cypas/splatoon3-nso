@@ -6,7 +6,7 @@ from nonebot import require, logger
 from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, show_dict_status, \
     init_nso_version, clean_expired_clients
 from .event_top import get_event_top
-from .stat_ink import sync_stat_ink
+from .stat_ink import sync_stat_ink, clean_stat_ink_error_code_user_list
 from .report import create_set_report_tasks, send_report_task
 from .user_friends import create_get_user_friends_tasks
 from .x_player import get_x_player
@@ -76,6 +76,8 @@ def scheduler_controller():
         # add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
         # 每天23:59分将 NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
+        # 每天23:59分将 stat_ink 因会员过期重复刷新的账号缓存列表置空
+        add_scheduler("clean_stat_ink_error_code_user_list", trigger='cron', hour=23, minute=59)
         # 每3小时自动显示status
         # add_scheduler("show_status", trigger='interval', hours=3)
         # 每20分钟检测一次过期的已缓存客户端
@@ -110,6 +112,8 @@ async def cron(_type):
             await clean_global_user_info_dict()
         case "init_nso_version":
             await init_nso_version()
+        case "clean_stat_ink_error_code_user_list":
+            await clean_stat_ink_error_code_user_list()
         case "show_status":
             await show_dict_status()
         case "clean_expired_clients":

@@ -30,6 +30,8 @@ from ...utils.bot import Kook_ActionFailed
 
 # 错误对局，没有会员，nso被ban，无效登录凭证
 expected_str_list = ["status: 500", "Membership required", 'NSA not linked', "has be banned", "invalid_grant"]
+# 收集错误code码的用户msg_id，使其一天内不再重复刷新
+stat_ink_error_code_user_list = []
 
 
 async def sync_stat_ink():
@@ -143,6 +145,10 @@ async def sync_stat_ink_func(db_user: UserTable):
         platform = db_user.platform
         user_id = db_user.user_id
         msg_id = get_msg_id(platform, user_id)
+        if msg_id in stat_ink_error_code_user_list:
+            # 会员过期，今日不再重复刷新
+            result = (False, False, True, False, False, False, True, False, 0, 0)
+            return result
         is_complete = True
 
         if msg:
@@ -171,6 +177,8 @@ async def sync_stat_ink_func(db_user: UserTable):
                 is_battle_error = True
             if "Membership required" in error_msg or "Membership_required" in error_msg or 'NSA not linked' in error_msg:
                 is_membership_error = True
+                # 加入缓存列表，今日内都不再同步，直接返回同步0
+                stat_ink_error_code_user_list.append(msg_id)
             if "invalid_grant" in error_msg:
                 is_invalid_grant = True
 
@@ -369,3 +377,8 @@ def strToBase64(s):
     '''
     strEncode = base64.b64encode(s.encode('utf8'))
     return str(strEncode, encoding='utf8')
+
+
+def clean_stat_ink_error_code_user_list():
+    """每日清空会员过期列表"""
+    stat_ink_error_code_user_list.clear()
