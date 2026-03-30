@@ -58,7 +58,9 @@ def scheduler_controller():
         # 清空s3sti.ts脚本生成的缓存文件
         # add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
         # set_report at 7:00
-        # add_scheduler("set_report", trigger='cron', hour=7, minute=0)
+        add_scheduler("set_report", trigger='cron', hour=7, minute=0)
+        # set_inactive_report at 12:00
+        add_scheduler("set_inactive_report", trigger='cron', hour=12, minute=0)
         # send_report at 9:00
         # add_scheduler("send_report", trigger='cron', hour=9, minute=0)
         # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########
@@ -88,7 +90,9 @@ async def cron(_type):
         case "get_event_top":
             await get_event_top()
         case "set_report":
-            await create_set_report_tasks()
+            await create_set_report_tasks(is_corn_job=True)
+        case "set_inactive_report":
+            await create_set_report_tasks(is_corn_job=True, is_inactive_user=True)
         case "send_report":
             await send_report_task()
         case "get_user_friends":

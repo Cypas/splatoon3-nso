@@ -54,7 +54,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
         case "set_report":
             await bot_send(bot, event, message="即将开始整理日报")
-            await create_set_report_tasks(is_corn_job=False)
+            await create_set_report_tasks()
 
         case "send_report":
             await bot_send(bot, event, message="即将开始send_report")

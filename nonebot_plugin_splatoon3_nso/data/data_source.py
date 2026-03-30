@@ -4,7 +4,7 @@ import weakref
 from typing import Type
 
 from nonebot import logger
-from sqlalchemy import and_, text
+from sqlalchemy import and_, or_, text, func
 from sqlalchemy.dialects import mysql
 
 from .db_sqlite import *
@@ -209,6 +209,61 @@ def model_get_all_user() -> list[UserTable]:
     return users
 
 
+def model_get_all_report_user() -> list[UserTable]:
+    """获取全部session_token不为空用户 且日报更新时间为小于等于今天，或日报更新时间为None(新用户)的日报"""
+    session = DBSession()
+    today = datetime.datetime.now().date()
+
+    query = (session.query(UserTable).filter(
+        and_(
+            UserTable.session_token.isnot(None),
+            UserTable.session_token != "",
+            UserTable.user_agreement == 1,
+            or_(
+                UserTable.next_report_run_time.is_(None),
+                func.date(UserTable.next_report_run_time) <= today
+            )
+        )
+    ))
+
+    query = query.order_by(UserTable.platform.asc(), UserTable.id.asc())
+
+    # # 打印生成的 SQL 语句（包含参数）
+    # from sqlalchemy.dialects import sqlite
+    # compiled = query.statement.compile(dialect=sqlite.dialect(), compile_kwargs={"literal_binds": True})
+    # logger.info(f"Generated SQL: {compiled}")
+
+    users = query.all()
+    session.close()
+    return users
+
+def model_get_all_inactive_report_user() -> list[UserTable]:
+    """获取全部不活跃日报用户  session_token不为空用户 且日报更新时间为小于等于今天，或日报更新时间为None(新用户)的日报"""
+    session = DBSession()
+    today = datetime.datetime.now().date()
+
+    query = (session.query(UserTable).filter(
+        and_(
+            UserTable.session_token.isnot(None),
+            UserTable.session_token != "",
+            UserTable.user_agreement == 1,
+            or_(
+                UserTable.next_report_run_time.isnot(None),
+                UserTable.next_report_run_time != "",
+                func.date(UserTable.next_report_run_time) > today
+            )
+        )
+    ))
+
+    query = query.order_by(UserTable.platform.asc(), UserTable.id.asc())
+    # # 打印生成的 SQL 语句（包含参数）
+    # from sqlalchemy.dialects import sqlite
+    # compiled = query.statement.compile(dialect=sqlite.dialect(), compile_kwargs={"literal_binds": True})
+    # logger.info(f"Generated SQL: {compiled}")
+    users = query.all()
+    session.close()
+    return users
+
 def model_get_all_stat_user() -> list[UserTable]:
     """获取全部session_token不为空,且stat key不为空用户"""
     session = DBSession()
@@ -254,7 +309,7 @@ def model_get_login_user_by_sp_code(player_code):
 
 def model_get_top_player(player_code):
     """获取一名top玩家信息"""
-    session = DBSession()
+    session = DBSession_Top()
     user = session.query(TopPlayer).filter(
         TopPlayer.player_code == player_code).order_by(TopPlayer.power.desc()).first()
     session.close()
@@ -263,7 +318,7 @@ def model_get_top_player(player_code):
 
 def model_get_max_power_top_all(player_code) -> TopAll:
     """获取一条最高分数 top all信息"""
-    session = DBSession()
+    session = DBSession_Top()
     user = session.query(TopAll).filter(
         TopAll.player_code == player_code).order_by(TopAll.power.desc()).first()
     session.close()
@@ -272,7 +327,7 @@ def model_get_max_power_top_all(player_code) -> TopAll:
 
 def model_get_all_top_all(player_code):
     """获取某人全部上榜数据"""
-    session = DBSession()
+    session = DBSession_Top()
     user = session.query(TopAll).filter(TopAll.player_code == player_code).all()
     session.close()
     return user
@@ -317,7 +372,7 @@ def model_add_report(new_report: Report):
     if not user_id_sp:
         report_logger.warning(f"no user_id_sp: {new_report}")
         return
-    session = DBSession()
+    session = DBSession_Report()
     _res = session.query(Report).filter(Report.user_id_sp == user_id_sp).order_by(Report.create_time.desc()).first()
     # 避免一天内多次写入
     if _res and _res.create_time.date() >= datetime.datetime.utcnow().date():
@@ -334,7 +389,7 @@ def model_get_today_report(user_id_sp):
     """获取今日日报数据 用于判断日报是否需要推送"""
     if not user_id_sp:
         return None
-    session = DBSession()
+    session = DBSession_Report()
     # 1. 获取当前 UTC+0 时间
     utc_now = datetime.datetime.utcnow()
     # 2. 确定“今天”的 UTC+0 日期（0点）
@@ -357,7 +412,7 @@ def model_get_report(user_id_sp, create_time=""):
     """获取日报"""
     if not user_id_sp:
         return None
-    session = DBSession()
+    session = DBSession_Report()
 
     #     query = [Report.user_id_sp == user_id_sp]
     #     report = session.query(Report).filter(*query).order_by(Report.create_time.desc()).all()
@@ -396,7 +451,7 @@ def model_get_report_all(user_id_sp):
     """获取全部日报"""
     if not user_id_sp:
         return None
-    session = DBSession()
+    session = DBSession_Report()
     data = session.execute(text(f"""
 SELECT id, DATETIME(last_play_time, '+8 hours') as last_play_time,
 total_cnt,
@@ -487,7 +542,7 @@ def model_set_user_friend(data_lst):
 
 def model_delete_top_player(top_id):
     """删除指定赛季 top榜单玩家数据"""
-    session = DBSession()
+    session = DBSession_Top()
     session.query(TopPlayer).filter(TopPlayer.top_id == top_id).delete()
     session.commit()
     session.close()
@@ -495,7 +550,7 @@ def model_delete_top_player(top_id):
 
 def model_delete_top_all(top_id):
     """删除指定赛季 top_all榜单玩家数据"""
-    session = DBSession()
+    session = DBSession_Top()
     session.query(TopAll).filter(TopAll.top_id == top_id).delete()
     session.commit()
     session.close()
@@ -505,7 +560,7 @@ def model_add_top_player(row):
     """添加top榜单数据"""
     top_id, _top_type, rank, power, name, name_id, player_code, byname, weapon_id, weapon = row
 
-    session = DBSession()
+    session = DBSession_Top()
     _dict = {
         'top_id': top_id,
         'top_type': _top_type,
@@ -528,7 +583,7 @@ def model_add_top_all(row):
     """添加top_all榜单数据"""
     top_id, _top_type, rank, power, name, name_id, player_code, byname, weapon_id, weapon, play_time = row
 
-    session = DBSession()
+    session = DBSession_Top()
     _dict = {
         'top_id': top_id,
         'top_type': _top_type,
@@ -550,7 +605,7 @@ def model_add_top_all(row):
 
 def model_get_top_all_count_by_top_type(top_type):
     """通过top_all类型取得top_all记录的count"""
-    session = DBSession()
+    session = DBSession_Top()
     top_count = session.query(func.count(TopAll.id)).where(TopAll.top_type.contains(top_type)).scalar()
     session.close()
     return top_count
@@ -571,7 +626,7 @@ def model_get_top_all_count_by_top_type(top_type):
 #     ORDER BY
 #         top_all.create_time DESC
 #     """
-#     session = DBSession()
+#     session = DBSession_Top()
 #     top = session.query(TopAll).where(TopAll.top_type.like("LeagueMatchRankingTeam%")).group_by(TopAll.top_type) \
 #         .order_by(TopAll.create_time.desc()).first()
 #     session.close()

@@ -9,7 +9,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from .db_sqlite import database_uri_main, init_db, DBSession, UserTable
 from ..utils import DIR_RESOURCE
 
-database_uri_old_user = f"sqlite:///{DIR_RESOURCE}/data.sqlite"
+database_uri_old_user = f"sqlite:///{DIR_RESOURCE}/db/data.sqlite"
 Base_Old_user = declarative_base()
 engine_old_user = create_engine(database_uri_old_user)
 
@@ -60,8 +60,8 @@ def init_old_user_db():
 def transfer_user_db():
     """转移旧版本用户数据"""
     # 复制旧数据库文件
-    old_db_path = f"{DIR_RESOURCE}/data.sqlite"
-    new_db_path = f"{DIR_RESOURCE}/nso_data.sqlite"
+    old_db_path = f"{DIR_RESOURCE}/db/data.sqlite"
+    new_db_path = f"{DIR_RESOURCE}/db/nso_data.sqlite"
     shutil.copy(old_db_path, new_db_path)
     # 连接新数据库删除user表
     engine = create_engine(database_uri_main)

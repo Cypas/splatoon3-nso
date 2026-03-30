@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import gc
+import random
 import time
 
 from .utils import cron_logger, user_remove_duplicates
@@ -12,20 +13,25 @@ from ...data.db_sqlite import Report
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
     model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict, \
-    dict_get_all_global_users
+    dict_get_all_global_users, model_get_all_report_user, model_get_all_inactive_report_user
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id, convert_td, ReqClient
 from ...utils.bot import *
 
 
-async def create_set_report_tasks(is_corn_job=True):
+async def create_set_report_tasks(is_corn_job=False, is_inactive_user = False):
     """7点时请求并提前写好日报数据"""
     cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("set_report", "start")
 
     t = dt.utcnow()
-    db_users = model_get_all_user()
+    if is_inactive_user:
+        # 不活跃用户
+        db_users = model_get_all_inactive_report_user()
+    else:
+        # 活跃用户
+        db_users = model_get_all_report_user()
     db_users = user_remove_duplicates(db_users)
 
     list_user: list[tuple] = [(user.platform, user.user_id) for user in db_users]
@@ -316,17 +322,34 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
 
         # ================== 剩余业务逻辑 ==================
         # 上次游玩时间位于一天内
-        if last_play_time.date() >= (dt.utcnow() - timedelta(days=1)).date():
+        yesterday = dt.utcnow() - timedelta(days=1)
+        diff_days = (dt.utcnow() - last_play_time).days
+        if last_play_time.date() >= yesterday.date():
             await set_user_report(
                 splatoon.user_db_info.db_id, res_summary, res_coop,
                 last_play_time, splatoon, game_sp_id, all_data
             )
+            # 设置下次更新时间
+            next_report_run_time = (dt.utcnow() + timedelta(days=1)).date()
+            splatoon.set_user_info(next_report_run_time = next_report_run_time)
+            splatoon.refresh_another_account()
+
             cron_logger.info(f'set_user_report_task success: {db_id},{msg_id},{splatoon.user_name}')
             # 成功
             return "success"
 
         # 无日报
+        if diff_days >= 30:
+            # 如果最近一次游玩也是30天以前，设置下次更新时间 随机加10-20天
+            days = random.randint(10, 20)
+        else:
+            # 设置下次更新时间
+            days = 1
+        next_report_run_time = (dt.utcnow() + timedelta(days=days)).date()
+        splatoon.set_user_info(next_report_run_time=next_report_run_time)
+        splatoon.refresh_another_account()
         return "no report"
+
     except Exception as ex:
         cron_logger.error(f'set_user_report_task error: {msg_id} error:{str(ex)}', exc_info=True)
         # 异常时清理

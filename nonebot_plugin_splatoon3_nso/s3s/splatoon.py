@@ -266,14 +266,16 @@ class Splatoon:
                                               g_token=self.g_token, bullet_token=self.bullet_token, user_agreement=1,
                                               nsa_id=self.nsa_id, ns_name=self.ns_name,
                                               ns_friend_code=self.ns_friend_code,
-                                              first_play_time=u.first_play_time, last_play_time=u.last_play_time)
+                                              first_play_time=u.first_play_time, last_play_time=u.last_play_time,
+                                              next_report_run_time=u.next_report_run_time)
                 else:
                     # 更新数据库数据
                     model_get_or_set_user(u.platform, u.user_id, access_token=self.access_token,
                                           g_token=self.g_token, bullet_token=self.bullet_token, user_agreement=1,
                                           nsa_id=self.nsa_id, ns_name=self.ns_name,
                                           ns_friend_code=self.ns_friend_code,
-                                          first_play_time=u.first_play_time, last_play_time=u.last_play_time)
+                                          first_play_time=u.first_play_time, last_play_time=u.last_play_time,
+                                          next_report_run_time=u.next_report_run_time)
 
     async def head_bullet(self, force_lang=None, force_country=None):
         """为含有bullet_token的请求拼装header"""
