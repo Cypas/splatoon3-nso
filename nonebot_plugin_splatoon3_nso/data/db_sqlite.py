@@ -10,14 +10,6 @@ import datetime
 
 from ..utils import DIR_RESOURCE
 
-
-# 自定义datetime适配器，存储时不带微秒
-def adapt_datetime(dt):
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
-
-
-sqlite3.register_adapter(datetime.datetime, adapt_datetime)
-
 database_uri_main = f"sqlite:///{DIR_RESOURCE}/db/nso_data.sqlite"
 database_uri_friends = f"sqlite:///{DIR_RESOURCE}/db/nso_data_friend.sqlite"
 database_uri_report = f"sqlite:///{DIR_RESOURCE}/db/nso_data_report.sqlite"

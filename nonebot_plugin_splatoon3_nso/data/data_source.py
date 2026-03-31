@@ -57,6 +57,9 @@ def dict_get_or_set_user_info(platform, user_id, _type="normal", **kwargs):
                 ns_name=user.ns_name,
                 ns_friend_code=user.ns_friend_code,
                 nsa_id=user.nsa_id,
+                first_play_time=user.first_play_time,
+                last_play_time=user.last_play_time,
+                next_report_run_time=user.next_report_run_time,
                 req_client=get_or_init_client(platform, user_id, _type)
             )
             user_dict.update({key: user_info})

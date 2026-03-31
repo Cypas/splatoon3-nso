@@ -63,6 +63,9 @@ class Splatoon:
             self.bullet_token = user.bullet_token
             self.g_token = user.g_token
             self.access_token = user.access_token
+            self.first_play_time = user.first_play_time
+            self.last_play_time = user.last_play_time
+            self.next_report_run_time = user.next_report_run_time
             self.user_db_info = UserDBInfo(str(user.id) or "0",
                                            user.user_name or "no user name",
                                            user.game_name or "no game name",
@@ -89,6 +92,9 @@ class Splatoon:
         for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
+            # 同时更新user_db_info的属性
+            if hasattr(self.user_db_info, k):
+                setattr(self.user_db_info, k, v)
         # 修改全局字典
         dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, **kwargs)
 
@@ -267,23 +273,22 @@ class Splatoon:
                 # 如果存在全局缓存，也更新缓存数据
                 key = get_msg_id(u.platform, u.user_id)
                 user_info = global_user_info_dict.get(key)
-                user_db_info = self.user_db_info
                 if user_info:
                     # 更新缓存数据
                     dict_get_or_set_user_info(u.platform, u.user_id, access_token=self.access_token,
                                               g_token=self.g_token, bullet_token=self.bullet_token, user_agreement=1,
                                               nsa_id=self.nsa_id, ns_name=self.ns_name,
                                               ns_friend_code=self.ns_friend_code,
-                                              first_play_time=user_db_info.first_play_time, last_play_time=user_db_info.last_play_time,
-                                              next_report_run_time=user_db_info.next_report_run_time)
+                                              first_play_time=self.first_play_time, last_play_time=self.last_play_time,
+                                              next_report_run_time=self.next_report_run_time)
                 else:
                     # 更新数据库数据
                     model_get_or_set_user(u.platform, u.user_id, access_token=self.access_token,
                                           g_token=self.g_token, bullet_token=self.bullet_token, user_agreement=1,
                                           nsa_id=self.nsa_id, ns_name=self.ns_name,
                                           ns_friend_code=self.ns_friend_code,
-                                          first_play_time=user_db_info.first_play_time, last_play_time=user_db_info.last_play_time,
-                                          next_report_run_time=user_db_info.next_report_run_time)
+                                          first_play_time=self.first_play_time, last_play_time=self.last_play_time,
+                                          next_report_run_time=self.next_report_run_time)
 
     async def head_bullet(self, force_lang=None, force_country=None):
         """为含有bullet_token的请求拼装header"""

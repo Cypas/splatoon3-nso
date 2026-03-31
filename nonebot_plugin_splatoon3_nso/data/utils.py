@@ -33,6 +33,9 @@ class GlobalUserInfo:
         self.ns_name = kwargs.get('ns_name', None)
         self.ns_friend_code = kwargs.get('ns_friend_code', None)
         self.nsa_id = kwargs.get('nsa_id', None)
+        self.first_play_time = kwargs.get('first_play_time', None)
+        self.last_play_time = kwargs.get('last_play_time', None)
+        self.next_report_run_time = kwargs.get('next_report_run_time', None)
         # self.req_client = kwargs.get('req_client', None)
 
 
