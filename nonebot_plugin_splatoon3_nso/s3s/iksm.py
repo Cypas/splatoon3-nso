@@ -33,7 +33,7 @@ S3S_VERSION = "0.7.0"  # s3s脚本版本号
 NSOAPP_VERSION = "unknown"
 NSOAPP_VER_FALLBACK = "3.3.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
-WEB_VIEW_VER_FALLBACK = "10.0.0-cba84fcd"  # fallback
+WEB_VIEW_VER_FALLBACK = "10.0.0-dfefd0af"  # fallback
 
 F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
