@@ -86,7 +86,13 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user = False):
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
                 if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'NSA not linked', 'has be banned']):
-                    cron_logger.info(f"跳过无效用户: {msg_id}，reason:{e}")
+                    db_id = splatoon.user_db_info.db_id
+                    # 加5-10天延迟
+                    days = random.randint(5, 10)
+                    cron_logger.info(f"跳过无效用户:{db_id}，{msg_id}，延迟{days}天，reason:{e}")
+                    next_report_run_time = (dt.utcnow() + timedelta(days=days)).date()
+                    splatoon.set_user_info(next_report_run_time=next_report_run_time)
+                    splatoon.refresh_another_account()
                     return None
 
     # ================== 等待 UTC 0 点后再执行阶段2 ==================
@@ -314,7 +320,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             return "data missing"
 
         # ================== 时间计算 ==================
-        first_play_time = dt.strptime(res_summary['data']['playHistory']['gameStartTime'], '%Y%m%dT%H%M%S')
+        first_play_time = dt.strptime(res_summary['data']['playHistory']['gameStartTime'], '%Y-%m-%dT%H:%M:%SZ')
         last_play_time = max(dt.strptime(battle_t, '%Y%m%dT%H%M%S'), dt.strptime(coop_t, '%Y%m%dT%H%M%S'))
         # 同时更新user表里面相同game_sp_id 的全部账号的  first_play_time 与 last_play_time
         splatoon.set_user_info(first_play_time=first_play_time, last_play_time=last_play_time)
@@ -342,6 +348,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
         if diff_days >= 30:
             # 如果最近一次游玩也是30天以前，设置下次更新时间 随机加10-20天
             days = random.randint(10, 20)
+            cron_logger.info(f"超过30天无日报:{db_id}，{msg_id}，延迟{days}天")
         else:
             # 设置下次更新时间
             days = 1
