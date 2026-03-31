@@ -1,11 +1,27 @@
 from contextlib import contextmanager
 from nonebot import logger
 from sqlalchemy import Column, String, create_engine, Integer, Text, DateTime, func, Float, \
-    UniqueConstraint
+    UniqueConstraint, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.engine import Engine
+import sqlite3
+from datetime import datetime
 
 from ..utils import DIR_RESOURCE
+
+# 设置SQLite日期时间存储格式为 %Y-%m-%d %H:%M:%S
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.close()
+
+# 自定义datetime适配器，存储时不带微秒
+def adapt_datetime(dt):
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+sqlite3.register_adapter(datetime, adapt_datetime)
 
 database_uri_main = f"sqlite:///{DIR_RESOURCE}/db/nso_data.sqlite"
 database_uri_friends = f"sqlite:///{DIR_RESOURCE}/db/nso_data_friend.sqlite"
