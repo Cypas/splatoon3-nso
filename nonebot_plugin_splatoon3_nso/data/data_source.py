@@ -634,7 +634,7 @@ def model_get_top_all_count_by_top_type(top_type):
 
 
 def model_get_power_rank():
-    session = DBSession()
+    session = DBSession_Report()
     data = session.execute(text(f"""
 select user_id_sp, max(max_power) max_power,
        row_number() over (order by max_power desc) rank
