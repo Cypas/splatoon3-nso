@@ -56,10 +56,14 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user = model_get_or_set_user(platform, user_id)
-    next_report_run_date = user.next_report_run_time.date()
-    # logger.info(f"next_report_run_date:{next_report_run_date}")
-    # logger.info(f"utc_date:{dt.utcnow()}")
-    diff_days = (next_report_run_date - dt.utcnow().date()).days
+    if user.next_report_run_time:
+        # 有值的情况下才计算相差天数
+        next_report_run_date = user.next_report_run_time.date()
+        # logger.info(f"next_report_run_date:{next_report_run_date}")
+        # logger.info(f"utc_date:{dt.utcnow()}")
+        diff_days = (next_report_run_date - dt.utcnow().date()).days
+    else:
+        diff_days = 0
     # logger.info(f"diff_days:{diff_days}")
     if diff_days > 1 and not report_day:
         msg = f'因超过30天没有喷3游戏记录，日报已暂停生成，本次命令将重新激活日报自动生成，大概将在明日9点后生成近期日报'
