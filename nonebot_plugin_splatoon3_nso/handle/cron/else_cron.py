@@ -10,7 +10,7 @@ import traceback
 from nonebot import logger
 from pympler import muppy, asizeof, summary
 
-from .utils import cron_logger
+from .utils import cron_logger, user_remove_duplicates
 from datetime import datetime as dt
 
 from ..send_msg import cron_notify_to_channel
@@ -19,7 +19,7 @@ from ...s3s.splatnet_image import global_dict_ss_user, cleanup_browser
 from ...utils.utils import DIR_RESOURCE
 from ...utils.http import global_client_dict, global_cron_client_dict, CLIENT_TIMEOUT
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict, \
-    global_user_info_dict, global_cron_user_info_dict
+    global_user_info_dict, global_cron_user_info_dict, model_get_all_report_user, model_get_all_user
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id, convert_td
 
@@ -109,6 +109,7 @@ async def show_dict_status():
     cron_msg = await get_dict_status()
     cron_logger.info(cron_msg)
     await cron_notify_to_channel("status", "end", cron_msg)
+    return cron_msg
 
 
 async def get_dict_status():
@@ -117,12 +118,18 @@ async def get_dict_status():
 
     # 获取状态
     limiter_dict = await limiter.get_serializable_state()
+    # 现在有效用户数量
+    db_users = model_get_all_user()
+    # 现在有效用户去重后数量
+    unique_db_users = user_remove_duplicates(db_users)
 
     cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
                 f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
                 f"global_client_cnt:{len(global_client_dict)}\n"
                 f"cron_client_cnt:{len(global_cron_client_dict)}\n"
                 f"limiter:{json.dumps(limiter_dict)}\n"
+                f"user_cnt:{len(db_users)}\n"
+                f"unique_user_cnt:{len(unique_db_users)}\n"
                 # f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
     return cron_msg

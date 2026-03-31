@@ -19,11 +19,8 @@ from ...utils import get_msg_id, convert_td, ReqClient
 from ...utils.bot import *
 
 
-async def create_set_report_tasks(is_corn_job=False, is_inactive_user = False):
+async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
     """7点时请求并提前写好日报数据"""
-    cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
-    cron_logger.info(cron_msg)
-    await cron_notify_to_channel("set_report", "start")
 
     t = dt.utcnow()
     if is_inactive_user:
@@ -32,7 +29,16 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user = False):
     else:
         # 活跃用户
         db_users = model_get_all_report_user()
+    users_cnt = len(db_users)
+    cron_logger.info(f"待检查日报数量:{users_cnt}")
     db_users = user_remove_duplicates(db_users)
+    unique_users_cnt = len(db_users)
+    cron_logger.info(f"去重后待检查日报数量:{unique_users_cnt}")
+
+    cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel("set_report", "start",
+                                 msg=f"report_users_cnt:{users_cnt}\nreport_unique_users_cnt:{unique_users_cnt}")
 
     list_user: list[tuple] = [(user.platform, user.user_id) for user in db_users]
 
@@ -85,7 +91,8 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user = False):
                 await phase2_queue.put(splatoon)  # 将结果加入队列
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
-                if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'NSA not linked', 'has be banned']):
+                if any(key in str(e) for key in
+                       ['invalid_grant', 'Membership required', 'NSA not linked', 'has be banned']):
                     db_id = splatoon.user_db_info.db_id
                     # 加5-10天延迟
                     days = random.randint(5, 10)
@@ -337,7 +344,7 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             )
             # 设置下次更新时间
             next_report_run_time = (dt.utcnow() + timedelta(days=1)).date()
-            splatoon.set_user_info(next_report_run_time = next_report_run_time)
+            splatoon.set_user_info(next_report_run_time=next_report_run_time)
             splatoon.refresh_another_account()
 
             cron_logger.info(f'set_user_report_task success: {db_id},{msg_id},{splatoon.user_name}')

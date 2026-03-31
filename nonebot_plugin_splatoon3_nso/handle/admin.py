@@ -5,7 +5,6 @@ import time
 from .cron import create_get_user_friends_tasks, get_x_player, create_set_report_tasks, sync_stat_ink, send_report_task, \
     create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, get_event_top, \
     show_dict_status
-from .cron.else_cron import get_dict_status
 from .push import close_push
 from .send_msg import bot_send, notify_to_private
 from ..data.data_source import dict_get_all_global_users, model_clean_db_cache, model_get_or_set_user, \
@@ -82,8 +81,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await clean_global_user_info_dict()
 
         case "status":
-            msg = await get_dict_status()
-            await show_dict_status()
+            msg = await show_dict_status()
             await bot_send(bot, event, message=msg)
 
         case "restore_token":

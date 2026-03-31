@@ -78,8 +78,8 @@ def scheduler_controller():
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
         # 每天23:59分将 stat_ink 因会员过期重复刷新的账号缓存列表置空
         add_scheduler("clean_stat_ink_error_code_user_list", trigger='cron', hour=23, minute=59)
-        # 每3小时自动显示status
-        # add_scheduler("show_status", trigger='interval', hours=3)
+        # 每天0点自动显示status
+        add_scheduler("show_status", trigger='cron', hour=0, minute=1)
         # 每20分钟检测一次过期的已缓存客户端
         add_scheduler("clean_expired_clients", trigger='interval', minutes=20)
 
