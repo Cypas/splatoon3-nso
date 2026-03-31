@@ -6,22 +6,17 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine import Engine
 import sqlite3
-from datetime import datetime
+import datetime
 
 from ..utils import DIR_RESOURCE
 
-# 设置SQLite日期时间存储格式为 %Y-%m-%d %H:%M:%S
-@event.listens_for(Engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
-    cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.close()
 
 # 自定义datetime适配器，存储时不带微秒
 def adapt_datetime(dt):
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
-sqlite3.register_adapter(datetime, adapt_datetime)
+
+sqlite3.register_adapter(datetime.datetime, adapt_datetime)
 
 database_uri_main = f"sqlite:///{DIR_RESOURCE}/db/nso_data.sqlite"
 database_uri_friends = f"sqlite:///{DIR_RESOURCE}/db/nso_data_friend.sqlite"
@@ -92,12 +87,12 @@ class UserTable(Base_Main):
     game_sp_id = Column(String(), nullable=True, index=True)
     ns_name = Column(String(), nullable=True)
     ns_friend_code = Column(String(), nullable=True)
-    nsa_id = Column(String(), nullable=True) # 用户nso应用的唯一识别编码
+    nsa_id = Column(String(), nullable=True)  # 用户nso应用的唯一识别编码
     stat_notify = Column(Integer(), default=1)  # 0:close 1:open
     report_notify = Column(Integer(), default=1)  # 0:close 1:open
     last_play_time = Column(DateTime(), nullable=True)
     first_play_time = Column(DateTime(), nullable=True)
-    next_report_run_time = Column(DateTime(), nullable=True) # 下次更新日报的日期
+    next_report_run_time = Column(DateTime(), nullable=True)  # 下次更新日报的日期
     create_time = Column(DateTime(), default=func.now())
     update_time = Column(DateTime(), onupdate=func.now())
 
