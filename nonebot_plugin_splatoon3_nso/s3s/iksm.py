@@ -31,7 +31,7 @@ from ..utils import BOT_VERSION, AsHttpReq
 S3S_AGENT = "s3s - github.com/Cypas/splatoon3-nso"  # s3s agent
 S3S_VERSION = "0.7.0"  # s3s脚本版本号
 NSOAPP_VERSION = "unknown"
-NSOAPP_VER_FALLBACK = "3.2.0"  # fallback
+NSOAPP_VER_FALLBACK = "3.3.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
 WEB_VIEW_VER_FALLBACK = "10.0.0-cba84fcd"  # fallback
 
@@ -39,7 +39,7 @@ F_GEN_URL = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_URL_2 = "https://nxapi-znca-api.fancy.org.uk/api/znca/f"
 F_GEN_OAUTH_URL = "https://nxapi-auth.fancy.org.uk/api/oauth/token"
 F_GEN_OAUTH_client_id = "Orh4jxABP3D3jYaBFgL9Ug"
-F_GEN_X_znca_Client_Version = "hio87-mJks_e9GNF"
+F_GEN_X_znca_Client_Version = "w8zSLBsxR7rVoGJA"
 F_GEN_is_encrypt = True  ## nxapi接口是否使用加密传递
 
 F_USER_AGENT = f"nonebot_plugin_splatoon3_nso/{BOT_VERSION}"
