@@ -8,6 +8,7 @@ from datetime import datetime as dt
 from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, get_event_info, get_game_sp_id, get_qq_user_name
 from .send_msg import bot_send, notify_to_channel, bot_send_login_md
+from ..data.utils import get_or_set_plugin_data
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict, \
     model_get_or_set_user
@@ -39,6 +40,14 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
               "/get_login_code 获取绑定码以绑定其他平台bot账号"
         await bot_send(bot, event, msg, skip_ad=True)
         await matcher.finish()
+
+    # if plugin_config.splatoon3_maintenance_mode:
+    #     # nso维护模式
+    #     # 尝试获取公告信息
+    #     notice = await get_or_set_plugin_data("splatoon3_bot_notice")
+    #     msg = "nso查询暂时维护中，目前无法提供服务"
+    #     if notice:
+    #         msg += f"\n公告消息:" + str(notice)
 
     if isinstance(bot, QQ_Bot):
         if not zurl.get_client():

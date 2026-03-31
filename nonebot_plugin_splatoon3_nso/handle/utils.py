@@ -231,7 +231,7 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
     if plugin_config.splatoon3_maintenance_mode:
         # 尝试获取公告信息
         notice = await get_or_set_plugin_data("splatoon3_bot_notice")
-        msg = "nso查询暂时维护中，目前无法提供服务，或者可以使用splatoon3 bot"
+        msg = "nso查询暂时维护中，目前无法提供服务"
         if notice:
             msg += f"\n公告消息:" + str(notice)
         await matcher.finish(msg)
