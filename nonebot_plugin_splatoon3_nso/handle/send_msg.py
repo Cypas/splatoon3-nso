@@ -179,7 +179,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
             text_end = QQ_md.get("text_end")
             if md_type:
                 # 获取图片url
-                url, image_size = await get_image_url_and_size(img_data)
+                url, image_size = await _get_image_url_and_size(img_data)
                 # 根据不同type渲染不同md
                 qq_md_msg = ""
                 match md_type:
@@ -187,26 +187,13 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
                         # nso查询通用的md
                         qq_md_msg = await nso_general_md(user_id, image_size=image_size, url=url, text_start=text_start,
                                                          text_end=text_end)
-                try:
-                    await bot.send(event, qq_md_msg)
-                except QQ_ActionFailed as e:
-                    if "消息被去重" in str(e):
-                        pass
-                    else:
-                        logger.warning(f"QQ send msg error: {e}")
-
+                await _qq_bot_send_md(bot, event, qq_md_msg)
 
     else:
         # 下面为文字消息
-        try:
-            if isinstance(bot, QQ_Bot):
-                message = message.replace("```", "").replace("\_", "_").strip().strip("`")
-            await send_msg(bot, event, message, file_name=file_name, skip_ad=skip_ad)
-        except QQ_ActionFailed as e:
-            if "消息被去重" in str(e):
-                pass
-            else:
-                logger.warning(f"QQ send msg error: {e}")
+        if isinstance(bot, QQ_Bot):
+            message = message.replace("```", "").replace("\_", "_").strip().strip("`")
+        await send_msg(bot, event, message, file_name=file_name, skip_ad=skip_ad)
 
 
 async def bot_send_nso_md(bot: Bot, event: Event, message: str | bytes, user_id: str, image_width=None, skip_ad=False,
@@ -223,13 +210,13 @@ async def bot_send_nso_md(bot: Bot, event: Event, message: str | bytes, user_id:
 async def bot_send_login_md(bot: Bot, event: Event, user_id: str, check_session=False):
     """发送login md消息"""
     qq_msg = await login_md(user_id, check_session=check_session)
-    await bot.send(event, qq_msg)
+    await _qq_bot_send_md(bot, event, qq_msg)
 
 
 async def bot_send_push_md(bot: Bot, event: Event, user_id: str, skip_ad=False):
     """发送push引流至kook的 qq md消息"""
     qq_msg = await push_md(user_id)
-    await bot.send(event, qq_msg)
+    await _qq_bot_send_md(bot, event, qq_msg)
 
 
 async def bot_mixed_send_report(bot: Bot, event: Event, title: str, msg: str):
@@ -241,7 +228,7 @@ async def bot_mixed_send_report(bot: Bot, event: Event, title: str, msg: str):
         if isinstance(event, QQ_C2CME):
             user_id = ""
         qq_msg = await report_md(user_id, title, msg)
-        await bot.send(event, qq_msg)
+        await _qq_bot_send_md(bot, event, qq_msg)
     else:
         await bot_send(bot, event, msg)
 
@@ -249,19 +236,19 @@ async def bot_mixed_send_report(bot: Bot, event: Event, title: str, msg: str):
 async def bot_send_new_user_added_md(bot: Bot, event: Event, user_id: str, title: str, msg: str, skip_ad=False):
     """发送nso菜单的二级按钮选项"""
     qq_msg = await new_user_added_md(user_id, title, msg)
-    await bot.send(event, qq_msg)
+    await _qq_bot_send_md(bot, event, qq_msg)
 
 
 async def bot_send_more_nso_help_md(bot: Bot, event: Event, user_id: str, skip_ad=False):
     """发送nso菜单的二级按钮选项"""
     qq_msg = await more_nso_help_md(user_id)
-    await bot.send(event, qq_msg)
+    await _qq_bot_send_md(bot, event, qq_msg)
 
 
 async def bot_send_login_url_md(bot: Bot, event: Event, url):
     """发送url md消息"""
     qq_msg = await c2c_login_md(url)
-    await bot.send(event, qq_msg)
+    await _qq_bot_send_md(bot, event, qq_msg)
 
 
 async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_ad=False):
@@ -326,7 +313,7 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
                 await bot.send(event, Kook_MsgSeg.file(file_key=url, title=file_name), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
             try:
-                url, image_size = await get_image_url_and_size(img)
+                url, image_size = await _get_image_url_and_size(img)
                 # logger.info("url:" + url)
                 if url:
                     await bot.send(event, message=QQ_MsgSeg.image(url))
@@ -340,37 +327,6 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
         if isinstance(bot, QQ_Bot):
             ad_msg = ad_msg.replace(".", "点")
         await send_msg(bot, event, ad_msg, skip_ad=True)
-
-
-async def get_image_url_and_size(img_data: bytes) -> tuple[str, tuple[int, int]]:
-    """通过cos图床或kook图床获取图片url"""
-    url = ""
-    image_size = (300, 300)
-    # 优先使用腾讯cos上传
-    if plugin_config.splatoon3_cos_config.enabled and cos_uploader.client is not None:
-        url, image_size = cos_upload_file(img_data)
-        if url:
-            return url, image_size
-        else:
-            logger.warning("腾讯cos上传失败，使用kook上传")
-
-    # 使用kook的接口传图片
-    kook_bot = None
-    bots = nonebot.get_bots()
-    for k, b in bots.items():
-        if isinstance(b, Kook_Bot):
-            kook_bot = b
-            break
-    if kook_bot is not None:
-        # 使用kook的接口传图片
-        url = await kook_bot.upload_file(img_data)
-        image_size = get_image_size(img_data)
-        if url:
-            channel_id = plugin_config.splatoon3_kk_channel_waste_chat_id
-            await kook_bot.send_channel_msg(
-                channel_id=channel_id, message=Kook_MsgSeg.image(url)
-            )
-    return url, image_size
 
 
 async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):
@@ -437,3 +393,45 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_photo(source_id, img)
+
+
+async def _qq_bot_send_md(bot: QQ_Bot, event: Event, qq_md):
+    """提供给其他qqmd消息含去重处理的发md消息函数"""
+    try:
+        await bot.send(event, qq_md)
+    except QQ_ActionFailed as e:
+        if "消息被去重" in str(e):
+            pass
+        else:
+            logger.warning(f"QQ send msg error: {e}")
+
+
+async def _get_image_url_and_size(img_data: bytes) -> tuple[str, tuple[int, int]]:
+    """通过cos图床或kook图床获取图片url"""
+    url = ""
+    image_size = (300, 300)
+    # 优先使用腾讯cos上传
+    if plugin_config.splatoon3_cos_config.enabled and cos_uploader.client is not None:
+        url, image_size = cos_upload_file(img_data)
+        if url:
+            return url, image_size
+        else:
+            logger.warning("腾讯cos上传失败，使用kook上传")
+
+    # 使用kook的接口传图片
+    kook_bot = None
+    bots = nonebot.get_bots()
+    for k, b in bots.items():
+        if isinstance(b, Kook_Bot):
+            kook_bot = b
+            break
+    if kook_bot is not None:
+        # 使用kook的接口传图片
+        url = await kook_bot.upload_file(img_data)
+        image_size = get_image_size(img_data)
+        if url:
+            channel_id = plugin_config.splatoon3_kk_channel_waste_chat_id
+            await kook_bot.send_channel_msg(
+                channel_id=channel_id, message=Kook_MsgSeg.image(url)
+            )
+    return url, image_size
