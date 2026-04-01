@@ -151,7 +151,8 @@ async def login_in_2(bot: Bot, event: Event):
         err_msg = "登录链接格式错误，链接是一串npf开头的文本"
         logger.info(err_msg)
         # 登录失败直接销毁用户等待字典
-        global_login_status_dict.pop(msg_id)
+        if msg_id in global_login_status_dict:
+            global_login_status_dict.pop(msg_id)
         await bot.send(event, message=err_msg)
         return
 
@@ -160,7 +161,8 @@ async def login_in_2(bot: Bot, event: Event):
         err_msg = "登录失败，请 /login 重试, 并在浏览器打开bot新发给你的登录链接，在重新完成登录后，复制按钮的新链接给bot"
         logger.info(err_msg)
         # 登录失败直接销毁用户等待字典
-        global_login_status_dict.pop(msg_id)
+        if msg_id in global_login_status_dict:
+            global_login_status_dict.pop(msg_id)
         await bot.send(event, message=err_msg)
         return
     logger.info(f'session_token: {session_token}')
@@ -219,7 +221,8 @@ async def login_in_2(bot: Bot, event: Event):
         # 日程插件帮助优先模式
         msg += "\n更多完整nso操作指令: \n/nso帮助"
     await bot.send(event, message=msg)
-    global_login_status_dict.pop(msg_id)
+    if msg_id in global_login_status_dict:
+        global_login_status_dict.pop(msg_id)
     logger.info(f'login success:{msg_id} {new_user_name}')
 
     try:
@@ -248,16 +251,14 @@ async def clear_db_info(bot: Bot, event: Event):
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
 
-    user = dict_get_or_set_user_info(platform, user_id)
-    log_msg = "用户注销:db_id:{},msg_id:{},会话昵称:{},游戏昵称:{}".format(
-        user.db_id, msg_id, user.user_name, user.game_name)
-    notify_msg = "用户注销:db_id:{},msg_id:{},\n会话昵称:{},游戏昵称:{}".format(
-        user.db_id, msg_id, user.user_name, user.game_name)
+    user = model_get_or_set_user(platform, user_id)
+    log_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name}"
+    notify_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},\n会话昵称:{user.user_name},游戏昵称:{user.game_name}"
 
     if isinstance(bot, Tg_Bot):
         msg = "All your data cleared!"
     else:
-        msg = "已清空账号数据!"
+        msg = "已清空账号数据!\n可使用/login 重新登陆"
     logger.info(log_msg)
 
     await bot_send(bot, event, message=msg, skip_ad=True)
