@@ -491,7 +491,7 @@ def model_get_user_friend(game_name) -> UserFriendTable:
 
 
 def model_new_get_user_friend(nsa_id) -> UserFriendTable:
-    """获取好友数据(使用nsa_id精准匹配)"""
+    """获取好友数据(使用nsa_id精准匹配)  后来发现好友里面取不到nsa_id 放弃了"""
     session = DBSession_Friends()
     user = session.query(UserFriendTable).filter(
         UserFriendTable.nsa_id == nsa_id
@@ -540,6 +540,28 @@ def model_set_user_friend(data_lst):
             session.commit()
             report_logger.debug(f'add user_friend: {r[1]}, {r[2]}, {r[3]}, {game_name}')
 
+    session.close()
+
+
+def model_delete_user_friend():
+    """清除90天前创建或90天前才更新的好友数据"""
+    # 两种情况删除   1. 90天前创建，从未更新   2.更新时间不为none，在90天前
+    session = DBSession_Friends()
+    ninety_days_ago = datetime.datetime.now() - datetime.timedelta(days=90)
+
+    # 情况1: 90天前创建且从未更新（update_time为None）
+    session.query(UserFriendTable).filter(
+        UserFriendTable.create_time < ninety_days_ago,
+        UserFriendTable.update_time == None
+    ).delete()
+
+    # 情况2: 更新时间不为None，且在90天前
+    session.query(UserFriendTable).filter(
+        UserFriendTable.update_time != None,
+        UserFriendTable.update_time < ninety_days_ago
+    ).delete()
+
+    session.commit()
     session.close()
 
 

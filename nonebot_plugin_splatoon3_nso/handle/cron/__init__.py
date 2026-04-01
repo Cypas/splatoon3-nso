@@ -11,6 +11,7 @@ from .report import create_set_report_tasks, send_report_task
 from .user_friends import create_get_user_friends_tasks
 from .x_player import get_x_player
 from ...config import plugin_config
+from ...data.data_source import model_delete_user_friend
 
 require("nonebot_plugin_apscheduler")
 from nonebot_plugin_apscheduler import scheduler
@@ -64,8 +65,8 @@ def scheduler_controller():
         # send_report at 9:00
         # add_scheduler("send_report", trigger='cron', hour=9, minute=0)
         # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########
-        # get_user_friends every 1 hours   仅为缓存内的用户提供定期获取好友信息
-        add_scheduler("get_user_friends", trigger='interval', hours=1)
+        # get_user_friends every 3 hours   仅为缓存内的用户提供定期获取好友信息
+        add_scheduler("get_user_friends", trigger='interval', hours=3)
         # refresh_token every 2 hours 30 min   仅为缓存内的用户提供定期刷新token
         add_scheduler("refresh_token", trigger='interval', hours=2, minutes=30)
         # # update_s3si_ts 在指定时间检查脚本更新
@@ -80,6 +81,8 @@ def scheduler_controller():
         add_scheduler("clean_stat_ink_error_code_user_list", trigger='cron', hour=23, minute=59)
         # 每天0点自动显示status
         add_scheduler("show_status", trigger='cron', hour=0, minute=1)
+        # 每天0点自动删除过早好友数据
+        add_scheduler("delete_early_friend", trigger='cron', hour=0, minute=1)
         # 每20分钟检测一次过期的已缓存客户端
         add_scheduler("clean_expired_clients", trigger='interval', minutes=20)
 
@@ -118,6 +121,8 @@ async def cron(_type):
             await show_dict_status()
         case "clean_expired_clients":
             await clean_expired_clients()
+        case "delete_early_friend":
+            model_delete_user_friend()
 
 
 def remove_all_scheduler():
