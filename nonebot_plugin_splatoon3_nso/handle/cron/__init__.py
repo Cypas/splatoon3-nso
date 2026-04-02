@@ -116,7 +116,7 @@ async def cron(_type):
         case "init_nso_version":
             await init_nso_version()
         case "clean_stat_ink_error_code_user_list":
-            await clean_stat_ink_error_code_user_list()
+            clean_stat_ink_error_code_user_list()
         case "show_status":
             await show_dict_status()
         case "clean_expired_clients":

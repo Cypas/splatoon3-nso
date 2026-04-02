@@ -262,7 +262,7 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
     if x_msg:
         x_msg += "||"
     else:
-        x_msg = "\n||"
+        x_msg = "||\n"
 
     _league = ''
     _open = ''
@@ -312,8 +312,7 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
 {w_img} |{user_name}
 {img} |{player['byname']}
 等级 | {history['rank']} {badges_str}
-技术 | {history['udemae']}
-最高技术 | {history['udemaeMax']}
+技术 | {history['udemae']}/最高{history['udemaeMax']}
 总胜利数 | {history['winCountTotal']}{all_cnt} {r}
 涂墨面积 | {history['paintPointTotal']:,}p
 徽章 | {len(history['badges'])} {best_weapon}
