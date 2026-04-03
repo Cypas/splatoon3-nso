@@ -102,20 +102,21 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
                           })
         return __w_l
 
-    # 全部有分数的武器 以及 常用武器(赢100局武器的前三名))
+    # 全部有分数的武器 以及 常用武器(赢100局武器的前三名)
     weapons_str = ''
     best_weapon = ''
     if weapons and not from_group:
         w_l_1 = get_best_weapons_list(weapons, __type="maxWeaponPower")
-        new_weapons_str_list = []
         if w_l_1:
             w_power_l = sorted(w_l_1, key=lambda x: x['power'], reverse=True)
-            weapons_str += '\n武器分数top5:|'
+            weapons_str = '|武器分数top5|'
+            new_weapons_str_list = []
             for w in w_power_l[:5]:
                 ww_img = await model_get_temp_image_path('battle_weapon_main', w['weapon_name'])
                 ww_img = f'''<img style='height:30px; width:auto' src="{ww_img}"/>'''
                 new_weapons_str_list.append(f"{ww_img} &nbsp;&nbsp;{w['power']:.2f}")
             weapons_str += '<br>'.join(new_weapons_str_list)
+            weapons_str += '|'
     if weapons:
         w_l_2 = get_best_weapons_list(weapons, __type="win")
         if w_l_2:
@@ -125,7 +126,7 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
                     ww_img = await model_get_temp_image_path('battle_weapon_main', w['weapon_name'])
                     best_weapon += f'<img height="22" src="{ww_img}"/>({w["win"]}胜)&nbsp;&nbsp;'
         if best_weapon:
-            best_weapon = '\n常用武器| ' + best_weapon
+            best_weapon = f'|常用武器| {best_weapon}|'
 
     coop_msg = ''
     if coops:
@@ -145,21 +146,21 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
             dpc = f"({card['deliverCount'] / card['playCount']:.2f})"
             rpc = f"({card['rescueCount'] / card['playCount']:.2f})"
             ppc = f"({card['totalPoint'] / card['playCount']:.2f})"
-        coop_msg = f"""当前打工段位 | {level}
-现有点数 | {card['regularPoint']}
-打工次数 | {card['playCount']}
-金鲑鱼卵 | {card['goldenDeliverCount']} {gdpc}
-鲑鱼卵 | {card['deliverCount']} {dpc}
-头目鲑鱼 | {card['defeatBossCount']} {boss_per_cnt}
-救援次数 | {card['rescueCount']} {rpc}
-累计点数 | {card['totalPoint']} {ppc}
-鳞片 | 🏅️{p['gold']} 🥈{p['silver']} 🥉{p['bronze']}"""
-
         if from_group:
-            coop_msg = f"""当前打工段位 | {level}
-打工次数 | {card['playCount']}
-头目鲑鱼 | {card['defeatBossCount']} {boss_per_cnt}
-鳞片 | 🏅️{p['gold']} 🥈{p['silver']} 🥉{p['bronze']}"""
+            coop_msg = f"""|当前打工段位|{level}|
+|打工次数|{card['playCount']}|
+|头目鲑鱼|{card['defeatBossCount']} {boss_per_cnt}|
+|鳞片|🏅️{p['gold']} 🥈{p['silver']} 🥉{p['bronze']}|"""
+        else:
+            coop_msg = f"""|当前打工段位|{level}|
+|现有点数|{card['regularPoint']}|
+|打工次数|{card['playCount']}|
+|金鲑鱼卵|{card['goldenDeliverCount']} {gdpc}|
+|鲑鱼卵|{card['deliverCount']} {dpc}|
+|头目鲑鱼|{card['defeatBossCount']} {boss_per_cnt}|
+|救援次数|{card['rescueCount']} {rpc}|
+|累计点数|{card['totalPoint']} {ppc}|
+|鳞片|🏅️{p['gold']} 🥈{p['silver']} 🥉{p['bronze']}|"""
 
     # 最高power
     ar_max_power = (history.get('xMatchMaxAr') or {}).get('power') or 0  # 区域
@@ -176,8 +177,8 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
     lf_rank = (history.get('xMatchRankLf') or 0)  # 塔楼
     gl_rank = (history.get('xMatchRankGl') or 0)  # 鱼虎
     cl_rank = (history.get('xMatchRankCl') or 0)  # 蛤蜊
-    x_msg = ''
-    # x赛最高战力
+    # X赛最高战力
+    x_max_power_msg = ''
     if any([ar_max_power, lf_max_power, gl_max_power, cl_max_power]) and not from_group:
         # 1. 构建维度名称与分数的映射字典，方便后续查找最大值
         power_dict = {
@@ -201,8 +202,9 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
         parts.append(f' {gl_text}, {cl_text}')
 
         # 4. 拼接最终文本
-        x_msg += f"X最高战力 | {''.join(parts)}\n"
-    # x赛最高排名
+        x_max_power_msg = f"|X最高战力|{''.join(parts)}|"
+    # X赛最高排名
+    x_max_rank_msg = ''
     if any([ar_max_rank, lf_max_rank, gl_max_rank, cl_max_rank]) and not from_group:
         # 1. 构建维度名称与分数的映射字典，方便后续查找最大值
         rank_dict = {
@@ -226,8 +228,9 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
         parts.append(f' {gl_text}, {cl_text}')
 
         # 4. 拼接最终文本
-        x_msg += f"X最高排名 | {''.join(parts)}\n"
-    # x赛当前排名
+        x_max_rank_msg = f"|X最高排名|{''.join(parts)}|"
+    # X赛当前排名
+    x_now_rank_msg = ''
     if any([ar_rank, lf_rank, gl_rank, cl_rank]) and not from_group:
         # 1. 构建维度名称与分数的映射字典，方便后续查找最大值
         now_rank_dict = {
@@ -251,18 +254,15 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
         parts.append(f' {gl_text}, {cl_text}')
 
         # 4. 拼接最终文本
-        x_msg += f"X当前排名 | {''.join(parts)}\n"
+        x_now_rank_msg = f"|X当前排名|{''.join(parts)}|"
 
+    # X最高战力bot排名
+    x_power_rank_msg = ''
     if any([ar_max_power, lf_max_power, gl_max_power, cl_max_power]):
         _dict_rank = model_get_power_rank()
         _rank = _dict_rank.get(user.game_sp_id)
         if _rank:
-            x_msg += f'X最高战力</br>bot排名 | {_rank}名\n'
-
-    if x_msg:
-        x_msg += "||"
-    else:
-        x_msg = "||\n"
+            x_power_rank_msg = f"|X最高战力bot排名|{_rank}名|"
 
     _league = ''
     _open = ''
@@ -306,29 +306,48 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
                 badges_str += f'''<img height='30px' style='{_style}' src="{b_img}"/>'''
         _idx += 1
 
+    # 构建主表格
     msg = f"""####
-|||
-|--------------:|---|
-{w_img} |{user_name}
-{img} |{player['byname']}
-等级 | {history['rank']} {badges_str}
-技术 | {history['udemae']}/最高{history['udemaeMax']}
-总胜利数 | {history['winCountTotal']}{all_cnt} {r}
-涂墨面积 | {history['paintPointTotal']:,}p
-徽章 | {len(history['badges'])} {best_weapon}
-活动 | {_league}
-开放 | {_open}
-首次游玩 | {s_time:%Y-%m-%d %H:%M:%S} +08:00
-当前时间 | {c_time:%Y-%m-%d %H:%M:%S} +08:00
-{x_msg}||{weapons_str}
-{coop_msg}
-|||
+|--------------|---|
+|{w_img}|{user_name}|
+|{img}|{player['byname']}|
+|等级|{history['rank']} {badges_str}|
+|技术|{history['udemae']}/最高{history['udemaeMax']}|
+|总胜利数|{history['winCountTotal']}{all_cnt} {r}|
+|涂墨面积|{history['paintPointTotal']:,}p|
+|徽章|{len(history['badges'])} {best_weapon}|
+|活动|{_league}|
+|开放|{_open}|
+|首次游玩|{s_time:%Y-%m-%d %H:%M:%S} +08:00|
+|当前时间|{c_time:%Y-%m-%d %H:%M:%S} +08:00|
 """
+
+    # 添加X赛相关数据
+    if x_max_power_msg:
+        msg += x_max_power_msg + "\n"
+    if x_max_rank_msg:
+        msg += x_max_rank_msg + "\n"
+    if x_now_rank_msg:
+        msg += x_now_rank_msg + "\n"
+    if x_power_rank_msg:
+        msg += x_power_rank_msg + "\n"
+
+    # 添加武器分数
+    if weapons_str:
+        msg += weapons_str + "\n"
+
+    # 添加打工数据
+    if coop_msg:
+        msg += "\n" + coop_msg + "\n"
+    # 添加上榜记录
     top_res = model_get_all_top_all(user.game_sp_id)
     if top_res:
-        msg += f"|上榜记录 | {len(top_res)}次 &nbsp;&nbsp; /top 查询排行榜|\n"
+        msg += f"|上榜记录|{len(top_res)}次 &nbsp;&nbsp; /top 查询排行榜|\n"
+
+    # 添加提示信息
     if any([ar_max_power, lf_max_power, gl_max_power, cl_max_power]) and from_group:
-        msg += f"<td colspan='2'>Tips：私聊使用/me 查询时会额外展示X分和武器分</td>"
+        msg += f"\nTips：私聊使用/me 查询时会额外展示X分和武器分\n"
+
     return msg
 
 
