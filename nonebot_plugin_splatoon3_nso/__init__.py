@@ -54,7 +54,7 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
                 await bot_send_new_user_added_md(bot, event, user_id, title=title, msg=msg)
             else:
                 msg = "小鱿鱿没有这个功能指令，请发送/help 查看帮助\n或在qq消息框输入/后，手动选择bot指令"
-                await bot.send(event, message=msg)
+                await send_msg(bot, event, msg=msg)
         elif isinstance(bot, All_BOT):
             msg = "小鱿鱿没有这个功能指令，请发送/help 查看帮助"
         kook_black_list = plugin_config.splatoon3_unknown_command_fallback_reply_kook_black_list
@@ -67,7 +67,7 @@ async def unknown_command(bot: Bot, event: Event, matcher: Matcher):
                     msg = ""
                     logger.info("kook指定兜底黑名单服务器，不进行兜底消息提示")
         if msg and not isinstance(bot, QQ_Bot):
-            await bot.send(event, message=msg)
+            await send_msg(bot, event, msg=msg)
         # 写未知命令
         write_unknown_command(msg_id, plain_text)
         await matcher.finish()

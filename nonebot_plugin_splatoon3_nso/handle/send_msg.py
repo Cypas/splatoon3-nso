@@ -1,7 +1,3 @@
-import io
-
-from PIL import Image
-
 from .qq_md import nso_general_md, login_md, c2c_login_md, push_md, more_nso_help_md, report_md, new_user_added_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
