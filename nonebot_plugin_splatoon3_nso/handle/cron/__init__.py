@@ -61,7 +61,7 @@ def scheduler_controller():
         # set_report at 7:00
         add_scheduler("set_report", trigger='cron', hour=7, minute=0)
         # set_inactive_report at 12:00
-        add_scheduler("set_inactive_report", trigger='cron', hour=12, minute=0)
+        # add_scheduler("set_inactive_report", trigger='cron', hour=12, minute=0)
         # send_report at 9:00
         # add_scheduler("send_report", trigger='cron', hour=9, minute=0)
         # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########

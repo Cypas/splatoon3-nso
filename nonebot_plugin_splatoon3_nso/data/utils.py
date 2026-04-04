@@ -36,6 +36,7 @@ class GlobalUserInfo:
         self.first_play_time = kwargs.get('first_play_time', None)
         self.last_play_time = kwargs.get('last_play_time', None)
         self.next_report_run_time = kwargs.get('next_report_run_time', None)
+        self.last_cmd_time = kwargs.get('last_cmd_time', None)
         # self.req_client = kwargs.get('req_client', None)
 
 

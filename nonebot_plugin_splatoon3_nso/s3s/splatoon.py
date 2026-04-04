@@ -20,19 +20,18 @@ from ..utils.redis import rset_gtoken, rget_gtoken
 
 
 class UserDBInfo:
-    def __init__(self, db_id, user_name, game_name, game_sp_id, create_time, report_notify, push_cnt, cmd_cnt,
-                 last_play_time, first_play_time, next_report_run_time):
-        self.db_id = db_id
-        self.user_name = user_name
-        self.game_name = game_name
-        self.game_sp_id = game_sp_id
-        self.create_time = create_time
-        self.report_notify = report_notify
-        self.push_cnt = push_cnt
-        self.cmd_cnt = cmd_cnt
-        self.last_play_time = last_play_time
-        self.first_play_time = first_play_time
-        self.next_report_run_time = next_report_run_time
+    def __init__(self, **kwargs):
+        self.db_id = kwargs.get('db_id', None)
+        self.user_name = kwargs.get('user_name', None)
+        self.game_name = kwargs.get('game_name', None)
+        self.game_sp_id = kwargs.get('game_sp_id', None)
+        self.create_time = kwargs.get('create_time', None)
+        self.report_notify = kwargs.get('report_notify', None)
+        self.push_cnt = kwargs.get('push_cnt', 0)
+        self.cmd_cnt = kwargs.get('cmd_cnt', 0)
+        self.last_play_time = kwargs.get('last_play_time', None)
+        self.first_play_time = kwargs.get('first_play_time', None)
+        self.next_report_run_time = kwargs.get('next_report_run_time', None)
 
 
 class Splatoon:
@@ -66,17 +65,19 @@ class Splatoon:
             self.first_play_time = user.first_play_time
             self.last_play_time = user.last_play_time
             self.next_report_run_time = user.next_report_run_time
-            self.user_db_info = UserDBInfo(str(user.id) or "0",
-                                           user.user_name or "no user name",
-                                           user.game_name or "no game name",
-                                           user.game_sp_id or "",
-                                           user.create_time,
-                                           user.report_notify,
-                                           user.push_cnt or 0,
-                                           user.cmd_cnt or 0,
-                                           user.last_play_time,
-                                           user.first_play_time,
-                                           user.next_report_run_time)
+            self.user_db_info = UserDBInfo(
+                db_id=str(user.id) or "0",
+                user_name=user.user_name or "no user name",
+                game_name=user.game_name or "no game name",
+                game_sp_id=user.game_sp_id or "",
+                create_time=user.create_time,
+                report_notify=user.report_notify,
+                push_cnt=user.push_cnt or 0,
+                cmd_cnt=user.cmd_cnt or 0,
+                last_play_time=user.last_play_time,
+                first_play_time=user.first_play_time,
+                next_report_run_time=user.next_report_run_time
+            )
 
     def reload_tokens(self):
         """重载token"""

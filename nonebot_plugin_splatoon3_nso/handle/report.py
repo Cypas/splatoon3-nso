@@ -55,23 +55,23 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
-    user = model_get_or_set_user(platform, user_id)
-    if user.next_report_run_time:
-        # 有值的情况下才计算相差天数
-        next_report_run_date = user.next_report_run_time.date()
-        # logger.info(f"next_report_run_date:{next_report_run_date}")
-        # logger.info(f"utc_date:{dt.utcnow()}")
-        diff_days = (next_report_run_date - dt.utcnow().date()).days
-    else:
-        diff_days = 0
-    # logger.info(f"diff_days:{diff_days}")
-    if diff_days > 1 and not report_day:
-        msg = f'因超过30天没有喷3游戏记录，日报已暂停生成，本次命令将重新激活日报自动生成，大概将在明日9点后生成近期日报'
-        await bot_mixed_send_report(bot, event, title="日报将重新开始生成", msg=msg)
-        # 更新日报生成时间为明天
-        next_report_run_time = (dt.utcnow() + timedelta(days=1)).date()
-        model_get_or_set_user(platform, user_id, next_report_run_time=next_report_run_time)
-        return
+    # user = model_get_or_set_user(platform, user_id)
+    # if user.next_report_run_time:
+    #     # 有值的情况下才计算相差天数
+    #     next_report_run_date = user.next_report_run_time.date()
+    #     # logger.info(f"next_report_run_date:{next_report_run_date}")
+    #     # logger.info(f"utc_date:{dt.utcnow()}")
+    #     diff_days = (next_report_run_date - dt.utcnow().date()).days
+    # else:
+    #     diff_days = 0
+    # # logger.info(f"diff_days:{diff_days}")
+    # if diff_days > 1 and not report_day:
+    #     msg = f'因超过30天没有喷3游戏记录，日报已暂停生成，本次命令将重新激活日报自动生成，大概将在明日9点后生成近期日报'
+    #     await bot_mixed_send_report(bot, event, title="日报将重新开始生成", msg=msg)
+    #     # 更新日报生成时间为明天
+    #     next_report_run_time = (dt.utcnow() + timedelta(days=1)).date()
+    #     model_get_or_set_user(platform, user_id, next_report_run_time=next_report_run_time)
+    #     return
 
     msg = get_report(platform, user_id, report_day=report_day)
     if not msg:
@@ -79,7 +79,7 @@ async def report(bot: Bot, event: Event, args: Message = CommandArg()):
             msg = f"没有查询到所指定日期的日报数据"
         else:
             msg = f"数据准备中，在登陆bot两天后才可获取日报对比数据"
-        msg += f'\n查看近30次日报: /report_all\n'
+        msg += f'\n查看近30次日报: /report_all\n现在小鱿鱿用户量过多(>3000)，为减少日报造成的请求负担，现在只有第一天使用过nso查询功能的用户，才会在第二天生成对应的日报数据'
         await bot_mixed_send_report(bot, event, title="未获取到日报", msg=msg)
     else:
         # 有日报数据

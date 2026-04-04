@@ -13,7 +13,8 @@ from ...data.db_sqlite import Report
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
     model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict, \
-    dict_get_all_global_users, model_get_all_report_user, model_get_all_inactive_report_user
+    dict_get_all_global_users, model_get_all_report_user, model_get_all_inactive_report_user, \
+    model_get_all_active_report_user
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id, convert_td, ReqClient
 from ...utils.bot import *
@@ -28,7 +29,7 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
         db_users = model_get_all_inactive_report_user()
     else:
         # 活跃用户
-        db_users = model_get_all_report_user()
+        db_users = model_get_all_active_report_user()
     users_cnt = len(db_users)
     cron_logger.info(f"待检查日报数量:{users_cnt}")
     db_users = user_remove_duplicates(db_users)

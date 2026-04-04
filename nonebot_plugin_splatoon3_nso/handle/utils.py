@@ -4,6 +4,7 @@ import os
 import random
 import time
 from collections import deque
+from datetime import datetime as dt, timedelta
 
 from .send_msg import bot_send_login_md, send_msg
 from ..config import plugin_config
@@ -276,8 +277,8 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
             # await dict_clear_one_user_info_dict(platform, user_id)
             await send_msg(bot, event, msg=msg2)
             await matcher.finish()
-        # cmd_cnt+1
-        dict_get_or_set_user_info(platform, user_id, cmd_cnt=user_info.cmd_cnt + 1)
+        # cmd_cnt+1  设置最后使用nso查询的时间(utc时间)
+        dict_get_or_set_user_info(platform, user_id, cmd_cnt=user_info.cmd_cnt + 1, last_cmd_time=dt.utcnow())
 
 
 async def get_event_info(bot, event):

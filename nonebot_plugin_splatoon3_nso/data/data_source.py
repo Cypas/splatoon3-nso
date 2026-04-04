@@ -1,7 +1,7 @@
 import copy
-import datetime
 import weakref
 from typing import Type
+from datetime import datetime as dt, timedelta
 
 from nonebot import logger
 from sqlalchemy import and_, or_, text, func
@@ -60,6 +60,7 @@ def dict_get_or_set_user_info(platform, user_id, _type="normal", **kwargs):
                 first_play_time=user.first_play_time,
                 last_play_time=user.last_play_time,
                 next_report_run_time=user.next_report_run_time,
+                last_cmd_time=user.last_cmd_time,
                 req_client=get_or_init_client(platform, user_id, _type)
             )
             user_dict.update({key: user_info})
@@ -240,8 +241,42 @@ def model_get_all_report_user() -> list[UserTable]:
     session.close()
     return users
 
+
+def model_get_all_active_report_user() -> list[UserTable]:
+    """获取全部昨天或今天使用了nso功能  session_token不为空用户"""
+    session = DBSession()
+    now = datetime.datetime.utcnow()
+    today = now.date()
+    yesterday = (now - timedelta(days=1)).date()
+    two_before_day = (now - timedelta(days=2)).date()
+
+    query = (session.query(UserTable).filter(
+        and_(
+            UserTable.session_token.isnot(None),
+            UserTable.session_token != "",
+            UserTable.user_agreement == 1,
+            or_(
+                func.date(UserTable.last_cmd_time) == today,
+                func.date(UserTable.last_cmd_time) == yesterday,
+                func.date(UserTable.last_cmd_time) == two_before_day,
+            )
+        )
+    ))
+
+    query = query.order_by(UserTable.platform.asc(), UserTable.id.asc())
+
+    # # 打印生成的 SQL 语句（包含参数）
+    # from sqlalchemy.dialects import sqlite
+    # compiled = query.statement.compile(dialect=sqlite.dialect(), compile_kwargs={"literal_binds": True})
+    # logger.info(f"Generated SQL: {compiled}")
+
+    users = query.all()
+    session.close()
+    return users
+
+
 def model_get_all_inactive_report_user() -> list[UserTable]:
-    """获取全部不活跃日报用户  session_token不为空用户 且日报更新时间为小于等于今天，或日报更新时间为None(新用户)的日报"""
+    """获取全部不活跃日报用户  session_token不为空用户 且日报更新时间大于今天，或日报更新时间为None(新用户)的日报"""
     session = DBSession()
     today = datetime.datetime.now().date()
 
@@ -266,6 +301,7 @@ def model_get_all_inactive_report_user() -> list[UserTable]:
     users = query.all()
     session.close()
     return users
+
 
 def model_get_all_stat_user() -> list[UserTable]:
     """获取全部session_token不为空,且stat key不为空用户"""

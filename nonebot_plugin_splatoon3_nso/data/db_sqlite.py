@@ -85,6 +85,7 @@ class UserTable(Base_Main):
     last_play_time = Column(DateTime(), nullable=True)
     first_play_time = Column(DateTime(), nullable=True)
     next_report_run_time = Column(DateTime(), nullable=True)  # 下次更新日报的日期
+    last_cmd_time = Column(DateTime(), nullable=True)  # 上一次使用nso查询的时间
     create_time = Column(DateTime(), default=func.now())
     update_time = Column(DateTime(), onupdate=func.now())
 
@@ -211,6 +212,31 @@ DBSession_Report = sessionmaker()
 DBSession_Top = sessionmaker()
 
 
+def check_and_add_column():
+    """检查并添加 last_cmd_time 字段"""
+    try:
+        # 使用 sqlite3 直接连接数据库
+        conn = sqlite3.connect(f"{DIR_RESOURCE}/db/nso_data.sqlite")
+        cursor = conn.cursor()
+
+        # 获取 user 表的列信息
+        cursor.execute("PRAGMA table_info(user)")
+        columns = [column[1] for column in cursor.fetchall()]
+
+        # 检查 last_cmd_time 字段是否存在
+        if 'last_cmd_time' not in columns:
+            # 添加 last_cmd_time 字段
+            cursor.execute("ALTER TABLE user ADD COLUMN last_cmd_time DATETIME")
+            conn.commit()
+            logger.info("成功添加 last_cmd_time 字段到 user 表")
+        else:
+            logger.debug("last_cmd_time 字段已存在，无需添加")
+
+        conn.close()
+    except Exception as e:
+        logger.error(f"检查并添加 last_cmd_time 字段时出错: {e}")
+
+
 def init_db():
     """初始化数据库"""
     global DBSession
@@ -224,4 +250,7 @@ def init_db():
     Base_Report.metadata.create_all(engine_report)
     DBSession_Report.configure(bind=engine_report)
     Base_Top.metadata.create_all(engine_top)
+
+    # 检查并添加 last_cmd_time 字段
+    check_and_add_column()
     DBSession_Top.configure(bind=engine_top)
