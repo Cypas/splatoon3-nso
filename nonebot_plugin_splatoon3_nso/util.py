@@ -20,7 +20,7 @@ def get_or_init(dictionary: dict, key: str, default=None):
 def write_unknown_command(msg_id, plain_text):
     """写未知命令记录到文件"""
     if plain_text:
-        if "[分享]" not in plain_text:
+        if "[分享]" not in plain_text and "[卡片消息]" not in plain_text:
             plain_text = plain_text.replace("\n", " ").replace("\r", " ")
             file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
             os.makedirs(os.path.dirname(file_path), exist_ok=True)

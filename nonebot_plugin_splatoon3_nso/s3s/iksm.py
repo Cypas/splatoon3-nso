@@ -53,6 +53,11 @@ class RateLimitMode:
     TOKEN_BUCKET = "token_bucket"  # 令牌桶模式（按时间窗口限流）
     SEMAPHORE = "semaphore"  # 信号量模式（按并发数限流）
 
+# 请求优先级枚举
+class RequestPriority:
+    HIGH = 0  # 高优先级（用户主动请求）
+    LOW = 1  # 低优先级（定时任务）
+
 
 # 配置项 - 可根据需要调整
 DEFAULT_MODE = RateLimitMode.SEMAPHORE
@@ -89,7 +94,8 @@ class GlobalRateLimiter:
 
         # 信号量模式配置
         self.semaphore_limit = semaphore_limit  # 信号量：最大并发数
-        self._semaphores: Dict[asyncio.AbstractEventLoop, asyncio.BoundedSemaphore] = WeakKeyDictionary()
+        # 优先级队列模式：存储等待的请求
+        self._semaphores: Dict[asyncio.AbstractEventLoop, Dict[str, Any]] = WeakKeyDictionary()
 
     # ======================== 单例相关 ========================
     @classmethod
@@ -169,45 +175,90 @@ class GlobalRateLimiter:
         """令牌桶模式：释放令牌（无需操作）"""
         pass
 
-    # ======================== 信号量模式核心逻辑 ========================
-    async def _get_or_create_semaphore(self, loop: asyncio.AbstractEventLoop) -> asyncio.BoundedSemaphore:
-        """获取/创建当前事件循环的信号量"""
+    # ======================== 优先级队列模式核心逻辑 ========================
+    async def _get_or_create_priority_queue(self, loop: asyncio.AbstractEventLoop):
+        """获取/创建当前事件循环的优先级队列"""
         async with self._loop_lock:
             if loop not in self._semaphores:
-                self._semaphores[loop] = asyncio.BoundedSemaphore(self.semaphore_limit)
+                # 使用字典来存储等待的请求，key为优先级，value为请求列表
+                self._semaphores[loop] = {
+                    'high_priority': [],  # 高优先级请求队列
+                    'low_priority': [],  # 低优先级请求队列
+                    'available': self.semaphore_limit  # 可用许可数
+                }
             return self._semaphores[loop]
 
-    async def _acquire_semaphore(self) -> bool:
-        """信号量模式：获取许可"""
+    async def _acquire_priority_queue(self, priority: int = RequestPriority.LOW) -> bool:
+        """优先级队列模式：获取许可（支持优先级）"""
         loop = asyncio.get_running_loop()
-        semaphore = await self._get_or_create_semaphore(loop)
+        queue = await self._get_or_create_priority_queue(loop)
+
+        # 创建一个Future对象，用于等待许可
+        future = loop.create_future()
+
+        async with self._loop_lock:
+            # 检查是否有可用许可
+            if queue['available'] > 0:
+                # 有可用许可，直接获取
+                queue['available'] -= 1
+                future.set_result(True)
+                return await future
+
+            # 无可用许可，将请求加入对应的优先级队列
+            if priority == RequestPriority.HIGH:
+                queue['high_priority'].append(future)
+            else:
+                queue['low_priority'].append(future)
 
         try:
-            await semaphore.acquire()
+            # 等待获得许可
+            await future
             return True
         except asyncio.CancelledError:
-            # 任务取消时释放许可
-            semaphore.release()
+            # 任务取消时，从队列中移除请求
+            async with self._loop_lock:
+                if priority == RequestPriority.HIGH:
+                    if future in queue['high_priority']:
+                        queue['high_priority'].remove(future)
+                else:
+                    if future in queue['low_priority']:
+                        queue['low_priority'].remove(future)
             raise
 
-    async def _release_semaphore(self):
-        """信号量模式：释放许可"""
+    async def _release_priority_queue(self):
+        """优先级队列模式：释放许可"""
         loop = asyncio.get_running_loop()
         async with self._loop_lock:
             if loop in self._semaphores:
-                try:
-                    self._semaphores[loop].release()
-                except ValueError:
-                    # 防止释放次数超过获取次数
-                    pass
+                queue = self._semaphores[loop]
+                # 增加可用许可数
+                queue['available'] += 1
+
+                # 优先处理高优先级请求
+                if queue['high_priority']:
+                    future = queue['high_priority'].pop(0)
+                    queue['available'] -= 1
+                    if not future.done():
+                        future.set_result(True)
+                # 其次处理低优先级请求
+                elif queue['low_priority']:
+                    future = queue['low_priority'].pop(0)
+                    queue['available'] -= 1
+                    if not future.done():
+                        future.set_result(True)
 
     # ======================== 统一对外接口 ========================
-    async def acquire(self) -> bool:
-        """统一获取限流许可（自动适配模式）"""
+    async def acquire(self, priority: int = RequestPriority.LOW) -> bool:
+        """统一获取限流许可（自动适配模式，支持优先级）
+
+        Args:
+            priority: 请求优先级，RequestPriority.HIGH 为高优先级（用户请求），
+                      RequestPriority.LOW 为低优先级（定时任务）
+        """
         if self.mode == RateLimitMode.TOKEN_BUCKET:
             return await self._acquire_token_bucket()
         elif self.mode == RateLimitMode.SEMAPHORE:
-            return await self._acquire_semaphore()
+            return await self._acquire_priority_queue(priority)
         else:
             raise ValueError(
                 f"不支持的限流模式：{self.mode}，可选值：{RateLimitMode.TOKEN_BUCKET}/{RateLimitMode.SEMAPHORE}")
@@ -217,7 +268,7 @@ class GlobalRateLimiter:
         if self.mode == RateLimitMode.TOKEN_BUCKET:
             await self._release_token_bucket()
         elif self.mode == RateLimitMode.SEMAPHORE:
-            await self._release_semaphore()
+            await self._release_priority_queue()
         else:
             raise ValueError(f"不支持的限流模式：{self.mode}")
 
@@ -256,13 +307,16 @@ class GlobalRateLimiter:
                 }
 
             elif self.mode == RateLimitMode.SEMAPHORE:
-                # 信号量模式状态
-                used = sum(self.semaphore_limit - sem._value for sem in self._semaphores.values())
+                # 优先级队列模式状态
+                high_priority_count = sum(len(queue.get('high_priority', [])) for queue in self._semaphores.values())
+                low_priority_count = sum(len(queue.get('low_priority', [])) for queue in self._semaphores.values())
+                available_count = sum(queue.get('available', 0) for queue in self._semaphores.values())
                 return {
                     "mode": self.mode,
                     "max_concurrent": self.semaphore_limit,
-                    "used_permits": used,
-                    "available": max(0, self.semaphore_limit - used),
+                    "available": available_count,
+                    "high_priority_waiting": high_priority_count,
+                    "low_priority_waiting": low_priority_count,
                     "active_loops": len(self._semaphores)
                 }
 
@@ -291,7 +345,7 @@ class GlobalRateLimiter:
         :param new_mode: 新模式（RateLimitMode.TOKEN_BUCKET/RateLimitMode.SEMAPHORE）
         :param rate: 令牌桶模式：时间窗口内最大请求数（可选，不填则用原有值）
         :param time_window: 令牌桶模式：时间窗口（秒）（可选）
-        :param semaphore_limit: 信号量模式：最大并发数（可选）
+        :param semaphore_limit: 优先级队列模式：最大并发数（可选）
         """
         async with self._loop_lock:
             self.mode = new_mode
@@ -319,6 +373,7 @@ class S3S:
         self.user_lang = "zh-CN"
         self.user_country = "JP"
         self.oauth_token = None
+        self._type = _type  # 请求类型："normal"为用户请求，"cron"为定时任务
 
         # 负载均衡初始化
         f_url_lst = [F_GEN_URL, F_GEN_URL_2]
@@ -904,9 +959,16 @@ class S3S:
         if self._rate_limiter is None:
             self._rate_limiter = await GlobalRateLimiter.get_instance()
 
+        # 根据请求类型设置优先级
+        priority = RequestPriority.HIGH if self._type == "normal" else RequestPriority.LOW
+
         try:
-            async with self._rate_limiter:
+            # 直接调用acquire和release，避免使用async with
+            await self._rate_limiter.acquire(priority)
+            try:
                 return await self._real_f_api(*args, **kwargs)
+            finally:
+                await self._rate_limiter.release()
         except asyncio.CancelledError:
             # 如果任务被取消，重新抛出异常
             raise

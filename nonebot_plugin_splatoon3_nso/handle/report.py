@@ -189,7 +189,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
         if old.coop_gold != new.coop_gold:
             str_coop += f' 🥉{new.coop_gold - old.coop_gold:+}'
         msg += f'鳞片: {str_coop}\n'
-    msg += f'查看近30次日报: /report_all\n'
+    msg += f'查看近30次日报: /report_all\n现在小鱿鱿用户量过多(>3000)，为减少日报造成的请求负担，现在只有第一天使用过nso查询功能的用户，才会在第二天生成对应的日报数据'
     # u = get_user(user_id=user_id)
     # if report_day and fst_day and not u.report_type:
     #     msg += f'```\n\n订阅早报: /report```'

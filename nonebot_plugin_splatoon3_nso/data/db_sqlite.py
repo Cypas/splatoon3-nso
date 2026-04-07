@@ -243,6 +243,10 @@ def init_db():
     global DBSession_Friends
     global DBSession_Report
     global DBSession_Top
+
+    # 检查并添加 last_cmd_time 字段
+    check_and_add_column()
+
     Base_Main.metadata.create_all(engine)
     DBSession.configure(bind=engine)
     Base_Friends.metadata.create_all(engine_friends)
@@ -250,7 +254,4 @@ def init_db():
     Base_Report.metadata.create_all(engine_report)
     DBSession_Report.configure(bind=engine_report)
     Base_Top.metadata.create_all(engine_top)
-
-    # 检查并添加 last_cmd_time 字段
-    check_and_add_column()
     DBSession_Top.configure(bind=engine_top)
