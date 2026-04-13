@@ -9,7 +9,7 @@ from datetime import datetime as dt, timedelta
 from .send_msg import bot_send_login_md, send_msg
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, dict_clear_one_user_info_dict
-from ..data.utils import get_or_set_plugin_data
+from ..data.utils import get_or_set_plugin_data, get_blacklist_msg_id
 from ..utils import DIR_RESOURCE, AsHttpReq
 from ..utils.bot import *
 from ..utils.short_url import zurl
@@ -206,30 +206,57 @@ def get_battle_true_id(_id):
     return battle_true_id
 
 
-async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
-    """ nonebot 子依赖注入    Check if user has logged in."""
+async def _check_session_blacklist_handler(bot: Bot, event: Event, matcher: Matcher):
+    """校验用户是否在黑名单"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user_key = get_msg_id(platform, user_id)
-    
+    # 黑名单列表
+    black_l = await get_blacklist_msg_id()
+    if user_key in black_l:
+        msg = "你已无权使用小鱿鱿bot，若存在误封，请联系q群827977720"
+        logger.warning(f"黑名单 {user_key} 已禁止使用bot")
+        await send_msg(bot, event, msg=msg)
+        matcher.stop_propagation()
+        await matcher.finish()
+
+
+async def _check_session_qps_limit_handler(bot: Bot, event: Event, matcher: Matcher):
+    """校验用户请求qps"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user_key = get_msg_id(platform, user_id)
+
     # QPS检测
     current_time = time.time()
     if user_key not in user_request_times:
         user_request_times[user_key] = deque()
-    
+
     # 移除超过时间窗口的记录
     while user_request_times[user_key] and current_time - user_request_times[user_key][0] > QPS_LIMIT_TIME:
         user_request_times[user_key].popleft()
-    
+
     # 检查请求次数是否超过限制
     if len(user_request_times[user_key]) >= QPS_LIMIT_COUNT:
         msg = "请勿频繁请求"
-        await send_msg(bot,event,msg=msg)
+        await send_msg(bot, event, msg=msg)
+        matcher.stop_propagation()
         await matcher.finish()
-    
+
     # 记录当前请求时间
     user_request_times[user_key].append(current_time)
-    
+
+
+async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
+    """ nonebot 子依赖注入    Check if user has logged in."""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+
+    # qps校验
+    await _check_session_qps_limit_handler(bot, event, matcher)
+    # 黑名单校验
+    await _check_session_blacklist_handler(bot, event, matcher)
+
     user_info = dict_get_or_set_user_info(platform, user_id)
     if plugin_config.splatoon3_maintenance_mode:
         # 尝试获取公告信息

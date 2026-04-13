@@ -208,13 +208,26 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
 
     # 执行阶段1任务
     phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
-    phase1_splatoons = await asyncio.gather(*phase1_tasks)
+    try:
+        phase1_splatoons = await asyncio.wait_for(
+            asyncio.gather(*phase1_tasks),
+            timeout=4*3600
+        )
+    except asyncio.TimeoutError:
+        cron_logger.error("阶段1任务执行超时(4小时),已自动退出")
+        phase1_splatoons = []
 
     # 标记阶段1已完成
     phase1_completed = True
 
     # 等待所有阶段2任务完成
-    await asyncio.gather(*phase2_tasks)
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(*phase2_tasks),
+            timeout=3*3600
+        )
+    except asyncio.TimeoutError:
+        cron_logger.error("阶段2任务执行超时(3小时),已自动退出")
 
     # 结果报告
     str_time = convert_td(dt.utcnow() - t)

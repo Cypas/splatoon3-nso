@@ -247,13 +247,17 @@ async def clear_db_info(bot: Bot, event: Event):
     msg_id = get_msg_id(platform, user_id)
 
     user = model_get_or_set_user(platform, user_id)
-    log_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name}"
-    notify_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},\n会话昵称:{user.user_name},游戏昵称:{user.game_name}"
+    if not user:
+        msg = "未登陆nso账号，无需退出登陆"
+        await bot_send(bot, event, message=msg, skip_ad=True)
+        return
+    log_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name},sp_id:{user.game_sp_id}"
+    notify_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},\n会话昵称:{user.user_name},游戏昵称:{user.game_name},sp_id:{user.game_sp_id}"
 
     if isinstance(bot, Tg_Bot):
         msg = "All your data cleared!"
     else:
-        msg = "已清空账号数据!\n可使用/login 重新登陆"
+        msg = "已退出nso登陆\n若需要换号或重登，可使用/login 重新登陆\nTips:小鱿鱿网络错误导致的查询失败，退出重登并不能解决问题，只能多试或等待一段时间后再使用"
     logger.info(log_msg)
 
     await bot_send(bot, event, message=msg, skip_ad=True)

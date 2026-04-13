@@ -1,4 +1,5 @@
 import copy
+import json
 from typing import Any, Coroutine
 
 from sqlalchemy import text, Row
@@ -53,7 +54,8 @@ async def model_get_or_set_temp_image(_type, name: str, link=None, force=False) 
     if row:
         # 判断是否是用户图像缓存，并比对缓存数据是否需要更新, 图片名称是否为空
         if (link and row.type in (
-                "friend_icon", 'ns_friend_icon', 'my_icon', 'my_icon_by_nsa_id') and row.link != link) or not row.file_name:
+                "friend_icon", 'ns_friend_icon', 'my_icon',
+                'my_icon_by_nsa_id') and row.link != link) or not row.file_name:
             download_flag = True
         else:
             temp_image = row
@@ -131,3 +133,32 @@ async def get_or_set_plugin_data(key, value=None):
         await get_plugin_data("sp3_xyy_bot").config.set(key, value)
         plugin_data[key] = value
     return value
+
+
+async def get_blacklist_msg_id():
+    """使用插件数据获取黑名单msg_id列表"""
+    key = "xyy_blacklist_msg_id"
+    black_str = await get_or_set_plugin_data(key)
+    if not black_str:
+        return []
+    black_l = json.loads(black_str)
+    return black_l
+
+
+async def add_blacklist_msg_id(msg_id: str):
+    """添加黑名单用户列表"""
+    key = "xyy_blacklist_msg_id"
+    black_l = await get_blacklist_msg_id()
+    black_l.append(msg_id)
+    black_str = json.dumps(black_l)
+    await get_or_set_plugin_data(key, black_str)
+
+
+async def del_blacklist_msg_id(msg_id: str):
+    """删除黑名单用户"""
+    key = "xyy_blacklist_msg_id"
+    black_l = await get_blacklist_msg_id()
+    while msg_id in black_l:
+        black_l.remove(msg_id)
+    black_str = json.dumps(black_l)
+    await get_or_set_plugin_data(key, black_str)
