@@ -14,6 +14,7 @@ from ..data.data_source import dict_get_or_set_user_info, model_delete_user, glo
     model_get_or_set_user
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
+from ..util import write_login_text
 from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str, get_file_bytes
 from ..utils.bot import *
 from ..utils.redis import rset_lc, rget_lc, rdel_lc
@@ -228,10 +229,13 @@ async def login_in_2(bot: Bot, event: Event):
         user = dict_get_or_set_user_info(platform, user_id, game_sp_id=game_sp_id)
         # 登录完成后从用户池删除该残缺对象(缺少部分数据库的值，重新init后就正常了)
         global_user_info_dict.pop(msg_id)
-        _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:{game_sp_id}\n{session_token}'
     except Exception as e:
-        _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:None\n{session_token}'
+        game_sp_id = None
 
+    _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:{game_sp_id}\n{session_token}'
+    # 写登陆到文件
+    write_text = f"用户登陆:msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name},ns_player_code:{user.game_sp_id}"
+    write_login_text(msg_id, text=write_text)
     await notify_to_channel(_msg)
 
 
@@ -251,13 +255,16 @@ async def clear_db_info(bot: Bot, event: Event):
         msg = "未登陆nso账号，无需退出登陆"
         await bot_send(bot, event, message=msg, skip_ad=True)
         return
-    log_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name},sp_id:{user.game_sp_id}"
-    notify_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},\n会话昵称:{user.user_name},游戏昵称:{user.game_name},sp_id:{user.game_sp_id}"
+    log_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name},ns_player_code:{user.game_sp_id}"
+    notify_msg = log_msg
+    write_text = log_msg
+    # 写登陆到文件
+    write_login_text(msg_id, text=write_text)
 
     if isinstance(bot, Tg_Bot):
         msg = "All your data cleared!"
     else:
-        msg = "已退出nso登陆\n若需要换号或重登，可使用/login 重新登陆\nTips:小鱿鱿网络错误导致的查询失败，退出重登并不能解决问题，只能多试或等待一段时间后再使用"
+        msg = "已退出nso登陆\n若需要换号或重登，可使用/login 重新登陆\n\nTips:小鱿鱿网络错误导致的查询失败，退出重登并不能解决问题，只能多试或等待一段时间后再使用"
     logger.info(log_msg)
 
     await bot_send(bot, event, message=msg, skip_ad=True)

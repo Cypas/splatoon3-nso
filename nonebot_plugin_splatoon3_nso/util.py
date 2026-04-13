@@ -41,6 +41,18 @@ def write_evaluate_text(msg_id: str, evaluate_text: str, data_json_str: str):
             f.write(f"{get_time_now_china_str()},{msg_id:<32},{evaluate_text[:20]:<20},{data_json_str}\n")
 
 
+def write_login_text(msg_id: str, text: str):
+    """写登陆或退出登陆记录到文件"""
+    if text:
+        text = text.replace("\n", " ").replace("\r", " ")
+        file_path = Path(os.path.join(DIR_RESOURCE, "nso登陆记录.txt"))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+        with open(file_path, "a", encoding="utf-8") as f:
+            # user_id左对齐32位字符，评价文本左对齐20字符
+            f.write(f"{get_time_now_china_str()},{msg_id:<32},{text}\n")
+
+
 class ChannelInfo:
     """类 服务器或频道信息 ChannelInfo"""
 
