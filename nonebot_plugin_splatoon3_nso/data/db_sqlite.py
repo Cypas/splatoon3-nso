@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from nonebot import logger
 from sqlalchemy import Column, String, create_engine, Integer, Text, DateTime, func, Float, \
-    UniqueConstraint, event
+    UniqueConstraint, event, Index
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine import Engine
@@ -107,6 +107,28 @@ class TempImageTable(Base_Main):
 
     __table_args__ = (
         UniqueConstraint("type", "name", name="Idx_Type_Name"),
+    )
+
+
+class SeedExportTable(Base_Main):
+    """观星种子导出表"""
+    __tablename__ = "seed_export"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    platform = Column(String(), nullable=True)
+    user_id = Column(String(), nullable=True)
+    user_name = Column(String(), nullable=True)
+    game_name = Column(String(), default="")
+    game_sp_id = Column(String(), nullable=True, index=True)
+    ns_name = Column(String(), nullable=True, default="")  # 已加默认值 ""
+    ns_friend_code = Column(String(), nullable=True)
+    nsa_id = Column(String(), nullable=True)  # 用户nso应用的唯一识别编码
+    create_time = Column(DateTime(), default=func.now())
+    update_time = Column(DateTime(), onupdate=func.now())
+
+    # 联合索引：platform + user_id（替换原来的唯一约束）
+    __table_args__ = (
+        Index("Idx_Platform_User", "platform", "user_id"),
     )
 
 

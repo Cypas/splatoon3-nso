@@ -9,17 +9,19 @@ from pathlib import Path
 import unicodedata
 from nonebot import on_keyword
 
-from .send_msg import bot_send, bot_send_more_nso_help_md, bot_mixed_send
+from .send_msg import bot_send, bot_send_more_nso_help_md, bot_mixed_send, send_msg, notify_to_channel
 from .utils import _check_session_handler
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_temp_image_path, model_get_or_set_user, \
     model_get_power_rank, model_set_user_friend, model_get_another_account_user, global_user_info_dict, \
-    model_get_all_top_all
-from ..data.utils import GlobalUserInfo
+    model_get_all_top_all, model_add_seed_export, model_get_seed_export_cnt
+from ..data.db_sqlite import SeedExportTable
+from ..data.utils import GlobalUserInfo, add_blacklist_msg_id
 from ..s3s.iksm import F_GEN_URL
 from ..s3s.splatoon import Splatoon
 from ..s3s.stat import STAT, CONFIG_DATA
-from ..utils import get_msg_id, convert_td
+from ..util import write_login_text
+from ..utils import get_msg_id, convert_td, get_time_now_china
 from ..utils.bot import *
 from ..utils.redis import api_rset_json_file_name, api_rset_info
 from ..utils.utils import DIR_RESOURCE, get_jwt_exp_info, game_name_replace
@@ -749,15 +751,17 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
 
     user = dict_get_or_set_user_info(platform, user_id, export_seed=1)  # 设置为正在导出
     # 用户等待提示词
+    msg1 = "【公告消息】：禁止使用他人账号进行观星，违规用户小鱿鱿将拒绝服务\n\n"
     if isinstance(bot, QQ_Bot):
-        msg1 = (
+        msg1 += (
             f"观星网站需要上传一个装备的json文件，QQ平台bot无法发送任何文件，请访问教程网址\n\nblog.ayano.top/archives/525/ \n\n,"
             f"输入接下来发给你的观星访问密钥来下载观星json文件\n\n正在生成观星访问密钥中(大约需要两分钟)，请稍后。。。")
         if isinstance(bot, QQ_Bot):
             msg1 = msg1.replace(".", "点")
         await bot_send(bot, event, message=msg1, skip_ad=True)
     else:
-        await bot_send(bot, event, message="正在导出观星json文件(大约需要两分钟)，请稍等。。。", skip_ad=True)
+        msg1 += "正在导出观星json文件(大约需要两分钟)，请稍等。。。"
+        await bot_send(bot, event, message=msg1, skip_ad=True)
 
     try:
         # 生成观星文件
@@ -781,6 +785,49 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
             logger.error(f"观星导出 error:{e}")
             msg = f"获取观星json文件失败，请稍后再试"
             await matcher.finish(msg)
+
+        # 新增一条导出记录
+        export_row = SeedExportTable(
+            platform=platform,
+            user_id=user_id,
+            user_name=splatoon.user_name or "",
+            game_name=splatoon.user_db_info.game_name or "",
+            game_sp_id=splatoon.user_db_info.game_sp_id or "",
+            ns_name=splatoon.ns_name or "",
+            ns_friend_code=splatoon.ns_friend_code or "",
+            nsa_id=splatoon.nsa_id or "",
+            create_time=get_time_now_china()
+        )
+        model_add_seed_export(export_row)
+
+        # 校验导出是否合法
+        export_records = model_get_seed_export_cnt(platform, user_id)
+        if export_records and len(export_records) >= 3:
+            # 超过2条不同账号的导出，拒绝导出并直接封号  第三条数据被记录时封号
+            msg = "你已无权使用小鱿鱿bot，若存在误封，请联系q群827977720"
+            await send_msg(bot, event, msg=msg)
+            await add_blacklist_msg_id(msg_id)
+            # 计算汇总全部导出的账号情况
+            d_l = []
+            for record in export_records:
+                d = {
+                    "game_name": record.game_name,
+                    "game_sp_id": record.game_sp_id,
+                    "ns_name": record.ns_name,
+                    "ns_friend_code": record.ns_friend_code,
+                    "nsa_id": record.nsa_id,
+                    "first_export_time": str(record.first_export_time), # 返回都是东八区时区
+                    "last_export_time": str(record.last_export_time), # 返回都是东八区时区
+                    "cnt": record.count
+                }
+                d_l.append(d)
+            ban_str = json.dumps(d_l, ensure_ascii=False)
+            write_text = f"[自动封禁]:msg_id:{msg_id},会话昵称:{user.user_name},观星导出超过3个账号，已自动封禁，其他导出记录详情:{ban_str}"
+            logger.warning(write_text)
+            # 写登陆到文件
+            write_login_text(msg_id, text=write_text)
+            await notify_to_channel(write_text)
+            return
 
         file_name = export_data.get("file_name")
         json_bytes = export_data.get("json_bytes")

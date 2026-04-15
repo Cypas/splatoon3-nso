@@ -337,6 +337,41 @@ def model_get_newest_user() -> UserTable:
     return user
 
 
+def model_add_seed_export(row: SeedExportTable):
+    """添加观星导出记录"""
+    session = DBSession()
+    session.add(row)
+    session.commit()
+    session.close()
+
+
+def model_get_seed_export_cnt(platform, user_id):
+    """查询单用户观星导出记录
+    """
+    session = DBSession()
+    # 查询某个人按 game_sp_id 分组的记录
+    records = session.query(
+        SeedExportTable.platform,
+        SeedExportTable.user_id,
+        SeedExportTable.game_name,
+        SeedExportTable.game_sp_id,
+        SeedExportTable.ns_name,
+        SeedExportTable.ns_friend_code,
+        SeedExportTable.nsa_id,
+        func.min(SeedExportTable.create_time).label("first_export_time"),
+        func.max(SeedExportTable.create_time).label("last_export_time"),
+        func.count(SeedExportTable.id).label("count")
+    ).filter(
+        SeedExportTable.platform == platform,
+        SeedExportTable.user_id == user_id
+    ).group_by(
+        SeedExportTable.game_sp_id
+    ).all()
+
+    session.close()
+    return records
+
+
 def model_get_login_user_by_sp_code(player_code):
     """获取登录用户信息"""
     session = DBSession()

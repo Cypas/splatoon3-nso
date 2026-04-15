@@ -216,7 +216,7 @@ async def _check_session_blacklist_handler(bot: Bot, event: Event, matcher: Matc
     if user_key in black_l:
         msg = "你已无权使用小鱿鱿bot，若存在误封，请联系q群827977720"
         logger.warning(f"黑名单 {user_key} 已禁止使用bot")
-        await send_msg(bot, event, msg=msg)
+        await send_msg(bot, event, msg=msg, skip_ad=True)
         matcher.stop_propagation()
         await matcher.finish()
 
@@ -239,7 +239,7 @@ async def _check_session_qps_limit_handler(bot: Bot, event: Event, matcher: Matc
     # 检查请求次数是否超过限制
     if len(user_request_times[user_key]) >= QPS_LIMIT_COUNT:
         msg = "请勿频繁请求"
-        await send_msg(bot, event, msg=msg)
+        await send_msg(bot, event, msg=msg, skip_ad=True)
         matcher.stop_propagation()
         await matcher.finish()
 
@@ -264,7 +264,7 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
         msg = "nso查询暂时维护中，目前无法提供服务"
         if notice:
             msg += f"\n公告消息:" + str(notice)
-        await send_msg(bot, event, msg=msg)
+        await send_msg(bot, event, msg=msg, skip_ad=True)
         await matcher.finish()
 
     if not user_info or not user_info.session_token:
@@ -287,7 +287,7 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
                           f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
         elif isinstance(bot, All_BOT):
             msg = "nso未登录，无法使用相关功能，请先私信我 /login 进行登录"
-        await send_msg(bot, event, msg=msg)
+        await send_msg(bot, event, msg=msg, skip_ad=True)
         await matcher.finish()
     else:
         # 已登录用户
@@ -299,10 +299,10 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
             else:
                 msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi-znca-api的过程，可能存在一定的风险，具体说明可查看该频道信息https://www.kookapp.cn/app/channels/7545457877013311/7021701150930949\n\n" \
                       "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
-            await send_msg(bot, event, msg=msg)
+            await send_msg(bot, event, msg=msg, skip_ad=True)
             msg2 = "/我已知晓nso查询使用了第三方接口的风险并重新启用nso查询"
             # await dict_clear_one_user_info_dict(platform, user_id)
-            await send_msg(bot, event, msg=msg2)
+            await send_msg(bot, event, msg=msg2, skip_ad=True)
             await matcher.finish()
         # cmd_cnt+1  设置最后使用nso查询的时间(utc时间)
         dict_get_or_set_user_info(platform, user_id, cmd_cnt=user_info.cmd_cnt + 1, last_cmd_time=dt.utcnow())
