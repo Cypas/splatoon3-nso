@@ -28,7 +28,8 @@ from ..utils.utils import DIR_RESOURCE, get_jwt_exp_info, game_name_replace
 
 MSG_PRIVATE = "该指令需要私信机器人才能使用"
 NSO_WEB_CACHE_DICT = {}
-
+# 连坐字典 记录封禁前最后的sp_id 连坐名单保留一天
+BAN_USER_SP_ID_LIST = []
 
 @on_command("me", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def me(bot: Bot, event: Event):
@@ -800,6 +801,20 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
         )
         model_add_seed_export(export_row)
 
+        # 校验当前sp_id是否位于连坐名单
+        if user.game_sp_id in BAN_USER_SP_ID_LIST:
+            # 发现被封号后，用户更换的新账号直接连坐封号
+            msg = "你已无权使用小鱿鱿bot，若存在误封，请联系q群827977720"
+            await send_msg(bot, event, msg=msg)
+            await add_blacklist_msg_id(msg_id)
+            write_text = f"[自动连坐封禁]:msg_id:{msg_id},会话昵称:{user.user_name},观星导出sp_id:{user.game_sp_id},位于连坐名单，已自动封禁"
+            BAN_USER_SP_ID_LIST.append(user.game_sp_id)
+            logger.warning(write_text)
+            # 写登陆到文件
+            write_login_text(msg_id, text=write_text)
+            await notify_to_channel(write_text)
+            return
+
         # 校验导出是否合法
         export_records = model_get_seed_export_cnt(platform, user_id)
         if export_records and len(export_records) >= 3:
@@ -823,6 +838,7 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
                 d_l.append(d)
             ban_str = json.dumps(d_l, ensure_ascii=False)
             write_text = f"[自动封禁]:msg_id:{msg_id},会话昵称:{user.user_name},观星导出超过3个账号，已自动封禁，其他导出记录详情:{ban_str}"
+            BAN_USER_SP_ID_LIST.append(user.game_sp_id)
             logger.warning(write_text)
             # 写登陆到文件
             write_login_text(msg_id, text=write_text)
@@ -853,6 +869,10 @@ async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = 
     finally:
         user = dict_get_or_set_user_info(platform, user_id, export_seed=0)  # 取消导出状态
 
+
+def clean_ban_user_sp_id_list():
+    """每日清空ban_sp_id连坐列表"""
+    BAN_USER_SP_ID_LIST.clear()
 
 @on_command("nso_web", aliases={'nso网页版', 'nsoweb'}, block=True).handle(
     parameterless=[Depends(_check_session_handler)])

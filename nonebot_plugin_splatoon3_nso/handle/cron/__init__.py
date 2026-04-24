@@ -10,6 +10,7 @@ from .stat_ink import sync_stat_ink, clean_stat_ink_error_code_user_list
 from .report import create_set_report_tasks, send_report_task
 from .user_friends import create_get_user_friends_tasks
 from .x_player import get_x_player
+from ..my import clean_ban_user_sp_id_list
 from ...config import plugin_config
 from ...data.data_source import model_delete_user_friend
 
@@ -79,6 +80,8 @@ def scheduler_controller():
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
         # 每天23:59分将 stat_ink 因会员过期重复刷新的账号缓存列表置空
         add_scheduler("clean_stat_ink_error_code_user_list", trigger='cron', hour=23, minute=59)
+        # 每天23:59分将 连坐sp_id的账号缓存列表置空
+        add_scheduler("clean_ban_user_sp_id_list", trigger='cron', hour=23, minute=59)
         # 每天0点自动显示status
         add_scheduler("show_status", trigger='cron', hour=0, minute=1)
         # 每天0点自动删除过早好友数据
@@ -117,6 +120,8 @@ async def cron(_type):
             await init_nso_version()
         case "clean_stat_ink_error_code_user_list":
             clean_stat_ink_error_code_user_list()
+        case "clean_ban_user_sp_id_list":
+            clean_ban_user_sp_id_list()
         case "show_status":
             await show_dict_status()
         case "clean_expired_clients":
