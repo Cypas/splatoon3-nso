@@ -75,7 +75,12 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
             global_user_info = global_user_info_dict.get(msg_id)
             if global_user_info:
                 splatoon = Splatoon(None, None, global_user_info)  # 直接返回已存在的对象
-                success = await splatoon.test_page()
+                try:
+                    success = await splatoon.test_page()
+                except ValueError as e:
+                    # 测试中报错，一般是f接口无法请求或代理错误
+                    cron_logger.debug(f'set_report error: {splatoon.user_db_info.db_id},{msg_id}, {splatoon.user_name},reason：{e}')
+                    return None
                 await phase2_queue.put(splatoon)  # 将结果加入队列
                 return splatoon
 
@@ -109,7 +114,7 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
 
         兼容两种情况：
         1. 阶段1在 UTC 23:xx 完成，需要等待到次日 0 点
-        2. 阶段1在第二天 0:00-3:00 完成，不等待直接运行
+        2. 阶段1在第二天 0:00-4:00 完成，不等待直接运行
         """
         if not is_corn_job:
             # 手动触发时，直接继续执行
@@ -131,9 +136,9 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
             delta = next_midnight - now_utc
             return int(delta.total_seconds())
 
-        # 情况2：如果在 UTC 0:00-2:59，不等待直接运行
-        elif 0 <= current_hour < 3:
-            # 已经是 0 点之后，但还在 3 点之前，说明是当天
+        # 情况2：如果在 UTC 0:00-3:59，不等待直接运行
+        elif 0 <= current_hour < 4:
+            # 已经是 0 点之后，但还在 4 点之前，说明是当天
             # 不需要等待，直接执行
             return 0
 

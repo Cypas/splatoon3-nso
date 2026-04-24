@@ -84,7 +84,7 @@ class UserTable(Base_Main):
     report_notify = Column(Integer(), default=1)  # 0:close 1:open
     last_play_time = Column(DateTime(), nullable=True)
     first_play_time = Column(DateTime(), nullable=True)
-    next_report_run_time = Column(DateTime(), nullable=True)  # 下次更新日报的日期
+    next_report_run_time = Column(DateTime(), nullable=True)  # 下次更新日报的日期 已作废，该字段未使用
     last_cmd_time = Column(DateTime(), nullable=True)  # 上一次使用nso查询的时间
     create_time = Column(DateTime(), default=func.now())
     update_time = Column(DateTime(), onupdate=func.now())
