@@ -189,21 +189,22 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
             # 计算过去有记录的全部打工数据
             coop_total_count = 0
             # 加回1 方便语义计算
-            idx += 1
+            idx_bak = idx
+            idx_bak += 1
             for group in coop['historyGroups']['nodes']:
                 group_count = len(group['historyDetails']['nodes'])
                 coop_total_count += group_count
-                if idx > group_count:
+                if idx_bak > group_count:
                     # 超出一组记录
-                    idx -= group_count
+                    idx_bak -= group_count
                     coop_group_idx += 1
                 else:
                     break
-            if idx > coop_total_count:
+            if idx_bak > coop_total_count:
                 msg = "查询索引超出最大打工历史记录，请用更小索引重试，或使用/last b指定为对战模式重新进行查询"
                 return get_battle, None, msg, is_playing
             # 减1变回索引
-            idx -= 1
+            idx_bak -= 1
             coop_highest_eggs = 0
             coop_highest_result = coop['historyGroups']['nodes'][coop_group_idx].get('highestResult')
             if coop_highest_result:
@@ -212,7 +213,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 'coop_point': coop['pointCard']['regularPoint'] or "0",
                 'coop_highest_eggs': coop_highest_eggs
             }  # coop_eggs为当期获得的最多的蛋数
-            coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx]['id']
+            coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx_bak]['id']
             coop_t = get_battle_time_or_coop_time(coop_id)
         except ValueError as e:
             if for_push:
