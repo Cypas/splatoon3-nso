@@ -184,30 +184,48 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
         """消费者：从队列中取出任务并处理"""
         nonlocal phase2_started
         phase2_started = True
-        cron_logger.info("create_set_report_tasks phase2_tasks start".center(60, "="))
+        consumer_id = id(asyncio.current_task())
+        cron_logger.info(f"消费者 {consumer_id} 启动")
 
         # 计算需要等待的秒数
         wait_seconds = get_seconds_until_utc_midnight()
         if wait_seconds > 0:
-            cron_logger.info(f"阶段2需等待 UTC 0 点，当前等待秒数：{wait_seconds}s")
+            cron_logger.info(f"消费者 {consumer_id} 需等待 UTC 0 点，等待秒数：{wait_seconds}s")
             # 异步等待（不阻塞事件循环）
             await asyncio.sleep(wait_seconds)
         else:
-            cron_logger.info("当前已过 UTC 0 点，直接执行阶段2")
+            cron_logger.info(f"消费者 {consumer_id} 当前已过 UTC 0 点，直接执行阶段2")
 
         # 处理队列中的所有项目
+        idle_count = 0  # 空闲计数器
+        max_idle = 1800  # 最大空闲次数（1800秒） 半小时都接受不到数据，消费者自动退出
+
         while True:
             try:
                 # 设置超时以避免无限等待
                 splatoon = await asyncio.wait_for(phase2_queue.get(), timeout=1.0)
-                await process_phase2(splatoon)
-                phase2_queue.task_done()
+                idle_count = 0  # 重置空闲计数器
+                try:
+                    await process_phase2(splatoon)
+                except Exception as e:
+                    msg_id = get_msg_id(splatoon.platform, splatoon.user_id) if splatoon else "unknown"
+                    cron_logger.error(f"消费者 {consumer_id} 处理任务失败: {msg_id}, 错误: {e}")
+                finally:
+                    phase2_queue.task_done()
             except asyncio.TimeoutError:
+                idle_count += 1
                 # 如果超时且阶段1已完成，则退出循环
                 if phase1_completed and phase2_queue.empty():
+                    cron_logger.info(f"消费者 {consumer_id} 队列为空且阶段1已完成，准备退出")
+                    break
+                # 如果连续空闲超过最大次数，也退出循环
+                if idle_count >= max_idle:
+                    cron_logger.warning(f"消费者 {consumer_id} 连续空闲 {idle_count} 次，强制退出")
                     break
                 # 否则继续等待新项目
                 continue
+
+        cron_logger.info(f"消费者 {consumer_id} 已退出")
 
     # 创建多个阶段2消费者任务以实现并行处理
     phase2_tasks = [asyncio.create_task(phase2_consumer()) for _ in range(num_consumers)]
@@ -219,6 +237,12 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
             asyncio.gather(*phase1_tasks, return_exceptions=True),
             timeout=2 * 3600
         )
+        # 记录失败的任务
+        for i, result in enumerate(phase1_splatoons):
+            if isinstance(result, Exception):
+                platform, user_id = list_user[i]
+                msg_id = get_msg_id(platform, user_id)
+                cron_logger.error(f"阶段1任务执行失败: {msg_id}, 错误: {result}")
     except asyncio.TimeoutError:
         cron_logger.error("阶段1任务执行超时(2小时),已自动退出")
         phase1_splatoons = []
@@ -228,16 +252,26 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
 
     # 等待所有阶段2任务完成
     try:
-        await asyncio.wait_for(
+        phase2_results = await asyncio.wait_for(
             asyncio.gather(*phase2_tasks, return_exceptions=True),
             timeout=2 * 3600
         )
+        # 检查是否有消费者任务抛出异常
+        for i, result in enumerate(phase2_results):
+            if isinstance(result, Exception):
+                cron_logger.error(f"消费者任务 {i} 异常退出: {result}")
     except asyncio.TimeoutError:
         cron_logger.error("阶段2任务执行超时(2小时),已自动退出")
+        # 取消所有未完成的消费者任务
+        for task in phase2_tasks:
+            if not task.done():
+                task.cancel()
+        # 等待所有任务被取消
+        await asyncio.gather(*phase2_tasks, return_exceptions=True)
 
     # 结果报告
     str_time = convert_td(dt.utcnow() - t)
-    valid_splatoons = [s for s in phase1_splatoons if s is not None]
+    valid_splatoons = [s for s in phase1_splatoons if s is not None and not isinstance(s, Exception)]
     cron_msg = (f"create_set_report_tasks end: {str_time}\n"
                 f"全部用户: {len(list_user)}\n"
                 f"有效用户: {len(valid_splatoons)}\n"
