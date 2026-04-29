@@ -79,7 +79,8 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
                     success = await splatoon.test_page()
                 except ValueError as e:
                     # 测试中报错，一般是f接口无法请求或代理错误
-                    cron_logger.debug(f'set_report error: {splatoon.user_db_info.db_id},{msg_id}, {splatoon.user_name},reason：{e}')
+                    cron_logger.debug(
+                        f'set_report error: {splatoon.user_db_info.db_id},{msg_id}, {splatoon.user_name},reason：{e}')
                     return None
                 await phase2_queue.put(splatoon)  # 将结果加入队列
                 return splatoon
@@ -215,11 +216,11 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
     phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
     try:
         phase1_splatoons = await asyncio.wait_for(
-            asyncio.gather(*phase1_tasks),
-            timeout=4*3600
+            asyncio.gather(*phase1_tasks, return_exceptions=True),
+            timeout=2 * 3600
         )
     except asyncio.TimeoutError:
-        cron_logger.error("阶段1任务执行超时(4小时),已自动退出")
+        cron_logger.error("阶段1任务执行超时(2小时),已自动退出")
         phase1_splatoons = []
 
     # 标记阶段1已完成
@@ -228,11 +229,11 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
     # 等待所有阶段2任务完成
     try:
         await asyncio.wait_for(
-            asyncio.gather(*phase2_tasks),
-            timeout=3*3600
+            asyncio.gather(*phase2_tasks, return_exceptions=True),
+            timeout=2 * 3600
         )
     except asyncio.TimeoutError:
-        cron_logger.error("阶段2任务执行超时(3小时),已自动退出")
+        cron_logger.error("阶段2任务执行超时(2小时),已自动退出")
 
     # 结果报告
     str_time = convert_td(dt.utcnow() - t)
