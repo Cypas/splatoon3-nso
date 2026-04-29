@@ -537,6 +537,8 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
     msg = ""
     if user and user.ns_friend_code and not force:
         msg += f"ns用户名: {user.ns_name}\n好友码(sw码): SW-{user.ns_friend_code}"
+        my_icon_path = (await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id) or
+                        await model_get_temp_image_path('my_icon', user.game_sp_id))
     else:
         splatoon = Splatoon(bot, event, user)
         res = {}
@@ -549,16 +551,31 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
         name = res.get('name')
         code = res.get('code')
         icon = res.get('icon')
+        my_icon_path = ""
         if user.nsa_id:
-            my_icon = await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id, icon)
+            my_icon_path = await model_get_temp_image_path('my_icon_by_nsa_id', user.nsa_id, icon)
         elif user.game_sp_id:
-            my_icon = await model_get_temp_image_path('my_icon', user.game_sp_id, icon)
+            my_icon_path = await model_get_temp_image_path('my_icon', user.game_sp_id, icon)
         if code:
             dict_get_or_set_user_info(platform, user_id, ns_name=name, ns_friend_code=code)
-            msg += f"已更新新好友码并缓存\n"
+            msg += f"已更新好友码和头像并缓存\n"
             msg += f"ns用户名: {res.get('name')}\n好友码(sw码): SW-{user.ns_friend_code}"
-
-    await bot_send(bot, event, msg)
+    # 同时发送图片
+    if my_icon_path:
+        with open(my_icon_path, "rb") as f:
+            _my_icon = f.read()
+            icon_path = _my_icon
+    else:
+        icon_path = f"\n{msg}"
+    text_start = f"\n{msg}"
+    text_end = "若展示的ns头像未更新，可以发送/fc force 强制更新"
+    if isinstance(bot, QQ_Bot):
+        # 头像和好友码一起发
+        await bot_mixed_send(bot, event, message=icon_path, text_start=text_start, text_end=text_end)
+    else:
+        # 其他平台分两条消息发送
+        await bot_send(bot, event, message=icon_path)
+        await bot_send(bot, event, message=f"{msg}\n{text_end}")
 
 
 def fmt_sp3_state(f):
