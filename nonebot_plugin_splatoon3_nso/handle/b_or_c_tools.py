@@ -52,7 +52,7 @@ async def get_b_point_and_process(battle_detail, bankara_match, splatoon: Splato
             b_process = f"{win_count}胜-{lose_count}负"
 
     except Exception as e:
-        logger.exception(e)
+        logger.warning(f"get get_b_point_and_process bankara_info error:{e}")
         point = 0
         b_process = ""
 

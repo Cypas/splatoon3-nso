@@ -5,12 +5,11 @@ import time
 from .cron import create_get_user_friends_tasks, get_x_player, create_set_report_tasks, sync_stat_ink, send_report_task, \
     create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, get_event_top, \
     show_dict_status
-from .cron.else_cron import get_dict_status
 from .push import close_push
 from .send_msg import bot_send, notify_to_private
 from ..data.data_source import dict_get_all_global_users, model_clean_db_cache, model_get_or_set_user, \
     dict_get_or_set_user_info
-from ..data.utils import get_or_set_plugin_data
+from ..data.utils import get_or_set_plugin_data, add_blacklist_msg_id, del_blacklist_msg_id
 from ..utils import get_msg_id
 from ..utils.bot import *
 from nonebot import logger
@@ -54,7 +53,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
 
         case "set_report":
             await bot_send(bot, event, message="即将开始整理日报")
-            await create_set_report_tasks(is_corn_job=False)
+            await create_set_report_tasks()
 
         case "send_report":
             await bot_send(bot, event, message="即将开始send_report")
@@ -82,8 +81,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             await clean_global_user_info_dict()
 
         case "status":
-            msg = await get_dict_status()
-            await show_dict_status()
+            msg = await show_dict_status()
             await bot_send(bot, event, message=msg)
 
         case "restore_token":
@@ -117,7 +115,9 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                   "status 当前缓存用户状态以及ss截图调用情况\n" \
                   "kook_leave {guild_id} kook离开服务器\n" \
                   "copy_token {user_id} 复制同平台某用户token，便于调试\n" \
-                  "restore_token 还原自身本来token\n"
+                  "restore_token 还原自身本来token\n" \
+                  "add_black_msg_id 添加黑名单用户 {msg_id}\n" \
+                  "del_black_msg_id 删除黑名单用户 {msg_id}\n"
             await bot_send(bot, event, message=msg)
 
     if plain_text.startswith("kook_leave"):
@@ -144,6 +144,26 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
         if not notice:
             notice = "None"
         msg = "旧公告消息为:\n" + old_notice + "\n" + "新的公告消息为:\n" + notice
+        await bot_send(bot, event, message=msg)
+
+    if plain_text.startswith("add_black_msg_id"):
+        """添加黑名单用户
+        add_black_msg_id {msg_id}
+        """
+        msg_id = plain_text.replace("add_black_msg_id", "").strip().replace("\n", "\r")
+        if msg_id:
+            await add_blacklist_msg_id(msg_id)
+        msg = f"已添加黑名单用户 {msg_id}"
+        await bot_send(bot, event, message=msg)
+
+    if plain_text.startswith("del_black_msg_id"):
+        """删除黑名单用户
+        del_black_msg_id {msg_id}
+        """
+        msg_id = plain_text.replace("del_black_msg_id", "").strip().replace("\n", "\r")
+        if msg_id:
+            await del_blacklist_msg_id(msg_id)
+        msg = f"已删除黑名单用户 {msg_id}"
         await bot_send(bot, event, message=msg)
 
     if plain_text.startswith("copy_token"):

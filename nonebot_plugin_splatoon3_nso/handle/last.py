@@ -87,14 +87,15 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
         equip_str = ""
     mask_str = "打码" if mask else ""
 
-    evaluate_text = await get_evaluate_text(get_battle, detail)
+    evaluate_text = await get_evaluate_text(user_id, get_battle, detail)
     # 将评价文本也拼接在图片里面
     if evaluate_text and msg.startswith("#### "):
         msg += f"</br>小鱿鱿的嘴替或评价是: {evaluate_text}"
 
     if not get_image:
         text_start = f"以下是倒数第 {idx + 1}场{b_str} {ss_str}{equip_str}{mask_str}的数据"
-        evaluate_text = f"小鱿鱿的嘴替或评价是: {evaluate_text}"
+        if evaluate_text:
+            evaluate_text = f"小鱿鱿的嘴替或评价是: {evaluate_text}"
         await bot_mixed_send(bot, event, msg, image_width=image_width, text_start=text_start, text_end=evaluate_text)
     else:
         await bot_send(bot, event, msg, image_width=image_width)
@@ -188,21 +189,22 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
             # 计算过去有记录的全部打工数据
             coop_total_count = 0
             # 加回1 方便语义计算
-            idx += 1
+            idx_bak = idx
+            idx_bak += 1
             for group in coop['historyGroups']['nodes']:
                 group_count = len(group['historyDetails']['nodes'])
                 coop_total_count += group_count
-                if idx > group_count:
+                if idx_bak > group_count:
                     # 超出一组记录
-                    idx -= group_count
+                    idx_bak -= group_count
                     coop_group_idx += 1
                 else:
                     break
-            if idx > coop_total_count:
+            if idx_bak > coop_total_count:
                 msg = "查询索引超出最大打工历史记录，请用更小索引重试，或使用/last b指定为对战模式重新进行查询"
                 return get_battle, None, msg, is_playing
             # 减1变回索引
-            idx -= 1
+            idx_bak -= 1
             coop_highest_eggs = 0
             coop_highest_result = coop['historyGroups']['nodes'][coop_group_idx].get('highestResult')
             if coop_highest_result:
@@ -211,7 +213,7 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
                 'coop_point': coop['pointCard']['regularPoint'] or "0",
                 'coop_highest_eggs': coop_highest_eggs
             }  # coop_eggs为当期获得的最多的蛋数
-            coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx]['id']
+            coop_id = coop['historyGroups']['nodes'][coop_group_idx]['historyDetails']['nodes'][idx_bak]['id']
             coop_t = get_battle_time_or_coop_time(coop_id)
         except ValueError as e:
             if for_push:

@@ -7,12 +7,14 @@ from datetime import datetime as dt
 
 from .cron.stat_ink import sync_stat_ink_func
 from .utils import _check_session_handler, get_event_info, get_game_sp_id, get_qq_user_name
-from .send_msg import bot_send, notify_to_channel, bot_send_login_md
+from .send_msg import bot_send, notify_to_channel, bot_send_login_md, send_msg
+from ..data.utils import get_or_set_plugin_data
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_delete_user, global_user_info_dict, \
     model_get_or_set_user
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
+from ..util import write_login_text
 from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str, get_file_bytes
 from ..utils.bot import *
 from ..utils.redis import rset_lc, rget_lc, rdel_lc
@@ -39,6 +41,14 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
               "/get_login_code 获取绑定码以绑定其他平台bot账号"
         await bot_send(bot, event, msg, skip_ad=True)
         await matcher.finish()
+
+    # if plugin_config.splatoon3_maintenance_mode:
+    #     # nso维护模式
+    #     # 尝试获取公告信息
+    #     notice = await get_or_set_plugin_data("splatoon3_bot_notice")
+    #     msg = "nso查询暂时维护中，目前无法提供服务"
+    #     if notice:
+    #         msg += f"\n公告消息:" + str(notice)
 
     if isinstance(bot, QQ_Bot):
         if not zurl.get_client():
@@ -83,21 +93,19 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
         if isinstance(bot, Tg_Bot):
             msg = "Navigate to this URL in your browser:\n" \
                   f"{url}"
-            await bot.send(event, message=msg)
+            await send_msg(bot, event, msg=msg, skip_ad=True)
 
         elif isinstance(bot, All_BOT):
             msg = ("风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi的过程，可能存在一定的风险，"
                    "具体说明请查看下方第三方api使用与隐私声明\n\n若继续完成以下登录流程，则视为您已知晓此风险并继续使用nso查询")
             msg += f"\n\nnso登录流程: 在浏览器中打开下面链接\n{'(需要手动替换 点 字)' if isinstance(bot, QQ_Bot) else ''}，然后按照下方登录教程进行操作"
-            await bot.send(event, message=msg)
+            await send_msg(bot, event, msg=msg, skip_ad=True)
             # 发送隐私协议图片
             privacy_img = get_file_bytes("bot_privacy.png")
             await bot_send(bot, event, message=privacy_img, skip_ad=True)
-            # await bot.send(event, message=msg2)
             # 发送登录教程图片
             login_img = get_file_bytes("bot_login.png")
             await bot_send(bot, event, message=login_img, skip_ad=True)
-            # await bot.send(event, message='我是分割线'.center(20, '-'))
             if zurl.get_client():
                 # 开启了短链
                 ok, new_url = await zurl.create_short_url(long_url=url)
@@ -111,10 +119,7 @@ async def login_in(bot: Bot, event: Event, matcher: Matcher):
 
             if isinstance(bot, QQ_Bot):
                 login_url = login_url.replace(".", "点")
-                # login_url = login_url.replace("http://", "")
-                # login_url = login_url.replace("https://", "")
-
-            await bot.send(event, message=login_url)
+            await send_msg(bot, event, msg=login_url, skip_ad=True)
 
 
 matcher_login_in_2 = on_startswith("npf", priority=10)
@@ -129,21 +134,22 @@ async def login_in_2(bot: Bot, event: Event):
     # 查找用户登录字典
     user_login_status = global_login_status_dict.get(msg_id)
     if user_login_status is None:
-        await bot.send(event, message="请重新发送 /login 使用新地址登录后，重新发送按钮的新链接")
+        await send_msg(bot, event, msg="请重新发送 /login 使用新地址登录后，重新发送按钮的新链接", skip_ad=True)
         return
 
     auth_code_verifier = user_login_status.get("auth_code_verifier")
     s3s: S3S = user_login_status.get("s3s")
 
     if not auth_code_verifier:
-        await bot.send(event, message="请重新发送 /login 使用新地址登录后，重新发送按钮的新链接")
+        await send_msg(bot, event, msg="请重新发送 /login 使用新地址登录后，重新发送按钮的新链接", skip_ad=True)
         return
     if (not text) or (len(text) < 500) or (not text.startswith('npf')):
         err_msg = "登录链接格式错误，链接是一串npf开头的文本"
         logger.info(err_msg)
         # 登录失败直接销毁用户等待字典
-        global_login_status_dict.pop(msg_id)
-        await bot.send(event, message=err_msg)
+        if msg_id in global_login_status_dict:
+            global_login_status_dict.pop(msg_id)
+        await send_msg(bot, event, msg=err_msg, skip_ad=True)
         return
 
     session_token = await s3s.login_in_2(use_account_url=text, auth_code_verifier=auth_code_verifier)
@@ -151,8 +157,9 @@ async def login_in_2(bot: Bot, event: Event):
         err_msg = "登录失败，请 /login 重试, 并在浏览器打开bot新发给你的登录链接，在重新完成登录后，复制按钮的新链接给bot"
         logger.info(err_msg)
         # 登录失败直接销毁用户等待字典
-        global_login_status_dict.pop(msg_id)
-        await bot.send(event, message=err_msg)
+        if msg_id in global_login_status_dict:
+            global_login_status_dict.pop(msg_id)
+        await send_msg(bot, event, msg=err_msg, skip_ad=True)
         return
     logger.info(f'session_token: {session_token}')
 
@@ -170,7 +177,7 @@ async def login_in_2(bot: Bot, event: Event):
     user = dict_get_or_set_user_info(platform, user_id, session_token=session_token, user_name=new_user_name,
                                      user_agreement=1)
     # 刷新token
-    await bot.send(event, message="登录中，正在刷新token，请等待大约10s")
+    await send_msg(bot, event, msg="登录中，正在刷新token，请等待大约10s", skip_ad=True)
     splatoon = Splatoon(bot, event, user)
     await splatoon.refresh_gtoken_and_bullettoken()
 
@@ -209,8 +216,9 @@ async def login_in_2(bot: Bot, event: Event):
     if plugin_config.splatoon3_schedule_plugin_priority_mode:
         # 日程插件帮助优先模式
         msg += "\n更多完整nso操作指令: \n/nso帮助"
-    await bot.send(event, message=msg)
-    global_login_status_dict.pop(msg_id)
+    await send_msg(bot, event, msg=msg, skip_ad=True)
+    if msg_id in global_login_status_dict:
+        global_login_status_dict.pop(msg_id)
     logger.info(f'login success:{msg_id} {new_user_name}')
 
     try:
@@ -221,10 +229,13 @@ async def login_in_2(bot: Bot, event: Event):
         user = dict_get_or_set_user_info(platform, user_id, game_sp_id=game_sp_id)
         # 登录完成后从用户池删除该残缺对象(缺少部分数据库的值，重新init后就正常了)
         global_user_info_dict.pop(msg_id)
-        _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:{game_sp_id}\n{session_token}'
     except Exception as e:
-        _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:None\n{session_token}'
+        game_sp_id = None
 
+    _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:{game_sp_id}\n{session_token}'
+    # 写登陆到文件
+    write_text = f"用户登陆:msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name},ns_player_code:{user.game_sp_id}"
+    write_login_text(msg_id, text=write_text)
     await notify_to_channel(_msg)
 
 
@@ -239,16 +250,21 @@ async def clear_db_info(bot: Bot, event: Event):
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
 
-    user = dict_get_or_set_user_info(platform, user_id)
-    log_msg = "用户注销:db_id:{},msg_id:{},会话昵称:{},游戏昵称:{}".format(
-        user.db_id, msg_id, user.user_name, user.game_name)
-    notify_msg = "用户注销:db_id:{},msg_id:{},\n会话昵称:{},游戏昵称:{}".format(
-        user.db_id, msg_id, user.user_name, user.game_name)
+    user = model_get_or_set_user(platform, user_id)
+    if not user:
+        msg = "未登陆nso账号，无需退出登陆"
+        await bot_send(bot, event, message=msg, skip_ad=True)
+        return
+    log_msg = f"用户注销:db_id:{user.id},msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name},ns_player_code:{user.game_sp_id}"
+    notify_msg = log_msg
+    write_text = log_msg
+    # 写登陆到文件
+    write_login_text(msg_id, text=write_text)
 
     if isinstance(bot, Tg_Bot):
         msg = "All your data cleared!"
     else:
-        msg = "已清空账号数据!"
+        msg = "已退出nso登陆\n若需要换号或重登，可使用/login 重新登陆\n\nTips:小鱿鱿网络错误导致的查询失败，退出重登并不能解决问题，只能多试或等待一段时间后再使用"
     logger.info(log_msg)
 
     await bot_send(bot, event, message=msg, skip_ad=True)
@@ -292,7 +308,7 @@ async def get_login_code(bot: Bot, event: Event):
     # global_login_code_dict.update({login_code: login_code_info})
     msg = f"请在其他平台艾特小鱿鱿(也支持跨机器人，如漆bot)并发送下行指令完成跨平台绑定\n该绑定码为有效期10分钟的一次性的随机字符串，不用担心别人重复使用"
     await bot_send(bot, event, message=msg, skip_ad=True)
-    await bot.send(event, message="我是分割线".center(20, "-"))
+    await bot_send(bot, event, message="我是分割线".center(20, "-"), skip_ad=True)
     await bot_send(bot, event, message=f"/set_login {login_code}", skip_ad=True)
 
 

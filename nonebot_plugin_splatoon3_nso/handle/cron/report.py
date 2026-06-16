@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import gc
+import random
 import time
 
 from .utils import cron_logger, user_remove_duplicates
@@ -12,21 +13,33 @@ from ...data.db_sqlite import Report
 from ...handle.utils import get_battle_time_or_coop_time, get_game_sp_id
 from ...data.data_source import model_add_report, model_get_all_user, dict_get_or_set_user_info, model_get_or_set_user, \
     model_get_today_report, dict_clear_user_info_dict, model_get_temp_image_path, global_user_info_dict, \
-    dict_get_all_global_users
+    dict_get_all_global_users, model_get_all_report_user, model_get_all_inactive_report_user, \
+    model_get_all_active_report_user
 from ...s3s.splatoon import Splatoon
 from ...utils import get_msg_id, convert_td, ReqClient
 from ...utils.bot import *
 
 
-async def create_set_report_tasks(is_corn_job=True):
+async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
     """7点时请求并提前写好日报数据"""
-    cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
-    cron_logger.info(cron_msg)
-    await cron_notify_to_channel("set_report", "start")
 
     t = dt.utcnow()
-    db_users = model_get_all_user()
+    if is_inactive_user:
+        # 不活跃用户
+        db_users = model_get_all_inactive_report_user()
+    else:
+        # 活跃用户
+        db_users = model_get_all_active_report_user()
+    users_cnt = len(db_users)
+    cron_logger.info(f"待检查日报数量:{users_cnt}")
     db_users = user_remove_duplicates(db_users)
+    unique_users_cnt = len(db_users)
+    cron_logger.info(f"去重后待检查日报数量:{unique_users_cnt}")
+
+    cron_msg = f'create_set_report_tasks phase1_tasks start'.center(60, "=")
+    cron_logger.info(cron_msg)
+    await cron_notify_to_channel("set_report", "start",
+                                 msg=f"report_users_cnt:{users_cnt}\nreport_unique_users_cnt:{unique_users_cnt}")
 
     list_user: list[tuple] = [(user.platform, user.user_id) for user in db_users]
 
@@ -62,7 +75,13 @@ async def create_set_report_tasks(is_corn_job=True):
             global_user_info = global_user_info_dict.get(msg_id)
             if global_user_info:
                 splatoon = Splatoon(None, None, global_user_info)  # 直接返回已存在的对象
-                success = await splatoon.test_page()
+                try:
+                    success = await splatoon.test_page()
+                except ValueError as e:
+                    # 测试中报错，一般是f接口无法请求或代理错误
+                    cron_logger.debug(
+                        f'set_report error: {splatoon.user_db_info.db_id},{msg_id}, {splatoon.user_name},reason：{e}')
+                    return None
                 await phase2_queue.put(splatoon)  # 将结果加入队列
                 return splatoon
 
@@ -79,8 +98,15 @@ async def create_set_report_tasks(is_corn_job=True):
                 await phase2_queue.put(splatoon)  # 将结果加入队列
                 return splatoon  # 返回初始化完成的对象
             except ValueError as e:
-                if any(key in str(e) for key in ['invalid_grant', 'Membership required', 'has be banned']):
-                    cron_logger.info(f"跳过无效用户: {msg_id}，reason:{e}")
+                if any(key in str(e) for key in
+                       ['invalid_grant', 'Membership required', 'NSA not linked', 'has be banned']):
+                    db_id = splatoon.user_db_info.db_id
+                    # 加5-10天延迟
+                    days = random.randint(5, 10)
+                    cron_logger.info(f"跳过无效用户:{db_id}，{msg_id}，延迟{days}天，reason:{e}")
+                    next_report_run_time = (dt.utcnow() + timedelta(days=days)).date()
+                    splatoon.set_user_info(next_report_run_time=next_report_run_time)
+                    splatoon.refresh_another_account()
                     return None
 
     # ================== 等待 UTC 0 点后再执行阶段2 ==================
@@ -89,7 +115,7 @@ async def create_set_report_tasks(is_corn_job=True):
 
         兼容两种情况：
         1. 阶段1在 UTC 23:xx 完成，需要等待到次日 0 点
-        2. 阶段1在第二天 0:00-3:00 完成，不等待直接运行
+        2. 阶段1在第二天 0:00-4:00 完成，不等待直接运行
         """
         if not is_corn_job:
             # 手动触发时，直接继续执行
@@ -111,9 +137,9 @@ async def create_set_report_tasks(is_corn_job=True):
             delta = next_midnight - now_utc
             return int(delta.total_seconds())
 
-        # 情况2：如果在 UTC 0:00-2:59，不等待直接运行
-        elif 0 <= current_hour < 3:
-            # 已经是 0 点之后，但还在 3 点之前，说明是当天
+        # 情况2：如果在 UTC 0:00-3:59，不等待直接运行
+        elif 0 <= current_hour < 4:
+            # 已经是 0 点之后，但还在 4 点之前，说明是当天
             # 不需要等待，直接执行
             return 0
 
@@ -158,47 +184,94 @@ async def create_set_report_tasks(is_corn_job=True):
         """消费者：从队列中取出任务并处理"""
         nonlocal phase2_started
         phase2_started = True
-        cron_logger.info("create_set_report_tasks phase2_tasks start".center(60, "="))
+        consumer_id = id(asyncio.current_task())
+        cron_logger.info(f"消费者 {consumer_id} 启动")
 
         # 计算需要等待的秒数
         wait_seconds = get_seconds_until_utc_midnight()
         if wait_seconds > 0:
-            cron_logger.info(f"阶段2需等待 UTC 0 点，当前等待秒数：{wait_seconds}s")
+            cron_logger.info(f"消费者 {consumer_id} 需等待 UTC 0 点，等待秒数：{wait_seconds}s")
             # 异步等待（不阻塞事件循环）
             await asyncio.sleep(wait_seconds)
         else:
-            cron_logger.info("当前已过 UTC 0 点，直接执行阶段2")
+            cron_logger.info(f"消费者 {consumer_id} 当前已过 UTC 0 点，直接执行阶段2")
 
         # 处理队列中的所有项目
+        idle_count = 0  # 空闲计数器
+        max_idle = 1800  # 最大空闲次数（1800秒） 半小时都接受不到数据，消费者自动退出
+
         while True:
             try:
                 # 设置超时以避免无限等待
                 splatoon = await asyncio.wait_for(phase2_queue.get(), timeout=1.0)
-                await process_phase2(splatoon)
-                phase2_queue.task_done()
+                idle_count = 0  # 重置空闲计数器
+                try:
+                    await process_phase2(splatoon)
+                except Exception as e:
+                    msg_id = get_msg_id(splatoon.platform, splatoon.user_id) if splatoon else "unknown"
+                    cron_logger.error(f"消费者 {consumer_id} 处理任务失败: {msg_id}, 错误: {e}")
+                finally:
+                    phase2_queue.task_done()
             except asyncio.TimeoutError:
+                idle_count += 1
                 # 如果超时且阶段1已完成，则退出循环
                 if phase1_completed and phase2_queue.empty():
+                    cron_logger.info(f"消费者 {consumer_id} 队列为空且阶段1已完成，准备退出")
+                    break
+                # 如果连续空闲超过最大次数，也退出循环
+                if idle_count >= max_idle:
+                    cron_logger.warning(f"消费者 {consumer_id} 连续空闲 {idle_count} 次，强制退出")
                     break
                 # 否则继续等待新项目
                 continue
+
+        cron_logger.info(f"消费者 {consumer_id} 已退出")
 
     # 创建多个阶段2消费者任务以实现并行处理
     phase2_tasks = [asyncio.create_task(phase2_consumer()) for _ in range(num_consumers)]
 
     # 执行阶段1任务
     phase1_tasks = [process_phase1(p_and_id) for p_and_id in list_user]
-    phase1_splatoons = await asyncio.gather(*phase1_tasks)
+    try:
+        phase1_splatoons = await asyncio.wait_for(
+            asyncio.gather(*phase1_tasks, return_exceptions=True),
+            timeout=2 * 3600
+        )
+        # 记录失败的任务
+        for i, result in enumerate(phase1_splatoons):
+            if isinstance(result, Exception):
+                platform, user_id = list_user[i]
+                msg_id = get_msg_id(platform, user_id)
+                cron_logger.error(f"阶段1任务执行失败: {msg_id}, 错误: {result}")
+    except asyncio.TimeoutError:
+        cron_logger.error("阶段1任务执行超时(2小时),已自动退出")
+        phase1_splatoons = []
 
     # 标记阶段1已完成
     phase1_completed = True
 
     # 等待所有阶段2任务完成
-    await asyncio.gather(*phase2_tasks)
+    try:
+        phase2_results = await asyncio.wait_for(
+            asyncio.gather(*phase2_tasks, return_exceptions=True),
+            timeout=2 * 3600
+        )
+        # 检查是否有消费者任务抛出异常
+        for i, result in enumerate(phase2_results):
+            if isinstance(result, Exception):
+                cron_logger.error(f"消费者任务 {i} 异常退出: {result}")
+    except asyncio.TimeoutError:
+        cron_logger.error("阶段2任务执行超时(2小时),已自动退出")
+        # 取消所有未完成的消费者任务
+        for task in phase2_tasks:
+            if not task.done():
+                task.cancel()
+        # 等待所有任务被取消
+        await asyncio.gather(*phase2_tasks, return_exceptions=True)
 
     # 结果报告
     str_time = convert_td(dt.utcnow() - t)
-    valid_splatoons = [s for s in phase1_splatoons if s is not None]
+    valid_splatoons = [s for s in phase1_splatoons if s is not None and not isinstance(s, Exception)]
     cron_msg = (f"create_set_report_tasks end: {str_time}\n"
                 f"全部用户: {len(list_user)}\n"
                 f"有效用户: {len(valid_splatoons)}\n"
@@ -308,21 +381,43 @@ async def set_user_report_task(p_and_id, splatoon: Splatoon):
             return "data missing"
 
         # ================== 时间计算 ==================
+        first_play_time = dt.strptime(res_summary['data']['playHistory']['gameStartTime'], '%Y-%m-%dT%H:%M:%SZ')
         last_play_time = max(dt.strptime(battle_t, '%Y%m%dT%H%M%S'), dt.strptime(coop_t, '%Y%m%dT%H%M%S'))
+        # 同时更新user表里面相同game_sp_id 的全部账号的  first_play_time 与 last_play_time
+        splatoon.set_user_info(first_play_time=first_play_time, last_play_time=last_play_time)
+        splatoon.refresh_another_account()
 
         # ================== 剩余业务逻辑 ==================
         # 上次游玩时间位于一天内
-        if last_play_time.date() >= (dt.utcnow() - timedelta(days=1)).date():
+        yesterday = dt.utcnow() - timedelta(days=1)
+        diff_days = (dt.utcnow() - last_play_time).days
+        if last_play_time.date() >= yesterday.date():
             await set_user_report(
                 splatoon.user_db_info.db_id, res_summary, res_coop,
                 last_play_time, splatoon, game_sp_id, all_data
             )
+            # 设置下次更新时间
+            next_report_run_time = (dt.utcnow() + timedelta(days=1)).date()
+            splatoon.set_user_info(next_report_run_time=next_report_run_time)
+            splatoon.refresh_another_account()
+
             cron_logger.info(f'set_user_report_task success: {db_id},{msg_id},{splatoon.user_name}')
             # 成功
             return "success"
 
         # 无日报
+        if diff_days >= 30:
+            # 如果最近一次游玩也是30天以前，设置下次更新时间 随机加10-20天
+            days = random.randint(10, 20)
+            cron_logger.info(f"超过30天无日报:{db_id}，{msg_id}，延迟{days}天")
+        else:
+            # 设置下次更新时间
+            days = 1
+        next_report_run_time = (dt.utcnow() + timedelta(days=days)).date()
+        splatoon.set_user_info(next_report_run_time=next_report_run_time)
+        splatoon.refresh_another_account()
         return "no report"
+
     except Exception as ex:
         cron_logger.error(f'set_user_report_task error: {msg_id} error:{str(ex)}', exc_info=True)
         # 异常时清理

@@ -6,11 +6,13 @@ from nonebot import require, logger
 from .else_cron import create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, show_dict_status, \
     init_nso_version, clean_expired_clients
 from .event_top import get_event_top
-from .stat_ink import sync_stat_ink
+from .stat_ink import sync_stat_ink, clean_stat_ink_error_code_user_list
 from .report import create_set_report_tasks, send_report_task
 from .user_friends import create_get_user_friends_tasks
 from .x_player import get_x_player
+from ..my import clean_ban_user_sp_id_list
 from ...config import plugin_config
+from ...data.data_source import model_delete_user_friend
 
 require("nonebot_plugin_apscheduler")
 from nonebot_plugin_apscheduler import scheduler
@@ -59,6 +61,8 @@ def scheduler_controller():
         # add_scheduler("clean_s3s_cache", trigger='cron', hour=7, minute=30)
         # set_report at 7:00
         add_scheduler("set_report", trigger='cron', hour=7, minute=0)
+        # set_inactive_report at 12:00
+        # add_scheduler("set_inactive_report", trigger='cron', hour=12, minute=0)
         # send_report at 9:00
         # add_scheduler("send_report", trigger='cron', hour=9, minute=0)
         # 不同trigger下hour和minute有的带s，有的不带，就相当离谱 ###########
@@ -74,8 +78,14 @@ def scheduler_controller():
         # add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
         # 每天23:59分将 NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
-        # 每3小时自动显示status
-        # add_scheduler("show_status", trigger='interval', hours=3)
+        # 每天23:59分将 stat_ink 因会员过期重复刷新的账号缓存列表置空
+        add_scheduler("clean_stat_ink_error_code_user_list", trigger='cron', hour=23, minute=59)
+        # 每天7:00分将 连坐sp_id的账号缓存列表置空
+        add_scheduler("clean_ban_user_sp_id_list", trigger='cron', hour=7, minute=0)
+        # 每天0点自动显示status
+        add_scheduler("show_status", trigger='cron', hour=0, minute=1)
+        # 每天0点自动删除过早好友数据
+        add_scheduler("delete_early_friend", trigger='cron', hour=0, minute=1)
         # 每20分钟检测一次过期的已缓存客户端
         add_scheduler("clean_expired_clients", trigger='interval', minutes=20)
 
@@ -88,7 +98,9 @@ async def cron(_type):
         case "get_event_top":
             await get_event_top()
         case "set_report":
-            await create_set_report_tasks()
+            await create_set_report_tasks(is_corn_job=True)
+        case "set_inactive_report":
+            await create_set_report_tasks(is_corn_job=True, is_inactive_user=True)
         case "send_report":
             await send_report_task()
         case "get_user_friends":
@@ -106,10 +118,16 @@ async def cron(_type):
             await clean_global_user_info_dict()
         case "init_nso_version":
             await init_nso_version()
+        case "clean_stat_ink_error_code_user_list":
+            clean_stat_ink_error_code_user_list()
+        case "clean_ban_user_sp_id_list":
+            clean_ban_user_sp_id_list()
         case "show_status":
             await show_dict_status()
         case "clean_expired_clients":
             await clean_expired_clients()
+        case "delete_early_friend":
+            model_delete_user_friend()
 
 
 def remove_all_scheduler():

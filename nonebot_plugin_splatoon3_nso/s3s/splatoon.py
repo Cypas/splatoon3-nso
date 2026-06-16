@@ -20,15 +20,18 @@ from ..utils.redis import rset_gtoken, rget_gtoken
 
 
 class UserDBInfo:
-    def __init__(self, db_id, user_name, game_name, game_sp_id, create_time, report_notify, push_cnt, cmd_cnt):
-        self.db_id = db_id
-        self.user_name = user_name
-        self.game_name = game_name
-        self.game_sp_id = game_sp_id
-        self.create_time = create_time
-        self.report_notify = report_notify
-        self.push_cnt = push_cnt
-        self.cmd_cnt = cmd_cnt
+    def __init__(self, **kwargs):
+        self.db_id = kwargs.get('db_id', None)
+        self.user_name = kwargs.get('user_name', None)
+        self.game_name = kwargs.get('game_name', None)
+        self.game_sp_id = kwargs.get('game_sp_id', None)
+        self.create_time = kwargs.get('create_time', None)
+        self.report_notify = kwargs.get('report_notify', None)
+        self.push_cnt = kwargs.get('push_cnt', 0)
+        self.cmd_cnt = kwargs.get('cmd_cnt', 0)
+        self.last_play_time = kwargs.get('last_play_time', None)
+        self.first_play_time = kwargs.get('first_play_time', None)
+        self.next_report_run_time = kwargs.get('next_report_run_time', None)
 
 
 class Splatoon:
@@ -59,14 +62,22 @@ class Splatoon:
             self.bullet_token = user.bullet_token
             self.g_token = user.g_token
             self.access_token = user.access_token
-            self.user_db_info = UserDBInfo(str(user.id) or "0",
-                                           user.user_name or "no user name",
-                                           user.game_name or "no game name",
-                                           user.game_sp_id or "",
-                                           user.create_time,
-                                           user.report_notify,
-                                           user.push_cnt or 0,
-                                           user.cmd_cnt or 0)
+            self.first_play_time = user.first_play_time
+            self.last_play_time = user.last_play_time
+            self.next_report_run_time = user.next_report_run_time
+            self.user_db_info = UserDBInfo(
+                db_id=str(user.id) or "0",
+                user_name=user.user_name or "no user name",
+                game_name=user.game_name or "no game name",
+                game_sp_id=user.game_sp_id or "",
+                create_time=user.create_time,
+                report_notify=user.report_notify,
+                push_cnt=user.push_cnt or 0,
+                cmd_cnt=user.cmd_cnt or 0,
+                last_play_time=user.last_play_time,
+                first_play_time=user.first_play_time,
+                next_report_run_time=user.next_report_run_time
+            )
 
     def reload_tokens(self):
         """重载token"""
@@ -82,6 +93,9 @@ class Splatoon:
         for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
+            # 同时更新user_db_info的属性
+            if hasattr(self.user_db_info, k):
+                setattr(self.user_db_info, k, v)
         # 修改全局字典
         dict_get_or_set_user_info(self.platform, self.user_id, _type=self.dict_type, **kwargs)
 
@@ -122,7 +136,7 @@ class Splatoon:
                         msg = f"喷3账号 {user.game_name or ''} 登录过期，一般是修改密码后登录才会过期，请发送/login 重新登录"
                         if self.bot and self.event:
                             # 来自用户主动请求
-                            await bot_send(self.bot, self.event, msg)
+                            await bot_send(self.bot, self.event, msg, skip_ad=True)
                         else:
                             # 来自定时任务
                             if user.report_notify:
@@ -145,7 +159,7 @@ class Splatoon:
                             msg += ",无法使用nso查询功能"
                             self.logger.warning(f'db_id:{user.db_id},membership_required notify')
                             # 来自用户主动请求
-                            await bot_send(self.bot, self.event, msg)
+                            await bot_send(self.bot, self.event, msg, skip_ad=True)
                         else:
                             msg += ",无法更新日报"
                             # msg += "\n/report_notify close 关闭每日日报推送"
@@ -154,6 +168,26 @@ class Splatoon:
                             #     await notify_to_private(self.platform, self.user_id, msg)
 
                             raise ValueError('Membership required')
+                        return False
+                    elif "NSA not linked" in str(e):
+                        # 未绑定任何游戏机
+                        self.logger.warning(
+                            f"nsa not linked: db_id:{user.db_id}, msg_id:{msg_id}, game_name:{user.game_name}")
+                        # 待发送文本
+                        msg = f"该任天堂账号从未游玩过splatoon3在线对战，是不是登错账号了，请发送/clear_db_info 清除登陆账号信息后重新登陆"
+                        if self.bot and self.event:
+                            msg += ",无法使用nso查询功能"
+                            self.logger.warning(f'db_id:{user.db_id},nsa not linked notify')
+                            # 来自用户主动请求
+                            await bot_send(self.bot, self.event, msg, skip_ad=True)
+                        else:
+                            msg += ",无法更新日报"
+                            # msg += "\n/report_notify close 关闭每日日报推送"
+                            # 来自定时任务
+                            # if user.report_notify:
+                            #     await notify_to_private(self.platform, self.user_id, msg)
+
+                            raise ValueError('NSA not linked')
                         return False
                 return False
 
@@ -173,7 +207,7 @@ class Splatoon:
                     msg = f"喷3账号 {user.game_name or ''} 鱿鱼圈被封禁，无法使用相关查询，一般会在一个月后自动解封,你可以加入q群756026315与其他被封禁用户交流"
                     if self.bot and self.event:
                         # 来自用户主动请求
-                        await bot_send(self.bot, self.event, msg)
+                        await bot_send(self.bot, self.event, msg, skip_ad=True)
                     await notify_to_channel(
                         f"新的鱿鱼圈封禁用户:\n"
                         f"db_id:{self.user_db_info.db_id},msg_id:{msg_id},\n"
@@ -202,10 +236,23 @@ class Splatoon:
 
                     raise e
 
+                elif "Cannot access SplatNet 3 without having played online" in str(e):
+                    # 未游玩过在线对战
+                    self.logger.warning(f'msg_id: {msg_id} get g_token success,get bullet_token error.reason:{e}')
+                    if self.bot and self.event:
+                        # 来自用户主动请求
+                        await bot_send(self.bot, self.event,
+                                       "你的喷三账号从未游玩过线上对战模式，无法查询对战数据，是不是登错号了？",
+                                       skip_ad=True)
                 else:
+                    # 预期之外情况，先重试
                     self.logger.warning(
-                        f'{msg_id} get g_token success,get bullet_token error,start try again.reason:{e}')
-                    new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
+                        f'msg_id: {msg_id} get g_token success,get bullet_token error,start try again.reason:{e}')
+                    try:
+                        new_bullet_token = await self.s3s.get_bullet(self.user_db_info.db_id, new_g_token)
+                    except Exception as e:
+                        self.logger.warning(
+                            f'msg_id: {msg_id} get g_token success,get bullet_token error,retry error.reason:{e}')
         # 刷新值
         if new_g_token and new_bullet_token:
             if current_user:
@@ -245,13 +292,17 @@ class Splatoon:
                     dict_get_or_set_user_info(u.platform, u.user_id, access_token=self.access_token,
                                               g_token=self.g_token, bullet_token=self.bullet_token, user_agreement=1,
                                               nsa_id=self.nsa_id, ns_name=self.ns_name,
-                                              ns_friend_code=self.ns_friend_code)
+                                              ns_friend_code=self.ns_friend_code,
+                                              first_play_time=self.first_play_time, last_play_time=self.last_play_time,
+                                              next_report_run_time=self.next_report_run_time)
                 else:
                     # 更新数据库数据
                     model_get_or_set_user(u.platform, u.user_id, access_token=self.access_token,
                                           g_token=self.g_token, bullet_token=self.bullet_token, user_agreement=1,
                                           nsa_id=self.nsa_id, ns_name=self.ns_name,
-                                          ns_friend_code=self.ns_friend_code)
+                                          ns_friend_code=self.ns_friend_code,
+                                          first_play_time=self.first_play_time, last_play_time=self.last_play_time,
+                                          next_report_run_time=self.next_report_run_time)
 
     async def head_bullet(self, force_lang=None, force_country=None):
         """为含有bullet_token的请求拼装header"""

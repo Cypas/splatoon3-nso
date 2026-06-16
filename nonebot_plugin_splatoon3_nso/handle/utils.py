@@ -2,18 +2,29 @@ import base64
 import json
 import os
 import random
+import time
+from collections import deque
+from datetime import datetime as dt, timedelta
 
-from .send_msg import bot_send_login_md
+from .send_msg import bot_send_login_md, send_msg
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, dict_clear_one_user_info_dict
-from ..data.utils import get_or_set_plugin_data
+from ..data.utils import get_or_set_plugin_data, get_blacklist_msg_id
 from ..utils import DIR_RESOURCE, AsHttpReq
 from ..utils.bot import *
 from ..utils.short_url import zurl
+from ..utils.utils import get_msg_id
 
 # 图标文件夹
 icons_folder = os.path.join(DIR_RESOURCE, "icons")
 PUSH_INTERVAL = 20  # push推送循环时间
+
+# QPS限制配置
+QPS_LIMIT_COUNT = 10  # 60秒内最多请求次数
+QPS_LIMIT_TIME = 60  # 时间窗口(秒)
+
+# 用户请求时间戳记录 {user_key: deque([timestamp1, timestamp2, ...])}
+user_request_times = {}
 
 # 真格入场券点数
 DICT_RANK_POINT = {
@@ -195,18 +206,66 @@ def get_battle_true_id(_id):
     return battle_true_id
 
 
+async def _check_session_blacklist_handler(bot: Bot, event: Event, matcher: Matcher):
+    """校验用户是否在黑名单"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user_key = get_msg_id(platform, user_id)
+    # 黑名单列表
+    black_l = await get_blacklist_msg_id()
+    if user_key in black_l:
+        msg = "你已无权使用小鱿鱿bot，若存在误封，请联系q群827977720"
+        logger.warning(f"黑名单 {user_key} 已禁止使用bot")
+        await send_msg(bot, event, msg=msg, skip_ad=True)
+        matcher.stop_propagation()
+        await matcher.finish()
+
+
+async def _check_session_qps_limit_handler(bot: Bot, event: Event, matcher: Matcher):
+    """校验用户请求qps"""
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    user_key = get_msg_id(platform, user_id)
+
+    # QPS检测
+    current_time = time.time()
+    if user_key not in user_request_times:
+        user_request_times[user_key] = deque()
+
+    # 移除超过时间窗口的记录
+    while user_request_times[user_key] and current_time - user_request_times[user_key][0] > QPS_LIMIT_TIME:
+        user_request_times[user_key].popleft()
+
+    # 检查请求次数是否超过限制
+    if len(user_request_times[user_key]) >= QPS_LIMIT_COUNT:
+        msg = "请勿频繁请求"
+        await send_msg(bot, event, msg=msg, skip_ad=True)
+        matcher.stop_propagation()
+        await matcher.finish()
+
+    # 记录当前请求时间
+    user_request_times[user_key].append(current_time)
+
+
 async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
     """ nonebot 子依赖注入    Check if user has logged in."""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
+
+    # qps校验
+    await _check_session_qps_limit_handler(bot, event, matcher)
+    # 黑名单校验
+    await _check_session_blacklist_handler(bot, event, matcher)
+
     user_info = dict_get_or_set_user_info(platform, user_id)
     if plugin_config.splatoon3_maintenance_mode:
         # 尝试获取公告信息
         notice = await get_or_set_plugin_data("splatoon3_bot_notice")
-        msg = "nso查询暂时维护中，目前无法提供服务，或者可以使用splatoon3 bot"
+        msg = "nso查询暂时维护中，目前无法提供服务"
         if notice:
             msg += f"\n公告消息:" + str(notice)
-        await matcher.finish(msg)
+        await send_msg(bot, event, msg=msg, skip_ad=True)
+        await matcher.finish()
 
     if not user_info or not user_info.session_token:
         msg = ""
@@ -228,7 +287,8 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
                           f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
         elif isinstance(bot, All_BOT):
             msg = "nso未登录，无法使用相关功能，请先私信我 /login 进行登录"
-        await matcher.finish(msg)
+        await send_msg(bot, event, msg=msg, skip_ad=True)
+        await matcher.finish()
     else:
         # 已登录用户
         # 检查是否同意用户协议
@@ -239,12 +299,13 @@ async def _check_session_handler(bot: Bot, event: Event, matcher: Matcher):
             else:
                 msg = "风险告知:小鱿鱿所使用的nso查询本质上为第三方nso软件，查询过程中也会涉及将密钥发送给第三方接口nxapi-znca-api的过程，可能存在一定的风险，具体说明可查看该频道信息https://www.kookapp.cn/app/channels/7545457877013311/7021701150930949\n\n" \
                       "若您希望继续使用小鱿鱿的nso查询功能，请艾特并发送下列指令重新启用nso查询"
-            await bot.send(event, msg)
-            msg = "/我已知晓nso查询使用了第三方接口的风险并重新启用nso查询"
+            await send_msg(bot, event, msg=msg, skip_ad=True)
+            msg2 = "/我已知晓nso查询使用了第三方接口的风险并重新启用nso查询"
             # await dict_clear_one_user_info_dict(platform, user_id)
-            await matcher.finish(msg)
-        # cmd_cnt+1
-        dict_get_or_set_user_info(platform, user_id, cmd_cnt=user_info.cmd_cnt + 1)
+            await send_msg(bot, event, msg=msg2, skip_ad=True)
+            await matcher.finish()
+        # cmd_cnt+1  设置最后使用nso查询的时间(utc时间)
+        dict_get_or_set_user_info(platform, user_id, cmd_cnt=user_info.cmd_cnt + 1, last_cmd_time=dt.utcnow())
 
 
 async def get_event_info(bot, event):
