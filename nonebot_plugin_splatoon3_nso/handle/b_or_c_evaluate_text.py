@@ -6,7 +6,7 @@ from datetime import datetime as dt
 from nonebot import logger
 
 from .utils import get_game_sp_id_and_name
-from ..util import write_unknown_command, write_evaluate_text
+from .utils import write_unknown_command, write_evaluate_text
 from ..data.data_source import model_get_top_player
 from ..utils.excuse_generator import get_random_excuse
 

@@ -14,7 +14,7 @@ from ..data.data_source import dict_get_or_set_user_info, model_delete_user, glo
     model_get_or_set_user
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
-from ..util import write_login_text
+from .utils import write_login_text
 from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str, get_file_bytes
 from ..utils.bot import *
 from ..utils.redis import rset_lc, rget_lc, rdel_lc

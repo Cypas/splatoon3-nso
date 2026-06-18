@@ -20,7 +20,7 @@ from ..data.utils import GlobalUserInfo, add_blacklist_msg_id
 from ..s3s.iksm import F_GEN_URL
 from ..s3s.splatoon import Splatoon
 from ..s3s.stat import STAT, CONFIG_DATA
-from ..util import write_login_text
+from .utils import write_login_text
 from ..utils import get_msg_id, convert_td, get_time_now_china
 from ..utils.bot import *
 from ..utils.redis import api_rset_json_file_name, api_rset_info
