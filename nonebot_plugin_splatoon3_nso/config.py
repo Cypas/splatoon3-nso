@@ -19,6 +19,11 @@ class ZurlConfig(BaseModel, extra=Extra.ignore):
     host: str = ""  # http://demo.a.com
     token: str = ""  # 密钥
 
+class FullMessageConfig(BaseModel, extra=Extra.ignore):
+    """全量消息相关配置 """
+    enabled: bool = False
+    bot_qq: str = ""  # bot qq号
+    bot_uid: str = ""  # bot_uid需要借助第三方bot才能获取到
 
 # 其他地方出现的类似 from .. import config，均是从 __init__.py 导入的 Config 实例
 class Config(BaseModel):
@@ -75,6 +80,8 @@ class Config(BaseModel):
     splatoon3_cos_config: CosConfig = Field(default_factory=CosConfig)
     # zurl短链接配置
     splatoon3_zurl_config: ZurlConfig = Field(default_factory=ZurlConfig)
+    # 全量消息配置
+    splatoon3_full_message_config: FullMessageConfig = Field(default_factory=FullMessageConfig)
 
 
 driver = get_driver()

@@ -1,4 +1,5 @@
-from .qq_md import nso_general_md, login_md, c2c_login_md, push_md, more_nso_help_md, report_md, new_user_added_md
+from .qq_md import nso_general_md, login_md, c2c_login_md, push_md, more_nso_help_md, report_md, new_user_added_md, \
+    full_message_check_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
 from ..config import plugin_config
@@ -183,6 +184,10 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
                         # nso查询通用的md
                         qq_md_msg = await nso_general_md(user_id, image_size=image_size, url=url, text_start=text_start,
                                                          text_end=text_end)
+                    case "full_message_url":
+                        # 全量消息确认
+                        check_url = QQ_md.get("check_url")
+                        qq_md_msg = await full_message_check_md(image_size=image_size, img_url=url, check_url=check_url)
                 await _qq_bot_send_md(bot, event, qq_md_msg)
 
     else:
@@ -199,6 +204,17 @@ async def bot_send_nso_md(bot: Bot, event: Event, message: str | bytes, user_id:
              "user_id": user_id,
              "text_start": text_start,
              "text_end": text_end
+             }
+    await bot_send(bot, event, message, image_width=image_width, QQ_md=qq_md, skip_ad=skip_ad)
+
+
+async def bot_send_full_message_check_md(bot: Bot, event: Event, message: str | bytes, check_url="", user_id: str = "",
+                                         image_width=None, skip_ad=False,
+                                         ):
+    """发送nso通用的 qq md消息"""
+    qq_md = {"md_type": "full_message_url",
+             "user_id": user_id,
+             "check_url": check_url,
              }
     await bot_send(bot, event, message, image_width=image_width, QQ_md=qq_md, skip_ad=skip_ad)
 

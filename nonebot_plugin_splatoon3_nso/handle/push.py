@@ -31,19 +31,20 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     user_id = event.get_user_id()
     if isinstance(bot, QQ_Bot):
         # 发送md引流到kook
-        if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
-            # 发送md
-            if isinstance(event, QQ_C2CME):
-                user_id = ""
-            # 发送md
-            await bot_send_push_md(bot, event, user_id)
-            return
-        else:
-            # 发送文本
-            msg = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用\n" \
-                  f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
-            await bot_send(bot, event, msg)
-            return
+        if type(event) in [QQ_GATME, QQ_C2CME, QQ_CME, QQ_PME]:
+            if plugin_config.splatoon3_qq_md_mode:
+                # 发送md
+                if isinstance(event, QQ_C2CME):
+                    user_id = ""
+                # 发送md
+                await bot_send_push_md(bot, event, user_id)
+                return
+            else:
+                # 发送文本
+                msg = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用\n" \
+                      f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+                await bot_send(bot, event, msg)
+                return
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -98,6 +99,9 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         channel_id = event.chat.id
     elif isinstance(event, Kook_CME):
         channel_id = event.group_id
+    elif type(event) == QQ_GME:
+        # 全量群消息
+        channel_id = event.group_openid
 
     # 轮询间隔时间
     if not fast:
@@ -168,8 +172,9 @@ matcher_stop_push = on_command("stop_push", aliases={'stp', 'stop'}, priority=10
 async def stop_push(bot: Bot, event: Event):
     """停止推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
-        return
+        if type(event) in [QQ_GATME, QQ_C2CME, QQ_CME, QQ_PME]:
+            await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
+            return
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -186,7 +191,8 @@ async def stop_push(bot: Bot, event: Event):
     elif isinstance(bot, All_BOT):
         msg = f"停止推送！推送持续 {push_time_minute}分钟\n"
     if not user.stat_key and user.push_cnt <= 10:
-        msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
+        if not isinstance(bot, QQ_Bot):
+            msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
 
     msg += st_msg
     await bot_send(bot, event, msg)
@@ -195,6 +201,8 @@ async def stop_push(bot: Bot, event: Event):
         db_user = model_get_or_set_user(platform, user_id)
         if db_user:
             stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
+            if isinstance(bot, QQ_Bot):
+                stat_msg = stat_msg.replace("stat.ink", "stat点ink")
             await bot_send(bot, event, stat_msg, skip_ad=True)
             asyncio.create_task(sync_stat_ink_func(db_user))
 
@@ -285,6 +293,8 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                     msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟, {job_data.get('match_push_cnt') or 0}次对局\n"
                     if not user.stat_key and user.push_cnt <= 10:
                         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
+                        if isinstance(bot, QQ_Bot):
+                            msg = msg.replace("stat.ink", "stat点ink")
                 msg += st_msg
 
                 logger.info(
@@ -298,6 +308,8 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                     db_user = model_get_or_set_user(platform, user_id)
                     if db_user:
                         stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
+                        if isinstance(bot, QQ_Bot):
+                            stat_msg = stat_msg.replace("stat.ink", "stat点ink")
                         await bot_send(bot, event, stat_msg, skip_ad=True)
                         asyncio.create_task(sync_stat_ink_func(db_user))
 

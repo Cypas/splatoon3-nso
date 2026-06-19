@@ -377,6 +377,52 @@ async def url_md(title, content, url_title, url) -> QQ_Msg:
     return qq_msg
 
 
+async def full_message_check_md(image_size: tuple, img_url: str, check_url: str) -> QQ_Msg:
+    """发送全量消息授权的url确认链接"""
+    image_width, image_height = image_size
+    md_content = """{text_start}
+{text_bold}
+> {text_end}
+
+![{img_size}]({img_url})
+"""
+    text_start = "请群主点击最下面按钮授权bot接收全部消息"
+    text_bold = "需要QQ版本(9.2.90版本及以上)"
+    text_end = "ios暂不支持授权"
+    t_img_size = f"img#{image_width}px #{image_height}px"
+    t_img_url = f"{img_url}"
+    md_content = md_content.format(text_start=text_start, text_bold=text_bold, text_end=text_end, img_size=t_img_size, img_url=t_img_url)
+    md = MessageMarkdown.model_validate({
+        "content": md_content,
+        # "params": params
+    })
+    url_title = "群主大大请点击这里同意申请"
+    keyboard = MessageKeyboard.model_validate({
+        "content": {
+            "rows": [{"buttons": [
+                {
+                    "id": "1",
+                    "render_data": {
+                        "label": f"{url_title}",
+                        "visited_label": f"{url_title}",
+                        "style": 0
+                    },
+                    "action": {
+                        "type": 0,
+                        "permission": {
+                            "type": 2,
+                        },
+                        "unsupport_tips": "客户端不支持",
+                        "data": f"{check_url}",
+                    }
+                }
+            ]},
+            ]
+        }
+    })
+    qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
+    return qq_msg
+
 async def get_qq_face_md(user_id: str, url: str) -> QQ_Msg:
     """转发表情用md结构"""
     template_id = "102083290_1705920931"

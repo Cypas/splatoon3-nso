@@ -413,6 +413,7 @@ async def get_qq_user_name(bot: QQ_Bot, user_id):
             logger.warning(f"QQ get username error:{e}")
         return ""
 
+
 # event结构解析参考代码
 # async def log_cmd_to_db(bot, event, get_map=False):
 #     try:
@@ -542,3 +543,15 @@ def write_login_text(msg_id: str, text: str):
         with open(file_path, "a", encoding="utf-8") as f:
             # user_id左对齐32位字符，评价文本左对齐20字符
             f.write(f"{get_time_now_china_str()},{msg_id:<32},{text}\n")
+
+
+def write_full_message_check_text(group_id: str, msg_id: str, qq_group_id: str):
+    """写全量消息申请记录到文件"""
+    if qq_group_id:
+        qq_group_id = qq_group_id.replace("\n", " ").replace("\r", " ")
+        file_path = Path(os.path.join(DIR_RESOURCE, "全量申请记录.txt"))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+        with open(file_path, "a", encoding="utf-8") as f:
+            # user_id左对齐32位字符，评价文本左对齐20字符
+            f.write(f"{get_time_now_china_str()},{msg_id:<32},{group_id},{qq_group_id}\n")

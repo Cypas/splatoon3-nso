@@ -6,10 +6,10 @@ from nonebot.adapters.qq.message import Attachment
 from nonebot.internal.rule import Rule
 from nonebot.rule import to_me, is_type
 
-from .send_msg import bot_send, notify_to_private, bot_send_new_user_added_md, send_msg
-from .utils import write_unknown_command
+from .send_msg import bot_send, notify_to_private, bot_send_new_user_added_md, send_msg, bot_send_full_message_check_md
+from .utils import write_unknown_command, write_full_message_check_text
 from .qq_md import get_qq_face_md
-from ..utils.utils import MSG_HELP, MSG_HELP_QQ, MSG_HELP_CN
+from ..utils.utils import MSG_HELP, MSG_HELP_QQ, MSG_HELP_CN, get_file_bytes
 from ..utils import get_msg_id
 from ..config import plugin_config
 from ..utils.bot import *
@@ -141,23 +141,35 @@ async def bot_added_event(bot: QQ_Bot, event: Event, matcher: Matcher):
         await bot_send(bot, event, msg)
 
 
-@on_command("免艾特申请", priority=10).handle()
+@on_command("免艾特申请", priority=10, block=True).handle()
 async def full_message_help(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
     """全量消息申请菜单"""
-    if not isinstance(Event, QQ_GME):
+    platform = bot.adapter.get_name()
+    user_id = event.get_user_id()
+    msg_id = get_msg_id(platform, user_id)
+    f_config = plugin_config.splatoon3_full_message_config
+    if not f_config.enabled:
+        await matcher.finish("免艾特触发bot功能未开启")
+    if type(event) == QQ_GME:
+        await matcher.finish("本群已开启免艾特触发bot，无需重复开启")
+    if not isinstance(event, QQ_GATME):
         await matcher.finish("该功能仅支持qq群内使用")
+    # qq群id编码
+    group_id = event.group_openid
     url_template = ("https://club.vip.qq.com/transfer?open_kuikly_info=%7B%22page_name%22%3A%20%22"
-           "ai_group_service_agreement_pop_page%22%2C%22"
-           "groupCode%22%3A{group_id}%2C%22botUin%22%3A{bot_qq}%2C%22"
-           "botUid%22%3A%22{bot_uid}%22%2C%22screen%22%3A1%7D")
+                    "ai_group_service_agreement_pop_page%22%2C%22"
+                    "groupCode%22%3A{qq_group_id}%2C%22botUin%22%3A{bot_qq}%2C%22"
+                    "botUid%22%3A%22{bot_uid}%22%2C%22screen%22%3A1%7D")
 
-
-
+    bot_qq = f_config.bot_qq
+    bot_uid = f_config.bot_uid
     plain_text = args.extract_plain_text().strip()
-    if plain_text:
-        if plain_text.isdigit():
-            # 判断输入是否是qq群号
-            group_id = int(plain_text)
-            url = url_template.format(group_id=group_id, bot_qq=bot_qq, bot_uid=bot_uid)
-    else:
+    if not plain_text or not plain_text.isdigit():
+        await matcher.finish("申请命令后面请加上qq群号，如/免艾特申请 1234567890")
+    qq_group_id = plain_text
+    check_url = url_template.format(qq_group_id=qq_group_id, bot_qq=bot_qq, bot_uid=bot_uid)
+    # print(check_url)
 
+    write_full_message_check_text(group_id=group_id, qq_group_id=qq_group_id, msg_id=msg_id)
+    msg = get_file_bytes("full_message_help.jpg")
+    await bot_send_full_message_check_md(bot, event, message=msg, check_url=check_url, user_id=user_id)
