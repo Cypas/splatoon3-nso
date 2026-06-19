@@ -1,10 +1,10 @@
 from urllib.parse import quote
 
 from nonebot import on_message, on_startswith, Bot, logger, on_command, on_notice
+from nonebot.adapters.qq import AtMessageCreateEvent
 from nonebot.adapters.qq.message import Attachment
 from nonebot.internal.rule import Rule
 from nonebot.rule import to_me, is_type
-
 
 from .send_msg import bot_send, notify_to_private, bot_send_new_user_added_md, send_msg
 from .utils import write_unknown_command
@@ -13,6 +13,7 @@ from ..utils.utils import MSG_HELP, MSG_HELP_QQ, MSG_HELP_CN
 from ..utils import get_msg_id
 from ..config import plugin_config
 from ..utils.bot import *
+
 
 @on_message(rule=to_me(), priority=97, block=True).handle()
 @on_startswith(("/", "、"), priority=99, block=True).handle()
@@ -77,6 +78,7 @@ async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
         msg = "小鱿鱿没有这个功能指令，请发送/help 查看帮助\n或在qq消息框输入/后，手动选择bot指令"
         await bot_send(bot, event, msg)
 
+
 # rule函数
 async def qq_is_my_face_img(event: Event) -> bool:
     plain_text = event.get_message().extract_plain_text()
@@ -137,4 +139,25 @@ async def bot_added_event(bot: QQ_Bot, event: Event, matcher: Matcher):
     else:
         msg = f"{title}\n\n{msg}"
         await bot_send(bot, event, msg)
+
+
+@on_command("免艾特申请", priority=10).handle()
+async def full_message_help(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
+    """全量消息申请菜单"""
+    if not isinstance(Event, QQ_GME):
+        await matcher.finish("该功能仅支持qq群内使用")
+    url_template = ("https://club.vip.qq.com/transfer?open_kuikly_info=%7B%22page_name%22%3A%20%22"
+           "ai_group_service_agreement_pop_page%22%2C%22"
+           "groupCode%22%3A{group_id}%2C%22botUin%22%3A{bot_qq}%2C%22"
+           "botUid%22%3A%22{bot_uid}%22%2C%22screen%22%3A1%7D")
+
+
+
+    plain_text = args.extract_plain_text().strip()
+    if plain_text:
+        if plain_text.isdigit():
+            # 判断输入是否是qq群号
+            group_id = int(plain_text)
+            url = url_template.format(group_id=group_id, bot_qq=bot_qq, bot_uid=bot_uid)
+    else:
 
