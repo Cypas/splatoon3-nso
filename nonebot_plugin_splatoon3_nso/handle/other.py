@@ -2,7 +2,7 @@ from urllib.parse import quote
 
 from nonebot import on_message, on_startswith, Bot, logger, on_command, on_notice
 from nonebot.adapters.qq import AtMessageCreateEvent
-from nonebot.adapters.qq.message import Attachment
+from nonebot.adapters.qq.models.qq import Attachment
 from nonebot.internal.rule import Rule
 from nonebot.rule import to_me, is_type
 
@@ -80,30 +80,57 @@ async def c2c_unknown_command(bot: Bot, event: Event, matcher: Matcher):
 
 
 # rule函数
-async def qq_is_my_face_img(event: Event) -> bool:
-    plain_text = event.get_message().extract_plain_text()
-    return True if "faceType=6" in plain_text else False
+async def qq_is_my_face_img(event: QQ_C2CME) -> bool:
+    content = event.content
+    # print(f"原始事件:{vars(event)}")
+    # print(f"检测到消息为:{event.get_message()}")
+    # print(f"原文为:{content}")
+    return True if "faceType=6" in content else False
 
 
 @on_message(rule=is_type(QQ_C2CME) & Rule(qq_is_my_face_img), priority=50, block=True).handle()
-async def c2c_face_image_command(bot: Bot, event: Event, matcher: Matcher):
+async def c2c_face_image_command(bot: Bot, event: QQ_C2CME, matcher: Matcher):
     """为qq c2c 下表情导出"""
-    massage = event.get_message()
-    # massage结构为 [Text(type='text', data={'text': '<faceType=6,faceId="0",ext="eyJ0ZXh0IjoiIn0=">'}),Attachment(type='image', data={'url': "https: //multimedia.nt.qq.com.cn"})]  list列表内填充了两个不同的obj类型
+
+    # event 结构为 {
+    #     'id': 'ROBOT1.0_CD5reDe6wXBjyPdovfSjDv0qVlTsNBp.OJf8H1s7tyRwFC-JCOgfeiYG6plZ6y7xzd7-qrDE-u1E1QuGl4z5-b3ngGb.Wl-sLP-ZQpRmBmM!',
+    #     'content': '<faceType=6,faceId="0",ext="eyJ0ZXh0IjoiIn0=">', 'timestamp': '2026-06-22T14:02:34+08:00',
+    #     'mentions': None,
+    #     'attachments': [
+    #         Attachment(content_type='image/jpeg', filename='3911FCFFAACD45620CBDE8161B165B0D.jpg', height=1046,
+    #                    width=1280, size=64779,
+    #                    url='https://multimedia.nt.qq.com.cn/download?appid=1406&fileid=EhTUarirpH_GQ1ZLDlJKcuKeoAZFVRiL-gMg_goov4mym5aalQMyBHByb2RQgLsvWhAydtVIqI3J_VBRMlwGTisCegKzEIIBAmd6&rkey=CAISONPsN0nSR8aLO020SY3nAJIQpX_oXsuWglftjuhR4SrfQTTwd0IVKehC8d0JlUtOu-Ptk_QwUZSC&spec=0')],
+    #     'message_scene': _QQMessageScene(ext=['msg_idx=REFIDX_FAAw8RYjG0RZNz252cCrWctG81ovPjw88HwjHppK6Gc='],
+    #                                      source='default'), 'message_type': 0, 'msg_idx': None, 'msg_elements': None,
+    #     'event_id': 'C2C_MESSAGE_CREATE:ulgodeslgjoanlo4mhfjdiamgzu1prcuhr2cwss3znfuohchhcigml0xmisoz2', 'to_me': True,
+    #     'reply': None,
+    #     'author': FriendAuthor(id='5A66317A1334DA9762183C77C8325549', user_openid='5A66317A1334DA9762183C77C8325549',
+    #                            union_openid='5A66317A1334DA9762183C77C8325549', username='')
+    # }
+
+    # https: // multimedia.nt.qq.com.cn / download?appid = 1406 & fileid = EhRZ1aazpiEU7jSS7 - kzQnUKdiua5hjougUg_gooqLu8jJWalQMyBHByb2RQgLsvWhAd9YOTh3fYkSs3whoQVam9egLgx4IBAmd6 & rkey = CAISONPsN0nSR8aLMX - RTY2t47uxVuYatHhDbwYRFPmzvY7BWnzEkHHd9QbXN4rJzNPy1eh9dfDoMH_o & spec = 0
+    #
+    # https: // multimedia.nt.qq.com.cn / download?appid = 1406 & fileid = EhTUarirpH_GQ1ZLDlJKcuKeoAZFVRiL - gMg_gooi6Xa6JualQMyBHByb2RQgLsvWhDtbDFeB_l0Q1aA69uNoPsKegKt_oIBAmd6 & rkey = CAQSODOc_jvbthUjz - iE5Xqfe - 6
+    # RD2nT2QOC1e4rrarmESS4KyMKB4PMgpyXpFOQ0OyjdyV - 85
+    # W63Jlu & spec = 0
+    # message结构为 [Text(type='text', data={'text': '<faceType=6,faceId="0",ext="eyJ0ZXh0IjoiIn0=">'}),Attachment(type='image', data={'url': "https: //multimedia.nt.qq.com.cn"})]  list列表内填充了两个不同的obj类型
     logger.info(f'检测为qq表情，进行图片转发')
-    if len(massage) >= 2:
-        attachment: Attachment = massage[1]
-        url = attachment.data.get("url") or ""
-        if url:
-            encoded_url = quote(url, safe=':/?&=')
-            try:
-                await bot.send(event, message=await get_qq_face_md(user_id="", url=encoded_url))
-            except QQ_ActionFailed as e:
-                logger.error(f"qq转发表情失败,res:{e.message},url:{encoded_url}")
-                await matcher.finish("qq表情解析失败了，请再发一次")
-            except Exception as e:
-                logger.error(f"qq转发表情失败:url:{encoded_url},error:{e}")
-            matcher.stop_propagation()
+    attachment: Attachment = event.attachments[0]
+    url = attachment.url
+    if url:
+        encoded_url = quote(url, safe=':/?&=')
+        h = attachment.height
+        w = attachment.width
+        try:
+            md = await get_qq_face_md(user_id="", url=encoded_url, w=w, h=h)
+            # print(md)
+            await bot.send(event, message=md)
+        except QQ_ActionFailed as e:
+            logger.error(f"qq转发表情失败,res:{e.message},url:{encoded_url}")
+            await matcher.finish("qq表情解析失败了，请再发一次")
+        except Exception as e:
+            logger.error(f"qq转发表情失败:url:{encoded_url},error:{e}")
+        matcher.stop_propagation()
 
 
 @on_command("help", aliases={"h", "帮助", "说明", "文档"}, priority=10).handle()

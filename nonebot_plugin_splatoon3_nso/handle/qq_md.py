@@ -1,5 +1,3 @@
-
-
 from nonebot.adapters.qq.models import MessageKeyboard, MessageMarkdown
 from nonebot.adapters.telegram.model import InlineKeyboardMarkup
 
@@ -206,6 +204,7 @@ async def report_md(user_id, title, msg) -> QQ_Msg:
     return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
                              keyboard_template_type=keyboard_template_type)
 
+
 async def new_user_added_md(user_id, title, msg) -> QQ_Msg:
     """被新用户添加时的md"""
     keyboard_template_type = "schedule"
@@ -219,6 +218,7 @@ async def new_user_added_md(user_id, title, msg) -> QQ_Msg:
 
     return await text_msg_md(title=title, data1=data1, data2=data2, data3=data3,
                              keyboard_template_type=keyboard_template_type)
+
 
 async def text_msg_md(title: str = "", data1: str = "", data2: str = "", data3: str = "",
                       keyboard_template_type="") -> QQ_Msg:
@@ -391,7 +391,8 @@ async def full_message_check_md(image_size: tuple, img_url: str, check_url: str)
     text_end = "ios暂不支持授权"
     t_img_size = f"img#{image_width}px #{image_height}px"
     t_img_url = f"{img_url}"
-    md_content = md_content.format(text_start=text_start, text_bold=text_bold, text_end=text_end, img_size=t_img_size, img_url=t_img_url)
+    md_content = md_content.format(text_start=text_start, text_bold=text_bold, text_end=text_end, img_size=t_img_size,
+                                   img_url=t_img_url)
     md = MessageMarkdown.model_validate({
         "content": md_content,
         # "params": params
@@ -423,13 +424,18 @@ async def full_message_check_md(image_size: tuple, img_url: str, check_url: str)
     qq_msg = QQ_Msg([QQ_MsgSeg.markdown(md), QQ_MsgSeg.keyboard(keyboard)])
     return qq_msg
 
-async def get_qq_face_md(user_id: str, url: str) -> QQ_Msg:
+
+async def get_qq_face_md(user_id: str, url: str, w: int = 0, h: int = 0) -> QQ_Msg:
     """转发表情用md结构"""
     template_id = "102083290_1705920931"
 
-    image_width, image_height = (500, 500)
+    if not w or not h:
+        image_width, image_height = (500, 500)
+    else:
+        image_width, image_height = (w, h)
 
-    text_start = "图片尺寸以下载为准，此处预览不准"
+    # text_start = "图片尺寸以下载为准，此处预览不准"
+    text_start = "qq表情包导出成功，下面图片点开可保存至手机"
 
     params = []
     if user_id:
