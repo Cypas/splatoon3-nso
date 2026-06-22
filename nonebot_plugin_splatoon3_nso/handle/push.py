@@ -202,7 +202,7 @@ async def stop_push(bot: Bot, event: Event):
         if db_user:
             stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
             if isinstance(bot, QQ_Bot):
-                stat_msg = stat_msg.replace("stat.ink", "stat点ink")
+                stat_msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat.ink网站自行查看记录"
             await bot_send(bot, event, stat_msg, skip_ad=True)
             asyncio.create_task(sync_stat_ink_func(db_user))
 
@@ -221,6 +221,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
     msg_id = job_data.get('msg_id')
     push_cnt = job_data.get('this_push_cnt', 0)
     error_push_cnt = job_data.get('error_push_cnt', 0)
+    channel_id = job_data.get('channel_id',"") # 消息来源频道，在qq全量群中代表是群号
     last_battle_id = job_data.get('last_battle_id')
     push_interval = job_data.get('push_interval')
     push_statistics: PushStatistics = job_data.get("push_statistics")
@@ -256,7 +257,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
             # 获取统计数据
             _, _, st_msg, push_time_minute = close_push(platform, user_id)
             if isinstance(bot, All_BOT):
-                msg = f"服务器连续多次请求报错，停止推送，bot可能遇到了网络问题，请加 新人导航 频道内的q群联系主人，本次推送持续 {push_time_minute}分钟\n\n"
+                msg = f"服务器连续多次请求报错，停止推送，bot可能遇到了网络问题，请加q群827977720联系主人，本次推送持续 {push_time_minute}分钟\n\n"
             msg += st_msg
 
             logger.info(
@@ -293,14 +294,12 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                     msg = f"20分钟内没有游戏记录，停止推送，本次推送持续 {push_time_minute}分钟, {job_data.get('match_push_cnt') or 0}次对局\n"
                     if not user.stat_key and user.push_cnt <= 10:
                         msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
-                        if isinstance(bot, QQ_Bot):
-                            msg = msg.replace("stat.ink", "stat点ink")
                 msg += st_msg
 
                 logger.info(
                     f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
 
-                await bot_send(bot, event, message=msg)
+                await bot_send(bot, event, message=msg, for_push=True)
                 with is_running_lock:
                     is_running_dict.pop(msg_id)
                 if user.stat_key:
@@ -309,8 +308,8 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                     if db_user:
                         stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
                         if isinstance(bot, QQ_Bot):
-                            stat_msg = stat_msg.replace("stat.ink", "stat点ink")
-                        await bot_send(bot, event, stat_msg, skip_ad=True)
+                            stat_msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat.ink网站自行查看记录"
+                        await bot_send(bot, event, stat_msg, skip_ad=True, for_push=True)
                         asyncio.create_task(sync_stat_ink_func(db_user))
 
                 # msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
@@ -330,10 +329,10 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
         # 将评价文本也拼接在图片里面
         if evaluate_text and msg.startswith("#### "):
             msg += f"</br>小鱿鱿的嘴替或评价是: {evaluate_text}"
-        r = await bot_send(bot, event, message=msg, image_width=image_width)
+        r = await bot_send(bot, event, message=msg, image_width=image_width, for_push=True)
 
         # tg撤回上一条push的消息
-        if job_data.get('channel_id') and r:
+        if channel_id and r:
             if isinstance(bot, Tg_Bot):
                 if job_data.get('last_channel_msg_id'):
                     await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_channel_msg_id'])
@@ -368,7 +367,9 @@ def close_push(platform, user_id):
     event = None
     try:
         r = scheduler.get_job(job_id)
-        job_data = r.args[2] or {}
+        job_data = {}
+        if r:
+            job_data = r.args[2] or {}
         scheduler.remove_job(job_id)
     except Exception as e:
         logger.error(f"get push job data error:{e}")

@@ -205,7 +205,7 @@ async def admin_close_push() -> int:
         msg += st_msg
         if user_bot and user_event:
             try:
-                await bot_send(user_bot, user_event, message=msg)
+                await bot_send(user_bot, user_event, message=msg, for_push=True)
             except Exception as e:
                 msg_id = get_msg_id(u.platform, u.user_id)
                 logger.warning(

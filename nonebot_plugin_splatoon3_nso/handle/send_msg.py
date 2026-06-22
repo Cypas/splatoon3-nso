@@ -145,7 +145,7 @@ async def bot_mixed_send(bot: Bot, event: Event, message: str | bytes = "", file
 
 
 async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name="", image_width=None,
-                   QQ_md=None, skip_ad=False):
+                   QQ_md=None, skip_ad=False, for_push=False):
     """综合发信函数
     如果为bytes模式时传递了filename,改为文件模式执行上传
     QQ_md的值应该为一个字典{"md_type":"last","user_id":"111"}
@@ -167,7 +167,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
 
     if img_data:
         if not QQ_md:
-            await send_msg(bot, event, img_data, file_name=file_name, skip_ad=skip_ad)
+            await send_msg(bot, event, img_data, file_name=file_name, skip_ad=skip_ad, for_push=for_push)
         elif isinstance(bot, QQ_Bot) and QQ_md:
             # 需要图片的md消息
             md_type = QQ_md.get("md_type")
@@ -194,7 +194,7 @@ async def bot_send(bot: Bot, event: Event, message: str | bytes = "", file_name=
         # 下面为文字消息
         if isinstance(bot, QQ_Bot):
             message = message.replace("```", "").replace("\_", "_").strip().strip("`")
-        await send_msg(bot, event, message, file_name=file_name, skip_ad=skip_ad)
+        await send_msg(bot, event, message, file_name=file_name, skip_ad=skip_ad, for_push=for_push)
 
 
 async def bot_send_nso_md(bot: Bot, event: Event, message: str | bytes, user_id: str, image_width=None, skip_ad=False,
@@ -263,7 +263,7 @@ async def bot_send_login_url_md(bot: Bot, event: Event, url):
     await _qq_bot_send_md(bot, event, qq_msg)
 
 
-async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_ad=False):
+async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_ad=False, for_push=False):
     """
     公用send_msg
     如果为bytes模式时传递了filename,改为文件模式执行上传
@@ -286,11 +286,26 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
         elif isinstance(bot, Kook_Bot):
             await bot.send(event, message=Kook_MsgSeg.text(msg), reply_sender=reply_mode)
         elif isinstance(bot, QQ_Bot):
+            # qq文本内不允许发链接
+            if "stat.ink" in msg:
+                msg = msg.replace("stat.ink", "stat点ink")
             try:
-                await bot.send(event, message=QQ_MsgSeg.text(msg))
+                message = QQ_MsgSeg.text(msg)
+                if for_push:
+                    # qq全量群内要推送消息，需要专门转主动消息
+                    if isinstance(event, QQ_GME):
+                        await bot.send_to_group(
+                            group_openid=event.group_openid,
+                            message=message,
+                            msg_id="",
+                        )
+                else:
+                    await bot.send(event, message=message)
             except QQ_ActionFailed as e:
                 if "消息被去重" in str(e):
                     pass
+                if "主动消息失败" in str(e) and for_push:
+                    await bot.send(event, message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
                 else:
                     logger.warning(f"QQ send msg error: {e}")
 
@@ -326,12 +341,24 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
         elif isinstance(bot, QQ_Bot):
             try:
                 url, image_size = await _get_image_url_and_size(img)
+                message = QQ_MsgSeg.image(url)
                 # logger.info("url:" + url)
                 if url:
-                    await bot.send(event, message=QQ_MsgSeg.image(url))
+                    if for_push:
+                        # qq全量群内要推送消息，需要专门转主动消息
+                        if isinstance(event, QQ_GME):
+                            await bot.send_to_group(
+                                group_openid=event.group_openid,
+                                message=message,
+                                msg_id="",
+                            )
+                    else:
+                        await bot.send(event, message=message)
             except QQ_ActionFailed as e:
                 if "消息被去重" in str(e):
                     pass
+                if "主动消息失败" in str(e) and for_push:
+                    await bot.send(event, message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
                 else:
                     logger.warning(f"QQ send msg error: {e}")
 

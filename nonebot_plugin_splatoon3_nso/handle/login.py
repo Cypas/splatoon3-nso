@@ -196,9 +196,10 @@ async def login_in_2(bot: Bot, event: Event):
               "常用指令:\n" \
               "/me - 显示你的信息\n" \
               "/friends - 显示在线的喷喷好友\n" \
+              "/ns_friends - 显示在线的ns好友以及游玩游戏\n" \
               "/last - 显示最近一场对战或打工\n" \
               "/report - 获取昨天或指定日期的日报数据\n" \
-              "/set_stat_key - 设置 api_key, 同步数据到 https://stat点ink"
+              "/观星导出 - 导出观星所需要的json数据文件"
     elif isinstance(bot, All_BOT):
         msg = "登录成功！机器人现在可以从nso获取你的数据。\n" \
               "如果希望在其他平台使用nso查询，请发送\n" \
@@ -461,8 +462,6 @@ async def sync_now(bot: Bot, event: Event):
     if not (user and user.session_token and user.stat_key):
         if isinstance(bot, Tg_Bot):
             msg = "Please set api_key first, /set_stat_key"
-        elif isinstance(bot, QQ_Bot):
-            msg = "请先设置 stat点ink网站的api_key, 指令:/set_stat_key"
         elif isinstance(bot, All_BOT):
             msg = "请先设置 stat.ink网站的api_key, 指令:/set_stat_key"
         await bot_send(bot, event, msg, skip_ad=True)
