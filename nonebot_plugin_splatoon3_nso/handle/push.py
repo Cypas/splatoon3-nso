@@ -297,7 +297,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                 msg += st_msg
 
                 logger.info(
-                    f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
+                    f"push auto end,user：{str(msg_id):>3},gamer：{str(user.game_name):>7}, push {push_time_minute} minutes")
 
                 await bot_send(bot, event, message=msg, for_push=True)
                 with is_running_lock:
@@ -318,7 +318,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
             return
 
         # 获取新对战信息
-        logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
+        logger.info(f'[push] db:{splatoon.user_db_info.db_id},msg_id:{msg_id},g:{user.game_name} get new {"battle" if is_battle else "coop"}!')
         job_data.update({"last_battle_id": battle_id})
 
         msg, detail = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,

@@ -119,6 +119,8 @@ async def c2c_face_image_command(bot: Bot, event: QQ_C2CME, matcher: Matcher):
     url = attachment.url
     if url:
         encoded_url = quote(url, safe=':/?&=')
+        # 防止两个_内容_嵌在md里被识别为斜体内容
+        encoded_url = encoded_url.replace("_", r"%5F")
         h = attachment.height
         w = attachment.width
         try:

@@ -36,7 +36,7 @@ def trigger_with_probability():
     """
     该函数有1/100的概率返回True（触发）
     """
-    return random.random() < 0.01
+    return random.random() < 0.03
 
 
 def get_image_size(img_data):
