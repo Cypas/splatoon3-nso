@@ -751,7 +751,7 @@ async def re_enable(bot: Bot, event: Event):
                     model_get_or_set_user(u.platform, u.user_id, user_agreement=1)
 
 
-@on_command("观星导出", block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_command("观星导出", aliases={"觀星導出"}, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -891,7 +891,7 @@ def clean_ban_user_sp_id_list():
     """每日清空ban_sp_id连坐列表"""
     BAN_USER_SP_ID_LIST.clear()
 
-@on_command("nso_web", aliases={'nso网页版', 'nsoweb'}, block=True).handle(
+@on_command("nso_web", aliases={'nso网页版', 'nso網頁版', 'nsoweb'}, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
     platform = bot.adapter.get_name()
@@ -961,7 +961,7 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
         await bot_send(bot, event, message=msg3, skip_ad=True)
 
 
-@on_command("更多nso指令", block=True).handle()
+@on_command("更多nso指令", aliases={'更多nso指令'}, block=True).handle()
 async def more_nso_help(bot: Bot, event: Event, args: Message = CommandArg()):
     """发送更多nso帮助的二级md菜单"""
     platform = bot.adapter.get_name()

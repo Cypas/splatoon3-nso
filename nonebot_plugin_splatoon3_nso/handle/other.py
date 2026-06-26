@@ -135,7 +135,7 @@ async def c2c_face_image_command(bot: Bot, event: QQ_C2CME, matcher: Matcher):
         matcher.stop_propagation()
 
 
-@on_command("help", aliases={"h", "帮助", "说明", "文档"}, priority=10).handle()
+@on_command("help", aliases={"h", "帮助", "说明", "文档", "幫助", "說明", "文檔"}, priority=10).handle()
 async def nso_help(bot: Bot, event: Event):
     # 帮助菜单日程插件优先模式
     if plugin_config.splatoon3_schedule_plugin_priority_mode:
@@ -170,7 +170,7 @@ async def bot_added_event(bot: QQ_Bot, event: Event, matcher: Matcher):
         await bot_send(bot, event, msg)
 
 
-@on_command("免艾特申请", priority=10, block=True).handle()
+@on_command("免艾特申请", aliases={'免艾特申請'}, priority=10, block=True).handle()
 async def full_message_help(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
     """全量消息申请菜单"""
     platform = bot.adapter.get_name()
