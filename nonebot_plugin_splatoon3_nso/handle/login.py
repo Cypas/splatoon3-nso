@@ -385,8 +385,9 @@ async def set_login_code(bot: Bot, event: Event):
 
     msg = "登录成功！机器人现在可以从nso获取你的数据。\n" \
           "/me - 显示你的信息\n" \
-          "/friends - 显示在线的喷喷好友\n" \
           "/last - 显示最近一场对战或打工\n" \
+          "/ns_friends - 显示在线的ns好友\n" \
+          "/观星导出 - 导出观星json数据文件\n" \
           "/report - 喷喷早报"
     if plugin_config.splatoon3_schedule_plugin_priority_mode:
         # 日程插件帮助优先模式

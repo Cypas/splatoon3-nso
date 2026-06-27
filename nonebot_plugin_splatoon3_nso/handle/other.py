@@ -200,5 +200,5 @@ async def full_message_help(bot: Bot, event: Event, matcher: Matcher, args: Mess
     # print(check_url)
 
     write_full_message_check_text(group_id=group_id, qq_group_id=qq_group_id, msg_id=msg_id)
-    msg = get_file_bytes("full_message_help.jpg")
+    msg = get_file_bytes("full_message_help2.jpg")
     await bot_send_full_message_check_md(bot, event, message=msg, check_url=check_url, user_id=user_id)

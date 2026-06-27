@@ -41,8 +41,8 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
                 return
             else:
                 # 发送文本
-                msg = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用\n" \
-                      f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
+                msg = "QQ平台push现在仅可在开启了主动推送的Q群内使用，建议可以将小鱿鱿与自己创建一个2人小群，再开启主动推送权限\n" \
+                      f"开启主动推送权限的方法请在新的小群内发送 /免艾特申请"
                 await bot_send(bot, event, msg)
                 return
 
