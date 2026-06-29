@@ -6,7 +6,7 @@ from .cron import create_get_user_friends_tasks, get_x_player, create_set_report
     create_refresh_token_tasks, clean_s3s_cache, clean_global_user_info_dict, get_event_top, \
     show_dict_status
 from .push import close_push
-from .send_msg import bot_send, notify_to_private
+from .send_msg import bot_send, notify_to_private, bot_mixed_send_admin_help
 from ..data.data_source import dict_get_all_global_users, model_clean_db_cache, model_get_or_set_user, \
     dict_get_or_set_user_info
 from ..data.utils import get_or_set_plugin_data, add_blacklist_msg_id, del_blacklist_msg_id
@@ -88,6 +88,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
         case "restore_token":
             """还原自己token"""
             admin_token = await get_or_set_plugin_data("splatoon3_admin_session_token")
+            admin_stat_key = await get_or_set_plugin_data("splatoon3_admin_stat_key")
             if not admin_token:
                 await bot_send(bot, event, message=f"未更改token，无需还原")
             else:
@@ -95,7 +96,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                 my_user_id = event.get_user_id()
                 dict_get_or_set_user_info(platform, my_user_id, session_token=admin_token,
                                           access_token="", g_token="", bullet_token="",
-                                          game_sp_id="", game_name="", nsa_id="")
+                                          game_sp_id="", game_name="", nsa_id="", stat_key=admin_stat_key)
                 await bot_send(bot, event, message=f"token已恢复")
 
         case "help":
@@ -117,9 +118,9 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                   "kook_leave {guild_id} kook离开服务器\n" \
                   "copy_token {user_id} 复制同平台某用户token，便于调试\n" \
                   "restore_token 还原自身本来token\n" \
-                  "add_black_msg_id 添加黑名单用户 {msg_id}\n" \
-                  "del_black_msg_id 删除黑名单用户 {msg_id}\n"
-            await bot_send(bot, event, message=msg)
+                  "add_black_msg_id {msg_id} 添加黑名单用户\n" \
+                  "del_black_msg_id {msg_id} 删除黑名单用户\n"
+            await bot_mixed_send_admin_help(bot, event, msg=msg)
 
     if plain_text.startswith("kook_leave"):
         """kook bot离开某服务器
@@ -180,6 +181,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
             admin_token = await get_or_set_plugin_data("splatoon3_admin_session_token")
             if not admin_token:
                 await get_or_set_plugin_data("splatoon3_admin_session_token", my.session_token)
+                await get_or_set_plugin_data("splatoon3_admin_stat_key", my.stat_key)
             if not user:
                 await bot_send(bot, event, message=f"{platform}平台用户{user_id} 数据不存在")
                 return False

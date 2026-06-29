@@ -15,7 +15,7 @@ from datetime import datetime as dt
 
 from ..send_msg import cron_notify_to_channel
 from ...s3s.iksm import GlobalRateLimiter, init_global_nso_version_and_web_view_version
-from ...s3s.splatnet_image import global_dict_ss_user, cleanup_browser
+from ...s3s.splatnet_image import global_dict_ss_user, cleanup_browser, check_proxy_available
 from ...utils.utils import DIR_RESOURCE
 from ...utils.http import global_client_dict, global_cron_client_dict, CLIENT_TIMEOUT
 from ...data.data_source import dict_get_all_global_users, dict_get_or_set_user_info, dict_clear_user_info_dict, \
@@ -122,6 +122,8 @@ async def get_dict_status():
     db_users = model_get_all_user()
     # 现在有效用户去重后数量
     unique_db_users = user_remove_duplicates(db_users)
+    # 代理是否可用
+    proxy_available = await check_proxy_available()
 
     cron_msg = (f"global_user_cnt:{len(global_user_info_dict)}\n"
                 f"cron_user_cnt:{len(global_cron_user_info_dict)}\n"
@@ -130,6 +132,7 @@ async def get_dict_status():
                 f"limiter:{json.dumps(limiter_dict)}\n"
                 f"user_cnt:{len(db_users)}\n"
                 f"unique_user_cnt:{len(unique_db_users)}\n"
+                f"proxy_available:{proxy_available}\n"
                 # f"ss_user:{json.dumps(global_dict_ss_user)}"
                 )
     return cron_msg

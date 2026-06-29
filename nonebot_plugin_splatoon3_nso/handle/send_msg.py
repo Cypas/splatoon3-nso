@@ -1,5 +1,5 @@
 from .qq_md import nso_general_md, login_md, c2c_login_md, push_md, more_nso_help_md, report_md, new_user_added_md, \
-    full_message_check_md
+    full_message_check_md, admin_help_md
 from ..utils import DIR_RESOURCE, get_msg_id, get_time_now_china, trigger_with_probability, get_image_size
 from ..utils.bot import *
 from ..config import plugin_config
@@ -245,6 +245,20 @@ async def bot_mixed_send_report(bot: Bot, event: Event, title: str, msg: str):
         await bot_send(bot, event, msg)
 
 
+async def bot_mixed_send_admin_help(bot: Bot, event: Event, msg: str):
+    """混合发送admin_help 函数
+    主要是在bot_send函数基础上，自动判断qq平台是否通过md消息进行发送
+    """
+    user_id = event.get_user_id()
+    if isinstance(bot, QQ_Bot) and plugin_config.splatoon3_qq_md_mode:
+        if isinstance(event, QQ_C2CME):
+            user_id = ""
+        qq_msg = await admin_help_md(user_id)
+        await _qq_bot_send_md(bot, event, qq_msg)
+    else:
+        await bot_send(bot, event, msg)
+
+
 async def bot_send_new_user_added_md(bot: Bot, event: Event, user_id: str, title: str, msg: str, skip_ad=False):
     """发送nso菜单的二级按钮选项"""
     qq_msg = await new_user_added_md(user_id, title, msg)
@@ -305,7 +319,8 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
                 if "消息被去重" in str(e):
                     pass
                 if "主动消息失败" in str(e) and for_push:
-                    await bot.send(event, message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
+                    await bot.send(event,
+                                   message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
                 else:
                     logger.warning(f"QQ send msg error: {e}")
 
@@ -358,7 +373,8 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
                 if "消息被去重" in str(e):
                     pass
                 if "主动消息失败" in str(e) and for_push:
-                    await bot.send(event, message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
+                    await bot.send(event,
+                                   message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
                 else:
                     logger.warning(f"QQ send msg error: {e}")
 

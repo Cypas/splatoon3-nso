@@ -120,6 +120,16 @@ async def new_user_added_md(user_id, title, msg) -> QQ_Msg:
     return await text_msg_md(user_id=user_id, title=title, data1=data1, data2=data2, data3=data3,
                              keyboard_template_type=keyboard_template_type)
 
+async def admin_help_md(user_id) -> QQ_Msg:
+    """nso帮助的md"""
+    keyboard_template_type = "admin_help"
+    data1 = f"部分指令需要加参数"
+    data2 = "set_bot_notice {公告消息} 设置公告消息\ncopy_token {user_id} 复制token\nadd_black_msg_id {msg_id}添加黑名单\ndel_black_msg_id {msg_id}删除黑名单\n"
+    data3 = f""
+    title = f"管理员帮助菜单"
+
+    return await text_msg_md(user_id=user_id, title=title, data1=data1, data2=data2, data3=data3,
+                             keyboard_template_type=keyboard_template_type)
 
 async def text_msg_md(user_id: str = "", title: str = "", data1: str = "", data2: str = "", data3: str = "",
                       keyboard_template_type="") -> QQ_Msg:
@@ -178,6 +188,15 @@ async def text_msg_md(user_id: str = "", title: str = "", data1: str = "", data2
                    [{"text": "配装推荐", "data": "/配装"}, {"text": "随机武器", "data": "/随机武器"}],
                    [{"text": "ns好友状态", "data": "/nsfr"}, {"text": "查对战或打工战绩", "data": "/last"},
                     {"text": "日程查询详细用法", "data": "/帮助"}]
+                   ]
+    if keyboard_template_type == "admin_help":
+        # 日程按钮 模版
+        buttons = [[{"text": "get_push", "data": "/admin get_push"}, {"text": "close_push", "data": "/admin close_push"},
+                    {"text": "设置公告", "data": "/admin set_bot_notice"},{"text": "运行状态", "data": "/admin status"}],
+                   [{"text": "加黑名单", "data": "/admin add_black_msg_id"}, {"text": "删黑名单", "data": "/admin del_black_msg_id"},
+                    {"text": "复制token", "data": "/admin copy_token"}, {"text": "还原token", "data": "/admin restore_token"}],
+                   [{"text": "写x赛", "data": "/admin get_x_player"}, {"text": "写活动", "data": "/admin get_event_top"},
+                    {"text": "写好友", "data": "/admin get_user_friends"}, {"text": "同步stat", "data": "/admin sync_stat_ink"}],
                    ]
 
     return build_markdown(md_content, params, buttons)
