@@ -107,11 +107,12 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
 
     old = report_list[1]
 
-    fst_day = ''
     if report_day:
         fst_day = report_list[-1].create_time.strftime('%Y-%m-%d')
         for r in report_list[::-1]:
-            if r.last_play_time.strftime('%Y-%m-%d') < max(report_day, fst_day):
+            r_last_play_time = r.last_play_time.strftime('%Y-%m-%d')
+            m = max(report_day, fst_day)
+            if r_last_play_time <= m:
                 old = r
                 break
 
