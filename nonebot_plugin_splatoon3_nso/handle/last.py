@@ -325,16 +325,15 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
                         ret.append((player_code, player_name))
                     return ret, None
 
-            # 取用户本人game_sp_id
-            if not splatoon.user_db_info.game_sp_id or not splatoon.user_db_info.game_name:
-                my_team = battle_detail['data']['vsHistoryDetail']['myTeam']
-                p = {}
-                for _p in my_team['players']:
-                    if _p.get('isMyself'):
-                        p = _p
-                        break
-                game_sp_id, game_name = get_game_sp_id_and_name(p)
-                splatoon.set_user_info(game_sp_id=game_sp_id, game_name=game_name)
+            # 取用户本人game_sp_id 和 game_name
+            my_team = battle_detail['data']['vsHistoryDetail']['myTeam']
+            p = {}
+            for _p in my_team['players']:
+                if _p.get('isMyself'):
+                    p = _p
+                    break
+            game_sp_id, game_name = get_game_sp_id_and_name(p)
+            splatoon.set_user_info(game_sp_id=game_sp_id, game_name=game_name)
 
             msg = await get_battle_msg_md(extra_info, battle_detail, idx=idx, splatoon=splatoon, get_equip=get_equip,
                                           mask=mask, push_statistics=push_statistics)
@@ -362,11 +361,10 @@ async def get_last_msg(splatoon: Splatoon, _id, extra_info, idx=0, is_battle=Tru
             coop_statistics_res = await splatoon.get_coop_statistics()
             coop_defeat = get_coop_defeat_statistics(coop_statistics_res)
 
-            # 取用户本人game_sp_id
-            if not splatoon.user_db_info.game_sp_id or not splatoon.user_db_info.game_name:
-                p = coop_detail['data']['coopHistoryDetail']['myResult']
-                game_sp_id, game_name = get_game_sp_id_and_name(p['player'])
-                splatoon.set_user_info(game_sp_id=game_sp_id, game_name=game_name)
+            # 取用户本人game_sp_id 和 game_name
+            p = coop_detail['data']['coopHistoryDetail']['myResult']
+            game_sp_id, game_name = get_game_sp_id_and_name(p['player'])
+            splatoon.set_user_info(game_sp_id=game_sp_id, game_name=game_name)
 
             msg = await get_coop_msg_md(extra_info, coop_detail, coop_defeat, mask=mask, splatoon=splatoon,
                                         push_statistics=push_statistics)
