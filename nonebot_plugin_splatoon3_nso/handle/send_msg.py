@@ -331,21 +331,26 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
             try:
                 await bot.send(event, message=V11_MsgSeg.image(file=img, cache=False), reply_message=reply_mode)
             except Exception as e:
-                logger.warning(f"QQBot send error: {e}")
+                logger.warning(f"V11_Bot send error: {e}")
         elif isinstance(bot, V12_Bot):
             # onebot12协议需要先上传文件获取file_id后才能发送图片
             try:
-                resp = await bot.upload_file(type="data", name="temp.png", data=img)
+                up_file_name = file_name if file_name else "temp.png"
+                resp = await bot.upload_file(type="data", name=up_file_name, data=img)
                 file_id = resp["file_id"]
                 if file_id:
-                    await bot.send(event, message=V12_MsgSeg.image(file_id=file_id), reply_message=reply_mode)
+                    if not file_name:
+                        await bot.send(event, message=V12_MsgSeg.image(file_id=file_id), reply_message=reply_mode)
+                    else:
+                        await bot.send(event, message=V12_MsgSeg.file(file_id=file_id), reply_message=reply_mode)
             except Exception as e:
-                logger.warning(f"QQBot send error: {e}")
+                logger.warning(f"V12_Bot send error: {e}")
         elif isinstance(bot, Tg_Bot):
-            if reply_mode:
-                await bot.send(event, Tg_File.photo(img), reply_to_message_id=event.dict().get("message_id"))
+            reply_to_message_id = event.dict().get("message_id") if reply_mode else None
+            if not file_name:
+                await bot.send(event, Tg_File.photo(img), reply_to_message_id=reply_to_message_id)
             else:
-                await bot.send(event, Tg_File.photo(img))
+                await bot.send(event, Tg_File.document((file_name, img)), reply_to_message_id=reply_to_message_id)
         elif isinstance(bot, Kook_Bot):
             url = await bot.upload_file(img, filename=file_name)
             # logger.info("url:" + url)
