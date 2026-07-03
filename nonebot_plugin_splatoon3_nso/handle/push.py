@@ -142,11 +142,14 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     next_run_time：Job下次的执行时间，创建Job时可以指定一个时间[datetime],不指定的话则默认根据trigger获取触发时间
     executor：apscheduler定义的执行器，job创建时设置执行器的名字，根据字符串你名字到scheduler获取到执行此job的 执行器，执行job指定的函数
     """
-    scheduler.add_job(
-        push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
-        id=job_id, args=[bot.self_id, event, job_data, filters],
-        misfire_grace_time=60 * 20, coalesce=True, max_instances=1
-    )
+    try:
+        scheduler.add_job(
+            push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
+            id=job_id, args=[bot.self_id, event, job_data, filters], replace_existing=True,
+            misfire_grace_time=60 * 20, coalesce=True, max_instances=1
+        )
+    except Exception as e:
+        logger.error(f"add push_job {job_id} error: {e}")
     if isinstance(bot, Tg_Bot):
         msg = f'Start push! check new data(battle or coop) every {push_interval} seconds. /stop_push to stop'
     elif isinstance(bot, All_BOT):
@@ -221,7 +224,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
     msg_id = job_data.get('msg_id')
     push_cnt = job_data.get('this_push_cnt', 0)
     error_push_cnt = job_data.get('error_push_cnt', 0)
-    channel_id = job_data.get('channel_id',"") # 消息来源频道，在qq全量群中代表是群号
+    channel_id = job_data.get('channel_id', "")  # 消息来源频道，在qq全量群中代表是群号
     last_battle_id = job_data.get('last_battle_id')
     push_interval = job_data.get('push_interval')
     push_statistics: PushStatistics = job_data.get("push_statistics")
@@ -318,11 +321,13 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
             return
 
         # 获取新对战信息
-        logger.info(f'[push] db:{splatoon.user_db_info.db_id},msg_id:{msg_id},g:{user.game_name} get new {"battle" if is_battle else "coop"}!')
+        logger.info(
+            f'[push] db:{splatoon.user_db_info.db_id},msg_id:{msg_id},g:{user.game_name} get new {"battle" if is_battle else "coop"}!')
         job_data.update({"last_battle_id": battle_id})
 
-        msg, detail = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
-                                 get_screenshot=get_screenshot, mask=mask)
+        msg, detail = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle,
+                                         push_statistics=push_statistics,
+                                         get_screenshot=get_screenshot, mask=mask)
 
         image_width = 680
         evaluate_text = await get_evaluate_text(user_id, is_battle, detail)
