@@ -8,7 +8,7 @@ from datetime import timedelta, datetime, timezone
 
 from PIL import Image
 
-BOT_VERSION = "3.2.0"
+BOT_VERSION = "3.2.3"
 DIR_RESOURCE = f"{os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))}/resource"
 plugin_release_time = "2024-06-24 04:35:58"  # 预留  2.0.0重构版nso插件发布时间，预计发布时对全部用户先显示一周，之后再判断用户创建时间
 
@@ -36,7 +36,7 @@ def trigger_with_probability():
     """
     该函数有1/100的概率返回True（触发）
     """
-    return random.random() < 0.01
+    return random.random() < 0.03
 
 
 def get_image_size(img_data):

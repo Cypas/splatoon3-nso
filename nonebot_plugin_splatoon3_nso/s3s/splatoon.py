@@ -67,8 +67,8 @@ class Splatoon:
             self.next_report_run_time = user.next_report_run_time
             self.user_db_info = UserDBInfo(
                 db_id=str(user.id) or "0",
-                user_name=user.user_name or "no user name",
-                game_name=user.game_name or "no game name",
+                user_name=user.user_name or "",
+                game_name=user.game_name or "",
                 game_sp_id=user.game_sp_id or "",
                 create_time=user.create_time,
                 report_notify=user.report_notify,

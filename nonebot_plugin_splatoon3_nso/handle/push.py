@@ -31,19 +31,20 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     user_id = event.get_user_id()
     if isinstance(bot, QQ_Bot):
         # 发送md引流到kook
-        if isinstance(event, (QQ_GME, QQ_C2CME)) and plugin_config.splatoon3_qq_md_mode:
-            # 发送md
-            if isinstance(event, QQ_C2CME):
-                user_id = ""
-            # 发送md
-            await bot_send_push_md(bot, event, user_id)
-            return
-        else:
-            # 发送文本
-            msg = "QQ平台不支持/push的主动推送战绩功能，该功能可在其他平台小鱿鱿bot如kook平台使用\n" \
-                  f"Kook服务器id：{plugin_config.splatoon3_kk_guild_id}"
-            await bot_send(bot, event, msg)
-            return
+        if type(event) in [QQ_GATME, QQ_C2CME, QQ_CME, QQ_PME]:
+            if plugin_config.splatoon3_qq_md_mode:
+                # 发送md
+                if isinstance(event, QQ_C2CME):
+                    user_id = ""
+                # 发送md
+                await bot_send_push_md(bot, event, user_id)
+                return
+            else:
+                # 发送文本
+                msg = "QQ平台push现在仅可在开启了主动推送的Q群内使用，建议可以将小鱿鱿与自己创建一个2人小群，再开启主动推送权限\n" \
+                      f"开启主动推送权限的方法请在新的小群内发送 /免艾特申请"
+                await bot_send(bot, event, msg)
+                return
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -98,6 +99,9 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         channel_id = event.chat.id
     elif isinstance(event, Kook_CME):
         channel_id = event.group_id
+    elif type(event) == QQ_GME:
+        # 全量群消息
+        channel_id = event.group_openid
 
     # 轮询间隔时间
     if not fast:
@@ -138,11 +142,14 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     next_run_time：Job下次的执行时间，创建Job时可以指定一个时间[datetime],不指定的话则默认根据trigger获取触发时间
     executor：apscheduler定义的执行器，job创建时设置执行器的名字，根据字符串你名字到scheduler获取到执行此job的 执行器，执行job指定的函数
     """
-    scheduler.add_job(
-        push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
-        id=job_id, args=[bot.self_id, event, job_data, filters],
-        misfire_grace_time=60 * 20, coalesce=True, max_instances=1
-    )
+    try:
+        scheduler.add_job(
+            push_latest_battle, 'interval', seconds=push_interval, next_run_time=dt.now() + timedelta(seconds=3),
+            id=job_id, args=[bot.self_id, event, job_data, filters], replace_existing=True,
+            misfire_grace_time=60 * 20, coalesce=True, max_instances=1
+        )
+    except Exception as e:
+        logger.error(f"add push_job {job_id} error: {e}")
     if isinstance(bot, Tg_Bot):
         msg = f'Start push! check new data(battle or coop) every {push_interval} seconds. /stop_push to stop'
     elif isinstance(bot, All_BOT):
@@ -168,8 +175,9 @@ matcher_stop_push = on_command("stop_push", aliases={'stp', 'stop'}, priority=10
 async def stop_push(bot: Bot, event: Event):
     """停止推送"""
     if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
-        return
+        if type(event) in [QQ_GATME, QQ_C2CME, QQ_CME, QQ_PME]:
+            await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
+            return
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -186,7 +194,8 @@ async def stop_push(bot: Bot, event: Event):
     elif isinstance(bot, All_BOT):
         msg = f"停止推送！推送持续 {push_time_minute}分钟\n"
     if not user.stat_key and user.push_cnt <= 10:
-        msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
+        if not isinstance(bot, QQ_Bot):
+            msg += "/set_stat_key 可保存数据到 stat.ink\n(App最多可查看最近50*5场对战和50场打工,该网站可记录全部对战或打工,也可用于武器/地图/模式/胜率的战绩分析)\n"
 
     msg += st_msg
     await bot_send(bot, event, msg)
@@ -195,6 +204,8 @@ async def stop_push(bot: Bot, event: Event):
         db_user = model_get_or_set_user(platform, user_id)
         if db_user:
             stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
+            if isinstance(bot, QQ_Bot):
+                stat_msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat.ink网站自行查看记录"
             await bot_send(bot, event, stat_msg, skip_ad=True)
             asyncio.create_task(sync_stat_ink_func(db_user))
 
@@ -213,6 +224,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
     msg_id = job_data.get('msg_id')
     push_cnt = job_data.get('this_push_cnt', 0)
     error_push_cnt = job_data.get('error_push_cnt', 0)
+    channel_id = job_data.get('channel_id', "")  # 消息来源频道，在qq全量群中代表是群号
     last_battle_id = job_data.get('last_battle_id')
     push_interval = job_data.get('push_interval')
     push_statistics: PushStatistics = job_data.get("push_statistics")
@@ -248,7 +260,7 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
             # 获取统计数据
             _, _, st_msg, push_time_minute = close_push(platform, user_id)
             if isinstance(bot, All_BOT):
-                msg = f"服务器连续多次请求报错，停止推送，bot可能遇到了网络问题，请加 新人导航 频道内的q群联系主人，本次推送持续 {push_time_minute}分钟\n\n"
+                msg = f"服务器连续多次请求报错，停止推送，bot可能遇到了网络问题，请加q群827977720联系主人，本次推送持续 {push_time_minute}分钟\n\n"
             msg += st_msg
 
             logger.info(
@@ -288,9 +300,9 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                 msg += st_msg
 
                 logger.info(
-                    f"push auto end,user：{msg_id:>3},gamer：{user.game_name:>7}, push {push_time_minute} minutes")
+                    f"push auto end,user：{str(msg_id):>3},gamer：{str(user.game_name):>7}, push {push_time_minute} minutes")
 
-                await bot_send(bot, event, message=msg)
+                await bot_send(bot, event, message=msg, for_push=True)
                 with is_running_lock:
                     is_running_dict.pop(msg_id)
                 if user.stat_key:
@@ -298,7 +310,9 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                     db_user = model_get_or_set_user(platform, user_id)
                     if db_user:
                         stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
-                        await bot_send(bot, event, stat_msg, skip_ad=True)
+                        if isinstance(bot, QQ_Bot):
+                            stat_msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat.ink网站自行查看记录"
+                        await bot_send(bot, event, stat_msg, skip_ad=True, for_push=True)
                         asyncio.create_task(sync_stat_ink_func(db_user))
 
                 # msg = f"#{msg_id} {user.game_name or ''}\n 20分钟内没有游戏记录，停止推送，推送持续 {push_time_minute}分钟"
@@ -307,21 +321,23 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
             return
 
         # 获取新对战信息
-        logger.info(f'{splatoon.user_db_info.db_id}, {user.game_name} get new {"battle" if is_battle else "coop"}!')
+        logger.info(
+            f'[push] db:{splatoon.user_db_info.db_id},msg_id:{msg_id},g:{user.game_name} get new {"battle" if is_battle else "coop"}!')
         job_data.update({"last_battle_id": battle_id})
 
-        msg, detail = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle, push_statistics=push_statistics,
-                                 get_screenshot=get_screenshot, mask=mask)
+        msg, detail = await get_last_msg(splatoon, battle_id, _info, is_battle=is_battle,
+                                         push_statistics=push_statistics,
+                                         get_screenshot=get_screenshot, mask=mask)
 
         image_width = 680
         evaluate_text = await get_evaluate_text(user_id, is_battle, detail)
         # 将评价文本也拼接在图片里面
         if evaluate_text and msg.startswith("#### "):
             msg += f"</br>小鱿鱿的嘴替或评价是: {evaluate_text}"
-        r = await bot_send(bot, event, message=msg, image_width=image_width)
+        r = await bot_send(bot, event, message=msg, image_width=image_width, for_push=True)
 
         # tg撤回上一条push的消息
-        if job_data.get('channel_id') and r:
+        if channel_id and r:
             if isinstance(bot, Tg_Bot):
                 if job_data.get('last_channel_msg_id'):
                     await bot.delete_message(chat_id=r.chat.id, message_id=job_data['last_channel_msg_id'])
@@ -356,7 +372,9 @@ def close_push(platform, user_id):
     event = None
     try:
         r = scheduler.get_job(job_id)
-        job_data = r.args[2] or {}
+        job_data = {}
+        if r:
+            job_data = r.args[2] or {}
         scheduler.remove_job(job_id)
     except Exception as e:
         logger.error(f"get push job data error:{e}")

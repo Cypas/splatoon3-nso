@@ -5,8 +5,10 @@ import random
 import time
 from collections import deque
 from datetime import datetime as dt, timedelta
+from pathlib import Path
 
 from .send_msg import bot_send_login_md, send_msg
+from ..utils.time import get_time_now_china_str
 from ..config import plugin_config
 from ..data.data_source import dict_get_or_set_user_info, model_get_or_set_user, dict_clear_one_user_info_dict
 from ..data.utils import get_or_set_plugin_data, get_blacklist_msg_id
@@ -411,6 +413,7 @@ async def get_qq_user_name(bot: QQ_Bot, user_id):
             logger.warning(f"QQ get username error:{e}")
         return ""
 
+
 # event结构解析参考代码
 # async def log_cmd_to_db(bot, event, get_map=False):
 #     try:
@@ -495,3 +498,61 @@ async def get_qq_user_name(bot: QQ_Bot, user_id):
 #                     'group_id': group_id,
 #                     'group_name': group_name,
 #                 })
+def get_or_init(dictionary: dict, key: str, default=None):
+    """字典赋值"""
+    if default is None:
+        default = {}
+    if dictionary.get(key) is None:
+        dictionary.update({key: default})
+        return default
+    else:
+        return dictionary.get(key)
+
+
+def write_unknown_command(msg_id, plain_text):
+    """写未知命令记录到文件"""
+    if plain_text:
+        excluded_keywords = ["[分享]", "[卡片消息]", "accounts.nintendo.com", "s.ayano.top", "session_token_code"]
+        if not any(keyword in plain_text for keyword in excluded_keywords):
+            plain_text = plain_text.replace("\n", " ").replace("\r", " ")
+            file_path = Path(os.path.join(DIR_RESOURCE, "未知命令.txt"))
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+            with open(file_path, "a", encoding="utf-8") as f:
+                f.write(f"{get_time_now_china_str()},{msg_id:<32},{plain_text}\n")  # 每行一个关键词
+
+
+def write_evaluate_text(msg_id: str, evaluate_text: str, data_json_str: str):
+    """写评价文本记录到文件"""
+    if evaluate_text:
+        evaluate_text = evaluate_text.replace("\n", " ").replace("\r", " ")
+        file_path = Path(os.path.join(DIR_RESOURCE, "nso评价文本.txt"))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+        with open(file_path, "a", encoding="utf-8") as f:
+            # user_id左对齐32位字符，评价文本左对齐20字符
+            f.write(f"{get_time_now_china_str()},{msg_id:<32},{evaluate_text[:20]:<20},{data_json_str}\n")
+
+
+def write_login_text(msg_id: str, text: str):
+    """写登陆或退出登陆记录到文件"""
+    if text:
+        text = text.replace("\n", " ").replace("\r", " ")
+        file_path = Path(os.path.join(DIR_RESOURCE, "nso登陆记录.txt"))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+        with open(file_path, "a", encoding="utf-8") as f:
+            # user_id左对齐32位字符，评价文本左对齐20字符
+            f.write(f"{get_time_now_china_str()},{msg_id:<32},{text}\n")
+
+
+def write_full_message_check_text(group_id: str, msg_id: str, qq_group_id: str):
+    """写全量消息申请记录到文件"""
+    if qq_group_id:
+        qq_group_id = qq_group_id.replace("\n", " ").replace("\r", " ")
+        file_path = Path(os.path.join(DIR_RESOURCE, "全量申请记录.txt"))
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        # 以追加模式打开文件，编码指定为utf-8（避免中文乱码）
+        with open(file_path, "a", encoding="utf-8") as f:
+            # user_id左对齐32位字符，评价文本左对齐20字符
+            f.write(f"{get_time_now_china_str()},{msg_id:<32},{group_id},{qq_group_id}\n")

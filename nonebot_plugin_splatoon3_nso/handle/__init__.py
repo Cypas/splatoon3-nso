@@ -8,4 +8,5 @@ from .my import me, friends, ns_friends, friend_code, my_icon
 from .history import history
 from .top import _top, x_top
 from .report import report, report_all
+from .other import unknown_command, c2c_unknown_command, c2c_face_image_command, nso_help, bot_added_event, full_message_help
 from .utils import *

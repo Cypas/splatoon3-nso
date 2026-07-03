@@ -14,7 +14,7 @@ from ..data.data_source import dict_get_or_set_user_info, model_delete_user, glo
     model_get_or_set_user
 from ..s3s.iksm import S3S
 from ..s3s.splatoon import Splatoon
-from ..util import write_login_text
+from .utils import write_login_text
 from ..utils import get_msg_id, DIR_RESOURCE, get_time_now_china_str, get_file_bytes
 from ..utils.bot import *
 from ..utils.redis import rset_lc, rget_lc, rdel_lc
@@ -24,7 +24,7 @@ MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
 global_login_code_dict: dict = {}
 
-matcher_login_in = on_command("login", aliases={'登录', 'nso登录', 'nso_login', 'nsologin'}, priority=10, block=True)
+matcher_login_in = on_command("login", aliases={'登录', 'nso登录', "登陸", "nso登陸", 'nso_login', 'nsologin'}, priority=10, block=True)
 
 
 @matcher_login_in.handle()
@@ -196,9 +196,10 @@ async def login_in_2(bot: Bot, event: Event):
               "常用指令:\n" \
               "/me - 显示你的信息\n" \
               "/friends - 显示在线的喷喷好友\n" \
+              "/ns_friends - 显示在线的ns好友以及游玩游戏\n" \
               "/last - 显示最近一场对战或打工\n" \
               "/report - 获取昨天或指定日期的日报数据\n" \
-              "/set_stat_key - 设置 api_key, 同步数据到 https://stat点ink"
+              "/观星导出 - 导出观星所需要的json数据文件"
     elif isinstance(bot, All_BOT):
         msg = "登录成功！机器人现在可以从nso获取你的数据。\n" \
               "如果希望在其他平台使用nso查询，请发送\n" \
@@ -239,7 +240,7 @@ async def login_in_2(bot: Bot, event: Event):
     await notify_to_channel(_msg)
 
 
-@on_command("clear_db_info", aliases={'loginout', 'login_out', '退出登录'}, priority=10, block=True).handle()
+@on_command("clear_db_info", aliases={'loginout', 'login_out', '退出登录', "退出登陸"}, priority=10, block=True).handle()
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     platform = bot.adapter.get_name()
@@ -384,8 +385,9 @@ async def set_login_code(bot: Bot, event: Event):
 
     msg = "登录成功！机器人现在可以从nso获取你的数据。\n" \
           "/me - 显示你的信息\n" \
-          "/friends - 显示在线的喷喷好友\n" \
           "/last - 显示最近一场对战或打工\n" \
+          "/ns_friends - 显示在线的ns好友\n" \
+          "/观星导出 - 导出观星json数据文件\n" \
           "/report - 喷喷早报"
     if plugin_config.splatoon3_schedule_plugin_priority_mode:
         # 日程插件帮助优先模式
@@ -461,8 +463,6 @@ async def sync_now(bot: Bot, event: Event):
     if not (user and user.session_token and user.stat_key):
         if isinstance(bot, Tg_Bot):
             msg = "Please set api_key first, /set_stat_key"
-        elif isinstance(bot, QQ_Bot):
-            msg = "请先设置 stat点ink网站的api_key, 指令:/set_stat_key"
         elif isinstance(bot, All_BOT):
             msg = "请先设置 stat.ink网站的api_key, 指令:/set_stat_key"
         await bot_send(bot, event, msg, skip_ad=True)

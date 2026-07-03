@@ -400,7 +400,8 @@ class PushStatistics:
                     c.w3_lose += 1
 
             # boss 金银铜鳞片
-            c.boss_name = coop_detail.get('boss', {}).get('name', '')
+            boss_info = coop_detail.get('boss') or {}
+            c.boss_name = boss_info.get('name', '')
             if coop_detail.get('bossResult'):
                 c.boss += 1
                 scale = coop_detail.get('scale')
