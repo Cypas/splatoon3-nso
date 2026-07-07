@@ -187,7 +187,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                 return False
             # 设置别人的值
             dict_get_or_set_user_info(platform, my_user_id, session_token=user.session_token, access_token="",
-                                      g_token="", bullet_token="", game_sp_id=user.game_sp_id or "",
+                                      g_token="", bullet_token="", game_sp_id=user.game_sp_id or "", stat_key="",
                                       game_name=user.game_name or "", nsa_id=user.nsa_id or "")
             await bot_send(bot, event,
                            message=f"已复制账号 db_id:{user.id},msg_id:{get_msg_id(user.platform, user.user_id)},\ngame_name:{user.game_name}\n还原:/admin restore_token")

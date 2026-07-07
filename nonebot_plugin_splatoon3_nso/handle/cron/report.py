@@ -235,7 +235,7 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
     try:
         phase1_splatoons = await asyncio.wait_for(
             asyncio.gather(*phase1_tasks, return_exceptions=True),
-            timeout=2 * 3600
+            timeout=3 * 3600
         )
         # 记录失败的任务
         for i, result in enumerate(phase1_splatoons):
@@ -244,7 +244,7 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
                 msg_id = get_msg_id(platform, user_id)
                 cron_logger.error(f"阶段1任务执行失败: {msg_id}, 错误: {result}")
     except asyncio.TimeoutError:
-        cron_logger.error("阶段1任务执行超时(2小时),已自动退出")
+        cron_logger.error("阶段1任务执行超时(3小时),已自动退出")
         phase1_splatoons = []
 
     # 标记阶段1已完成

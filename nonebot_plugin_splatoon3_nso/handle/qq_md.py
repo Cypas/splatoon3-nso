@@ -186,7 +186,7 @@ async def text_msg_md(user_id: str = "", title: str = "", data1: str = "", data2
     if keyboard_template_type == "schedule":
         # 日程按钮 模版
         buttons = [[{"text": "图图", "data": "/图图"}, {"text": "开放", "data": "/012开放", "style": 1},
-                    {"text": "活动", "data": "/活动"}, {"text": "打工", "data": "/打工"}],
+                    {"text": "活动", "data": "/活动"}, {"text": "打工", "data": "/全部工"}],
                    [{"text": "配装推荐", "data": "/配装"}, {"text": "随机武器", "data": "/随机武器"}],
                    [{"text": "ns好友状态", "data": "/nsfr"}, {"text": "查对战或打工战绩", "data": "/last"},
                     {"text": "日程查询详细用法", "data": "/帮助"}]
