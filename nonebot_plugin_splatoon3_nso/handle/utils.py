@@ -353,22 +353,20 @@ async def get_event_info(bot, event):
         #         'group_name': f'{server_name}{channel_name}',
         #     })
     elif isinstance(bot, QQ_Bot):
+        user_name = ""
         if isinstance(event, (QQ_CME, QQ_PME)):
             # qq 频道, qq 频道私聊
-            data.update({
-                'user_name': _event.get('author', {}).get('username'),
-            })
-
-        elif isinstance(event, QQ_GME):
+            default_name = "QQ频道"
+            user_name = _event.get('author', {}).get('username') or default_name
+        elif isinstance(event, (QQ_GME, QQ_GATME)):
             # qq 群
-            data.update({
-                'user_name': 'QQ群',
-            })
+            default_name = "QQ群"
+            user_name = _event.get('author', {}).get('username') or default_name
         elif isinstance(event, QQ_C2CME):
             # c2c私信
-            data.update({
-                'user_name': 'QQ私信',
-            })
+            default_name = "QQ私信"
+            user_name = _event.get('author', {}).get('username') or default_name
+        data.update({'user_name': user_name})
     elif isinstance(bot, V11_Bot):
         data.update({
             'user_name': _event.get('sender', {}).get('nickname', ''),

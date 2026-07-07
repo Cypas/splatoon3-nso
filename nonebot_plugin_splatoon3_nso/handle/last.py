@@ -130,7 +130,9 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
     if isinstance(splatoon.bot, QQ_Bot) and (
-            splatoon.user_name in ["QQ群", "QQ私信"] or splatoon.user_id == splatoon.user_name):
+            splatoon.user_name in ["QQ群", "QQ私信"] or
+            splatoon.user_id == splatoon.user_name or
+            not splatoon.user_name):
         user_name = await get_qq_user_name(splatoon.bot, splatoon.user_id)
         # 更新缓存
         if user_name:

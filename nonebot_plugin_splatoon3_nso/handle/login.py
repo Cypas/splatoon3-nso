@@ -24,7 +24,8 @@ MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
 global_login_code_dict: dict = {}
 
-matcher_login_in = on_command("login", aliases={'登录', 'nso登录', "登陸", "nso登陸", 'nso_login', 'nsologin'}, priority=10, block=True)
+matcher_login_in = on_command("login", aliases={'登录', 'nso登录', "登陸", "nso登陸", 'nso_login', 'nsologin'},
+                              priority=10, block=True)
 
 
 @matcher_login_in.handle()
@@ -168,7 +169,7 @@ async def login_in_2(bot: Bot, event: Event):
     new_user_name = event_info.get('user_name', "")
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
-    if isinstance(bot, QQ_Bot):
+    if isinstance(bot, QQ_Bot) and new_user_name in ["QQ群", "QQ私信"] or user_id == new_user_name or not new_user_name:
         user_name = await get_qq_user_name(bot, user_id)
         if user_name:
             new_user_name = user_name
@@ -240,7 +241,8 @@ async def login_in_2(bot: Bot, event: Event):
     await notify_to_channel(_msg)
 
 
-@on_command("clear_db_info", aliases={'loginout', 'login_out', '退出登录', "退出登陸"}, priority=10, block=True).handle()
+@on_command("clear_db_info", aliases={'loginout', 'login_out', '退出登录', "退出登陸"}, priority=10,
+            block=True).handle()
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     platform = bot.adapter.get_name()
@@ -371,7 +373,7 @@ async def set_login_code(bot: Bot, event: Event):
     new_user_name = event_info.get('user_name', "")
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
-    if isinstance(bot, QQ_Bot):
+    if isinstance(bot, QQ_Bot) and new_user_name in ["QQ群", "QQ私信"] or user_id == new_user_name or not new_user_name:
         user_name = await get_qq_user_name(bot, user_id)
         if user_name:
             new_user_name = user_name
