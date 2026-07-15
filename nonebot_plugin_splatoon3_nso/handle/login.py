@@ -169,7 +169,7 @@ async def login_in_2(bot: Bot, event: Event):
     new_user_name = event_info.get('user_name', "")
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
-    if isinstance(bot, QQ_Bot) and new_user_name in ["QQ群", "QQ私信"] or user_id == new_user_name or not new_user_name:
+    if isinstance(bot, QQ_Bot) and (new_user_name in ["QQ群", "QQ私信"] or user_id == new_user_name or not new_user_name):
         user_name = await get_qq_user_name(bot, user_id)
         if user_name:
             new_user_name = user_name
@@ -373,7 +373,7 @@ async def set_login_code(bot: Bot, event: Event):
     new_user_name = event_info.get('user_name', "")
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
-    if isinstance(bot, QQ_Bot) and new_user_name in ["QQ群", "QQ私信"] or user_id == new_user_name or not new_user_name:
+    if isinstance(bot, QQ_Bot) and (new_user_name in ["QQ群", "QQ私信"] or user_id == new_user_name or not new_user_name):
         user_name = await get_qq_user_name(bot, user_id)
         if user_name:
             new_user_name = user_name
