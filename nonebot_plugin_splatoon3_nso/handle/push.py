@@ -29,22 +29,29 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     """开始推送"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
-    if isinstance(bot, QQ_Bot):
-        # 发送md引流到kook
-        if type(event) in [QQ_GATME, QQ_C2CME, QQ_CME, QQ_PME]:
-            if plugin_config.splatoon3_qq_md_mode:
-                # 发送md
-                if isinstance(event, QQ_C2CME):
-                    user_id = ""
-                # 发送md
-                await bot_send_push_md(bot, event, user_id)
-                return
-            else:
-                # 发送文本
-                msg = "QQ平台push现在仅可在开启了主动推送的Q群内使用，建议可以将小鱿鱿与自己创建一个2人小群，再开启主动推送权限\n" \
-                      f"开启主动推送权限的方法请在新的小群内发送 /免艾特申请"
-                await bot_send(bot, event, msg)
-                return
+
+    if type(event) in [QQ_GATME, QQ_CME, QQ_PME]:
+        msg = "战绩推送功能请私聊小鱿鱿使用"
+        await bot_send(bot, event, msg, skip_ad=True)
+        return
+
+    # # q群使用push的教程，进行注释，优先让他使用私聊push
+    # if isinstance(bot, QQ_Bot):
+    #     # 发送md引流到kook
+    #     if type(event) in [QQ_GATME, QQ_CME, QQ_PME]:
+    #         if plugin_config.splatoon3_qq_md_mode:
+    #             # 发送md
+    #             if isinstance(event, QQ_C2CME):
+    #                 user_id = ""
+    #             # 发送md
+    #             await bot_send_push_md(bot, event, user_id)
+    #             return
+    #         else:
+    #             # 发送文本
+    #             msg = "QQ平台push现在仅可在开启了主动推送的Q群内使用，建议可以将小鱿鱿与自己创建一个2人小群，再开启主动推送权限\n" \
+    #                   f"开启主动推送权限的方法请在新的小群内发送 /免艾特申请"
+    #             await bot_send(bot, event, msg)
+    #             return
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -165,7 +172,36 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
         if get_coop:
             filters_str2 = "打工"
         msg = f'开始推送{filters_str1}战绩，每{push_interval}秒查询一次最新 {filters_str2} 数据\n/stop_push 停止推送'
-    await bot_send(bot, event, msg)
+
+        if isinstance(bot, QQ_Bot):
+            # qqbot在推送前，校验一遍用户是否开启了主动消息权限，如果触发了推送失败，则提示用户开启主动消息推送
+            try:
+                # 判断是c2c私聊还是全量群聊
+                if isinstance(event, QQ_C2CME):
+                    # qq私聊转主动消息
+                    await bot.send_to_c2c(
+                        openid=event.author.id,
+                        message=msg,
+                    )
+                elif type(event) == QQ_GME:
+                    # qq全量群内要推送消息，需要专门转主动消息
+                    await bot.send_to_group(
+                        group_openid=event.group_openid,
+                        message=msg,
+                        msg_id="",
+                    )
+                else:
+                    await bot.send(event, message=msg)
+                return
+            except QQ_ActionFailed as e:
+                # 通过被动消息发送提示内容
+                msg = f"喷3战绩推送失败，请点击小鱿鱿头像，进入机器人权限设置，将'允许主动发送消息'开关打开，若找不到此开关按钮，请更新最新版手机qq"
+                await bot.send(event, message=msg)
+                logger.warning(f"QQ push start error: {e}")
+                _, _, st_msg, push_time_minute = close_push(platform, user_id)
+                return
+
+    await bot_send(bot, event, msg, skip_ad=True)
 
 
 matcher_stop_push = on_command("stop_push", aliases={'stp', 'stop'}, priority=10, block=True)
@@ -174,10 +210,10 @@ matcher_stop_push = on_command("stop_push", aliases={'stp', 'stop'}, priority=10
 @matcher_stop_push.handle(parameterless=[Depends(_check_session_handler)])
 async def stop_push(bot: Bot, event: Event):
     """停止推送"""
-    if isinstance(bot, QQ_Bot):
-        if type(event) in [QQ_GATME, QQ_C2CME, QQ_CME, QQ_PME]:
-            await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
-            return
+    # if isinstance(bot, QQ_Bot):
+    #     if type(event) in [QQ_GATME, QQ_C2CME, QQ_CME, QQ_PME]:
+    #         await bot_send(bot, event, 'QQ平台不支持该功能，该功能可在其他平台使用')
+    #         return
 
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -204,8 +240,8 @@ async def stop_push(bot: Bot, event: Event):
         db_user = model_get_or_set_user(platform, user_id)
         if db_user:
             stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
-            if isinstance(bot, QQ_Bot):
-                stat_msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat.ink网站自行查看记录"
+            # if isinstance(bot, QQ_Bot):
+            #     stat_msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat.ink网站自行查看记录"
             await bot_send(bot, event, stat_msg, skip_ad=True)
             asyncio.create_task(sync_stat_ink_func(db_user))
 
@@ -310,8 +346,8 @@ async def push_latest_battle(bot_id: str, event: Event, job_data: dict, filters:
                     db_user = model_get_or_set_user(platform, user_id)
                     if db_user:
                         stat_msg = "已主动启动stat.ink同步任务，请稍后等待同步结果..."
-                        if isinstance(bot, QQ_Bot):
-                            stat_msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat.ink网站自行查看记录"
+                        # if isinstance(bot, QQ_Bot):
+                        #     stat_msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat.ink网站自行查看记录"
                         await bot_send(bot, event, stat_msg, skip_ad=True, for_push=True)
                         asyncio.create_task(sync_stat_ink_func(db_user))
 

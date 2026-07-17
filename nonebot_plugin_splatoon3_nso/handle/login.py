@@ -443,9 +443,9 @@ async def get_set_api_key(bot: Bot, event: Event):
     if isinstance(bot, Tg_Bot):
         msg = "set_api_key success, bot will check every 2 hours and post your data to stat.ink.\n" \
               "first sync will be in minutes."
-    elif isinstance(bot, QQ_Bot):
-        msg = "设置成功，bot将开始同步你当前的对战及打工数据到 stat点ink，并后续每2h自动进行一次同步\n" \
-              "因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat网站自行查看记录，kook平台bot才可以主动推送"
+    # elif isinstance(bot, QQ_Bot):
+    #     msg = "设置成功，bot将开始同步你当前的对战及打工数据到 stat点ink，并后续每2h自动进行一次同步\n" \
+    #           "因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat网站自行查看记录，kook平台bot才可以主动推送"
     elif isinstance(bot, All_BOT):
         msg = f"设置成功，bot将开始同步你当前的对战及打工数据到 stat.ink，并后续每2h自动进行一次同步"
     await bot_send(bot, event, message=msg, skip_ad=True)
@@ -472,8 +472,8 @@ async def sync_now(bot: Bot, event: Event):
 
     # await update_s3si_ts()
     msg = "战绩手动同步任务已开始，请稍等..."
-    if isinstance(bot, QQ_Bot):
-        msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat点ink网站自行查看记录，kook平台bot才可以主动推送"
+    # if isinstance(bot, QQ_Bot):
+    #     msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat点ink网站自行查看记录，kook平台bot才可以主动推送"
     db_user = model_get_or_set_user(platform, user_id)
     if db_user:
         await bot_send(bot, event, msg, skip_ad=True)

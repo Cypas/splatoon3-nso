@@ -103,12 +103,13 @@ async def notify_to_channel(_msg, _type='msg'):
 
 async def notify_to_private(platform: str, user_id: str, msg: str):
     """通知至私聊"""
-    # 排除QQ平台
-    if platform == "QQ":
-        return
-
     bot = None
     bots = get_bots()
+    if platform == "QQ":
+        for k, b in bots.items():
+            if isinstance(b, QQ_Bot):
+                bot = b
+                break
     # tg平台
     if platform == "Telegram" and notify_tg_bot_id:
         tg_bot = bots.get(notify_tg_bot_id)
@@ -288,6 +289,9 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
 
     if isinstance(msg, str):
         # 文字消息
+        if not isinstance(bot, Kook_Bot):
+            msg = msg.replace("```\n", "")
+            msg = msg.replace("```", "")
         if isinstance(bot, V11_Bot):
             await bot.send(event, message=V11_MsgSeg.text(msg), reply_message=reply_mode)
         elif isinstance(bot, V12_Bot):
@@ -306,8 +310,15 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
             try:
                 message = QQ_MsgSeg.text(msg)
                 if for_push:
-                    # qq全量群内要推送消息，需要专门转主动消息
-                    if isinstance(event, QQ_GME):
+                    # 判断是c2c私聊还是全量群聊
+                    if isinstance(event, QQ_C2CME):
+                        # qq私聊转主动消息
+                        await bot.send_to_c2c(
+                            openid=event.author.id,
+                            message=message
+                        )
+                    if type(event) == QQ_GME:
+                        # qq全量群内要推送消息，需要专门转主动消息
                         await bot.send_to_group(
                             group_openid=event.group_openid,
                             message=message,
@@ -319,8 +330,11 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
                 if "消息被去重" in str(e):
                     pass
                 if "主动消息失败" in str(e) and for_push:
-                    await bot.send(event,
-                                   message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
+                    if isinstance(event, QQ_C2CME):
+                        msg = "请点击小鱿鱿头像，进入机器人权限设置，将'允许主动发送消息'开关打开，若找不到此开关按钮，请更新最新版手机qq"
+                    elif type(event) == QQ_GME:
+                        msg = "群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限"
+                    await bot.send(event, message=msg)
                 else:
                     logger.warning(f"QQ send msg error: {e}")
 
@@ -365,8 +379,16 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
                 # logger.info("url:" + url)
                 if url:
                     if for_push:
-                        # qq全量群内要推送消息，需要专门转主动消息
-                        if isinstance(event, QQ_GME):
+                        # 判断是c2c私聊还是全量群聊
+                        if isinstance(event, QQ_C2CME):
+                            # qq私聊转主动消息
+                            await bot.send_to_c2c(
+                                openid=event.author.id,
+                                message=message,
+                                msg_id="",
+                            )
+                        if type(event) == QQ_GME:
+                            # qq全量群内要推送消息，需要专门转主动消息
                             await bot.send_to_group(
                                 group_openid=event.group_openid,
                                 message=message,
@@ -378,8 +400,11 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
                 if "消息被去重" in str(e):
                     pass
                 if "主动消息失败" in str(e) and for_push:
-                    await bot.send(event,
-                                   message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
+                    if isinstance(event, QQ_C2CME):
+                        msg = "请点击小鱿鱿头像，进入机器人权限设置，将'允许主动发送消息'开关打开，若找不到此开关按钮，请更新最新版手机qq"
+                    elif type(event) == QQ_GME:
+                        msg = "群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限"
+                    await bot.send(event, message=msg)
                 else:
                     logger.warning(f"QQ send msg error: {e}")
 
@@ -428,9 +453,12 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
         if isinstance(bot, Kook_Bot):
             await bot.send_private_msg(user_id=source_id, message=Kook_MsgSeg.text(msg))
         elif isinstance(bot, QQ_Bot):
+            msg = msg.replace("```", "")
+            if "stat.ink" in msg:
+                msg = msg.replace("stat.ink", "stat点ink")
             try:
-                if event:
-                    await bot.send_to_dms(guild_id=event.guild_id, message=msg, msg_id=event.id)
+                # 只允许主动的c2c消息
+                await bot.send_to_c2c(openid=source_id, message=msg)
             except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
             except QQ_ActionFailed as e:
@@ -446,7 +474,9 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
             await bot.send_private_msg(user_id=source_id, message=Kook_MsgSeg.image(url))
         elif isinstance(bot, QQ_Bot):
             try:
-                await bot.send_to_dms(guild_id=event.guild_id, message=QQ_MsgSeg.file_image(img), msg_id=event.id)
+                url, image_size = await _get_image_url_and_size(img)
+                # 只允许主动的c2c消息
+                await bot.send_to_c2c(openid=source_id, message=QQ_MsgSeg.image(url))
             except QQ_AuditException as e:
                 logger.warning(f"主动消息审核结果为{e.__dict__}")
             except QQ_ActionFailed as e:

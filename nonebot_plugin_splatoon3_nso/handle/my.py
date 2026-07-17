@@ -645,9 +645,9 @@ def get_cn_sp3_stat(_st):
 
 @on_command("report_notify", block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
-    if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, "QQ平台暂不支持本功能")
-        return
+    # if isinstance(bot, QQ_Bot):
+    #     await bot_send(bot, event, "QQ平台暂不支持本功能")
+    #     return
     cmd = args.extract_plain_text().strip()
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -665,9 +665,9 @@ async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
 
 @on_command("stat_notify", aliases={'api_notify'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
-    if isinstance(bot, QQ_Bot):
-        await bot_send(bot, event, "QQ平台暂不支持本功能")
-        return
+    # if isinstance(bot, QQ_Bot):
+    #     await bot_send(bot, event, "QQ平台暂不支持本功能")
+    #     return
     cmd = args.extract_plain_text().strip()
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
