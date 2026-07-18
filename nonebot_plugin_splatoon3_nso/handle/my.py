@@ -375,7 +375,7 @@ async def get_friends_md(splatoon, lang='zh-CN'):
         img = f'''<img height="40" src="{icon_img}"/>'''
         if f['playerName'] and f['playerName'] != f['nickname']:
             nickname = game_name_replace(f['nickname'])
-            n = f'{f["playerName"]}|{img}|{nickname}'
+            n = f'{nickname}|{img}|{n}'
         else:
             n = f'{n}|{img}|'
         msg += f'''|{n}| {_state}|\n'''
