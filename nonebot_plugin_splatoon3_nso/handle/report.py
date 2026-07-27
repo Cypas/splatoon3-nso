@@ -7,13 +7,13 @@ from ..data.data_source import dict_get_or_set_user_info, model_get_report, mode
 from ..utils.bot import *
 
 
-@on_command("report", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
-async def report(bot: Bot, event: Event, args: Message = CommandArg()):
+@on_regex(r"^[\/.,，。]?report(.*)$", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def report(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """日报统计查询"""
     # await bot_mixed_send_report(bot, event, title="未获取到日报", msg="日报功能暂不可用")
     # return
 
-    cmd_list = args.extract_plain_text().strip()
+    cmd_list = str(re_tuple[0] or "").strip()
     report_day = ''
     if cmd_list:
         report_day = cmd_list
@@ -198,7 +198,7 @@ def get_report(platform, user_id, report_day=None, _type="normal"):
     return msg
 
 
-matcher_report_all = on_command("report_all", aliases={'all_report'}, priority=10, block=True)
+matcher_report_all = on_regex(r"^[\/.,，。]?(report_all|all_report)[ ]?$", priority=10, block=True)
 
 
 @matcher_report_all.handle(parameterless=[Depends(_check_session_handler)])

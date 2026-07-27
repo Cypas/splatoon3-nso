@@ -8,17 +8,19 @@ from ..s3s.utils import SPLATNET3_URL
 from ..utils import get_msg_id
 from ..utils.bot import *
 
-matcher_screen_shot = on_command("screen_shot", aliases={'ss'}, priority=10, block=True)
+matcher_screen_shot = on_regex(
+    r"^[\/.,，。]?(?:screen_shot|ss)(.*)$",
+    priority=10, block=True)
 
 
 @matcher_screen_shot.handle(parameterless=[Depends(_check_session_handler)])
-async def screen_shot(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
+async def screen_shot(bot: Bot, event: Event, matcher: Matcher, re_tuple: Tuple = RegexGroup()):
     """/ss 截图指令"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     key = ""
     message = ""
-    cmd = args.extract_plain_text().strip()
+    cmd = str(re_tuple[0] or "").strip()
     all_keys = f"总览 个人穿搭 好友 最近 涂地 蛮颓 x赛 活动 私房 武器进度 武器分数 徽章 打工记录 击倒数量 打工 鲑鱼跑 祭典 祭典问卷\n如/ss 击倒数量"
     if not cmd:
         # 没有任何参数

@@ -145,8 +145,8 @@ async def get_coop_msg_md(coop_info, coop_detail, coop_defeat=None, mask=False, 
         msg += f"\n##### 时间: {str_time}"
 
         # 打印图例说明
-        user_create_dt = splatoon.user_db_info.create_time + timedelta(days=7)
-        plugin_release_dt = get_time_now_china_date(plugin_release_time) + timedelta(days=7)
+        user_create_dt = splatoon.user_db_info.create_time + timedelta(days=14)
+        plugin_release_dt = get_time_now_china_date(plugin_release_time) + timedelta(days=14)
         now_dt = get_time_now_china()
         if now_dt < plugin_release_dt or now_dt < user_create_dt:
             msg += f'\n###### 本注解说明会在登录7天后不再显示' \

@@ -15,11 +15,13 @@ from ..s3s.splatoon import Splatoon
 from ..s3s.utils import SPLATNET3_URL
 from ..utils.bot import *
 
-matcher_last = on_command("last", priority=10, block=True)
+matcher_last = on_regex(
+    r"^[\/.,，。]?last(?:[ ]*((?:battle|b|coop|c|equip|e|image|i|screenshot|ss|mask|m|\d+)(?:[ ]*(?:battle|b|coop|c|equip|e|image|i|screenshot|ss|mask|m|\d+))*))?[ ]?$",
+    priority=10, block=True)
 
 
 @matcher_last.handle(parameterless=[Depends(_check_session_handler)])
-async def last(bot: Bot, event: Event, args: Message = CommandArg()):
+async def last(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """获取上一局对战或打工数据图"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -33,7 +35,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     get_image = False
     mask = False
     idx = 0
-    cmd_message = args.extract_plain_text().strip()
+    cmd_message = str(re_tuple[0] or "").strip()
     logger.debug(f'last: {cmd_message}')
     # 筛选参数
     if cmd_message:

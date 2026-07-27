@@ -24,8 +24,8 @@ MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
 global_login_code_dict: dict = {}
 
-matcher_login_in = on_command("login", aliases={'登录', 'nso登录', "登陸", "nso登陸", 'nso_login', 'nsologin'},
-                              priority=10, block=True)
+matcher_login_in = on_regex(r"^[\/.,，。]?(login|登录|nso登录|登陸|nso登陸|nso_login|nsologin)[ ]?$",
+                            priority=10, block=True)
 
 
 @matcher_login_in.handle()
@@ -241,7 +241,7 @@ async def login_in_2(bot: Bot, event: Event):
     await notify_to_channel(_msg)
 
 
-@on_command("clear_db_info", aliases={'loginout', 'login_out', '退出登录', "退出登陸"}, priority=10,
+@on_regex(r"^[\/.,，。]?(clear_db_info|loginout|login_out|退出登录|退出登陸)[ ]?$", priority=10,
             block=True).handle()
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
@@ -278,7 +278,7 @@ async def clear_db_info(bot: Bot, event: Event):
         global_user_info_dict.pop(msg_id)
 
 
-@on_command("get_login_code", aliases={'getlogincode', 'glc', 'getlc'}, priority=10, block=True).handle(
+@on_regex(r"^[\/.,，。]?(get_login_code|getlogincode|glc|getlc)[ ]?$", priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def get_login_code(bot: Bot, event: Event):
     """获取绑定码"""
@@ -315,11 +315,11 @@ async def get_login_code(bot: Bot, event: Event):
     await bot_send(bot, event, message=f"/set_login {login_code}", skip_ad=True)
 
 
-@on_command("set_login", priority=10, block=True).handle()
-async def set_login_code(bot: Bot, event: Event):
+@on_regex(r"^[\/.,，。]?set_login[ ]?(.+)$", priority=10, block=True).handle()
+async def set_login_code(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """绑定账号"""
 
-    login_code = event.get_plaintext().strip()[10:].strip()
+    login_code = str(re_tuple[0] or "").strip()
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
@@ -402,7 +402,7 @@ async def set_login_code(bot: Bot, event: Event):
     await notify_to_channel(f"绑定账号成功: {msg_id},{new_user_name}, 旧用户为{old_msg_id},{old_user_name}")
 
 
-matcher_set_api_key = on_command("set_stat_key", aliases={"set_api_key"}, priority=10, block=True)
+matcher_set_api_key = on_regex(r"^[\/.,，。]?(set_stat_key|set_api_key)[ ]?$", priority=10, block=True)
 
 
 @matcher_set_api_key.handle(parameterless=[Depends(_check_session_handler)])
@@ -456,7 +456,7 @@ async def get_set_api_key(bot: Bot, event: Event):
     asyncio.create_task(sync_stat_ink_func(db_user))
 
 
-@on_command("sync_now", aliases={'sync', 'syncnow', 'syncstat'}, priority=10, block=True).handle(
+@on_regex(r"^[\/.,，。]?(sync_now|sync|syncnow|syncstat)[ ]?$", priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def sync_now(bot: Bot, event: Event):
     platform = bot.adapter.get_name()

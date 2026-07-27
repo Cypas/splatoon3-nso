@@ -17,7 +17,9 @@ from ..utils.bot import *
 require("nonebot_plugin_apscheduler")
 from nonebot_plugin_apscheduler import scheduler
 
-matcher_start_push = on_command("start_push", aliases={'sp', 'push', 'start'}, priority=10, block=True)
+matcher_start_push = on_regex(
+    r"^[\/.,，。]?(?:start_push|sp|push|start)(?:[ ]*((?:battle|b|coop|c|screenshot|ss|mask|m|fast|f)(?:[ ]*(?:battle|b|coop|c|screenshot|ss|mask|m|fast|f))*))?[ ]?$",
+    priority=10, block=True)
 
 # push任务状态
 is_running_dict = {}
@@ -25,7 +27,7 @@ is_running_lock = Lock()  # 全局锁
 
 
 @matcher_start_push.handle(parameterless=[Depends(_check_session_handler)])
-async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
+async def start_push(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """开始推送"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -77,7 +79,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     get_screenshot = False
     mask = False
     fast = False
-    cmd_message = args.extract_plain_text().strip()
+    cmd_message = str(re_tuple[0] or "").strip()
     # 筛选参数
     if cmd_message:
         cmd_lst = cmd_message.split(" ")
@@ -204,7 +206,7 @@ async def start_push(bot: Bot, event: Event, args: Message = CommandArg()):
     await bot_send(bot, event, msg, skip_ad=True)
 
 
-matcher_stop_push = on_command("stop_push", aliases={'stp', 'stop'}, priority=10, block=True)
+matcher_stop_push = on_regex(r"^[\/.,，。]?(stop_push|stp|stop)[ ]?$", priority=10, block=True)
 
 
 @matcher_stop_push.handle(parameterless=[Depends(_check_session_handler)])

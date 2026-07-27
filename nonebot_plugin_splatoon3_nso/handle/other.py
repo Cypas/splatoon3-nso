@@ -135,7 +135,7 @@ async def c2c_face_image_command(bot: Bot, event: QQ_C2CME, matcher: Matcher):
         matcher.stop_propagation()
 
 
-@on_command("help", aliases={"h", "帮助", "说明", "文档", "幫助", "說明", "文檔"}, priority=10).handle()
+@on_regex(r"^[\/.,，。]?(help|h|帮助|说明|文档|幫助|說明|文檔)[ ]?$", priority=10).handle()
 async def nso_help(bot: Bot, event: Event):
     # 帮助菜单日程插件优先模式
     if plugin_config.splatoon3_schedule_plugin_priority_mode:
@@ -170,9 +170,10 @@ async def bot_added_event(bot: QQ_Bot, event: Event, matcher: Matcher):
         await bot_send(bot, event, msg)
 
 
-@on_command("免艾特申请", aliases={'免艾特申請'}, priority=10, block=True).handle()
-async def full_message_help(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
+@on_regex(r"^[\/.,，。]?(?:免艾特申请|免艾特申請)[ ]?(\d*)[ ]?$", priority=10, block=True).handle()
+async def full_message_help(bot: Bot, event: Event, matcher: Matcher, re_tuple: Tuple = RegexGroup()):
     """全量消息申请菜单"""
+    plain_text = str(re_tuple[0] or "").strip()
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
@@ -192,7 +193,6 @@ async def full_message_help(bot: Bot, event: Event, matcher: Matcher, args: Mess
 
     bot_qq = f_config.bot_qq
     bot_uid = f_config.bot_uid
-    plain_text = args.extract_plain_text().strip()
     if not plain_text or not plain_text.isdigit():
         await matcher.finish("申请命令后面请加上qq群号，如/免艾特申请 1234567890")
     qq_group_id = plain_text

@@ -31,7 +31,7 @@ NSO_WEB_CACHE_DICT = {}
 # 连坐字典 记录封禁前最后的sp_id 连坐名单保留一天
 BAN_USER_SP_ID_LIST = []
 
-@on_command("me", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_regex(r"^[\/.,，。]?me[ ]?$", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def me(bot: Bot, event: Event):
     """查询 我的"""
     await bot_send(bot, event, message="请求个人数据中，请稍等...")
@@ -335,7 +335,7 @@ async def get_me_md(user: GlobalUserInfo, summary, total, coops, weapons, from_g
     return msg
 
 
-@on_command("friends", aliases={'friend', 'fr'}, priority=10, block=True).handle(
+@on_regex(r"^[\/.,，。]?(friends?|fr)[ ]?$", priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def friends(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
@@ -395,7 +395,7 @@ async def get_friends_md(splatoon, lang='zh-CN'):
     return msg
 
 
-nsfr = on_command("ns_friends", aliases={'ns_friend', 'ns_fr', 'nsfr'}, priority=10, block=True)
+nsfr = on_regex(r"^[\/.,，。]?(ns_friends?|ns_fr|nsfr)[ ]?$", priority=10, block=True)
 
 
 @nsfr.handle(
@@ -520,11 +520,11 @@ async def get_ns_friends_md(splatoon: Splatoon):
     return msg
 
 
-matcher_fc = on_command("friend_code", aliases={'friends_code', 'fc'}, priority=10, block=True)
+matcher_fc = on_regex(r"^[\/.,，。]?(?:friend_code|friends_code|fc)[ ]?(force)?[ ]?$", priority=10, block=True)
 
 
 @matcher_fc.handle(parameterless=[Depends(_check_session_handler)])
-async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
+async def friend_code(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """获取ns 好友码"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -532,7 +532,7 @@ async def friend_code(bot: Bot, event: Event, args: Message = CommandArg()):
     force = False  # 强制从接口获取
     msg_id = get_msg_id(platform, user_id)
 
-    if "force" in args.extract_plain_text():
+    if re_tuple[0]:
         force = True
     msg = ""
     if user and user.ns_friend_code and not force:
@@ -643,12 +643,12 @@ def get_cn_sp3_stat(_st):
     return _st
 
 
-@on_command("report_notify", block=True).handle(parameterless=[Depends(_check_session_handler)])
-async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
+@on_regex(r"^[\/.,，。]?report_notify[ ]?(open|close)?[ ]?$", block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def report_notify(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     # if isinstance(bot, QQ_Bot):
     #     await bot_send(bot, event, "QQ平台暂不支持本功能")
     #     return
-    cmd = args.extract_plain_text().strip()
+    cmd = str(re_tuple[0] or "").strip()
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg = f'```\n'
@@ -663,12 +663,12 @@ async def report_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     await bot_send(bot, event, message=msg)
 
 
-@on_command("stat_notify", aliases={'api_notify'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
-async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
+@on_regex(r"^[\/.,，。]?(?:stat_notify|api_notify)[ ]?(open|close)?[ ]?$", block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def stat_notify(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     # if isinstance(bot, QQ_Bot):
     #     await bot_send(bot, event, "QQ平台暂不支持本功能")
     #     return
-    cmd = args.extract_plain_text().strip()
+    cmd = str(re_tuple[0] or "").strip()
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg = f'```\n'
@@ -683,15 +683,15 @@ async def stat_notify(bot: Bot, event: Event, args: Message = CommandArg()):
     await bot_send(bot, event, message=msg)
 
 
-@on_command("my_icon", aliases={'myicon'}, block=True).handle(parameterless=[Depends(_check_session_handler)])
-async def my_icon(bot: Bot, event: Event, args: Message = CommandArg()):
+@on_regex(r"^[\/.,，。]?(?:my_icon|myicon)[ ]?(force)?[ ]?$", block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def my_icon(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     user = dict_get_or_set_user_info(platform, user_id)
     force = False  # 强制从接口获取
     msg_id = get_msg_id(platform, user_id)
 
-    if "force" in args.extract_plain_text():
+    if re_tuple[0]:
         force = True
     msg = ""
     msg_error = "本地未缓存nso头像，请在使用一次/last 命令进行缓存后重试"
@@ -751,8 +751,8 @@ async def re_enable(bot: Bot, event: Event):
                     model_get_or_set_user(u.platform, u.user_id, user_agreement=1)
 
 
-@on_command("观星导出", aliases={"觀星導出"}, block=True).handle(parameterless=[Depends(_check_session_handler)])
-async def seed_export(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
+@on_regex(r"^[\/.,，。]?(观星导出|觀星導出)[ ]?$", block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def seed_export(bot: Bot, event: Event, matcher: Matcher):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     net_error_msg = "bot网络错误，请稍后再试"
@@ -891,9 +891,9 @@ def clean_ban_user_sp_id_list():
     """每日清空ban_sp_id连坐列表"""
     BAN_USER_SP_ID_LIST.clear()
 
-@on_command("nso_web", aliases={'nso网页版', 'nso網頁版', 'nsoweb'}, block=True).handle(
+@on_regex(r"^[\/.,，。]?(nso_web|nso网页版|nso網頁版|nsoweb)[ ]?$", block=True).handle(
     parameterless=[Depends(_check_session_handler)])
-async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = CommandArg()):
+async def nso_web(bot: Bot, event: Event, matcher: Matcher):
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     net_error_msg = "bot网络错误，请稍后再试"
@@ -961,8 +961,8 @@ async def nso_web(bot: Bot, event: Event, matcher: Matcher, args: Message = Comm
         await bot_send(bot, event, message=msg3, skip_ad=True)
 
 
-@on_command("更多nso指令", aliases={'更多nso指令'}, block=True).handle()
-async def more_nso_help(bot: Bot, event: Event, args: Message = CommandArg()):
+@on_regex(r"^[\/.,，。]?更多nso指令[ ]?$", block=True).handle()
+async def more_nso_help(bot: Bot, event: Event):
     """发送更多nso帮助的二级md菜单"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()

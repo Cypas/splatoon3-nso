@@ -99,7 +99,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                                           game_sp_id="", game_name="", nsa_id="", stat_key=admin_stat_key)
                 await bot_send(bot, event, message=f"token已恢复")
 
-        case "help":
+        case "help" | "":
             """指令目录"""
             msg = "所有命令都需要加上/admin 前缀\n" \
                   "get_push 获取当前push统计\n" \
