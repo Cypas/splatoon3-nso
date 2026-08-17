@@ -234,7 +234,7 @@ async def login_in_2(bot: Bot, event: Event):
     except Exception as e:
         game_sp_id = None
 
-    _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:{game_sp_id}\n{session_token}'
+    _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:{game_sp_id}'
     # 写登陆到文件
     write_text = f"用户登陆:msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name},ns_player_code:{user.game_sp_id}"
     write_login_text(msg_id, text=write_text)
