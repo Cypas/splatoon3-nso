@@ -121,6 +121,13 @@ async def notify_to_private(platform: str, user_id: str, msg: str):
         if kook_bot:
             bot = kook_bot
 
+    # discord平台
+    elif platform == "Discord":
+        for k, b in bots.items():
+            if isinstance(b, Dc_Bot):
+                bot = b
+                break
+
     if bot:
         # 发送私信
         await send_private_msg(bot, user_id, msg)
@@ -323,6 +330,8 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
                                    message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
                 else:
                     logger.warning(f"QQ send msg error: {e}")
+        elif isinstance(bot, Dc_Bot):
+            await bot.send(event, message=Dc_MsgSeg.text(msg), reply_message=reply_mode)
 
     elif isinstance(msg, bytes):
         # 图片
@@ -382,6 +391,10 @@ async def send_msg(bot: Bot, event: Event, msg: str | bytes, file_name="", skip_
                                    message="群内未允许小鱿鱿主动发送消息，请发送 /免艾特申请 并根据帮助提示启用小鱿鱿主动消息权限")
                 else:
                     logger.warning(f"QQ send msg error: {e}")
+        elif isinstance(bot, Dc_Bot):
+            up_file_name = file_name if file_name else "temp.png"
+            await bot.send(event, message=Dc_MsgSeg.attachment(file=up_file_name, content=img),
+                           reply_message=reply_mode)
 
     if not skip_ad and trigger_with_probability():
         if isinstance(bot, QQ_Bot):
@@ -404,6 +417,8 @@ async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_message(chat_id=source_id, text=msg)
+        elif isinstance(bot, Dc_Bot):
+            await bot.send_to(channel_id=source_id, message=Dc_MsgSeg.text(msg))
     elif isinstance(msg, bytes):
         # 图片
         img = msg
@@ -419,6 +434,9 @@ async def send_channel_msg(bot: Bot, source_id, msg: str | bytes):
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_photo(source_id, img)
+        elif isinstance(bot, Dc_Bot):
+            await bot.send_to(channel_id=source_id,
+                              message=Dc_MsgSeg.attachment(file="temp.png", content=img))
 
 
 async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
@@ -437,6 +455,9 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_message(chat_id=source_id, text=msg)
+        elif isinstance(bot, Dc_Bot):
+            channel = await bot.create_DM(recipient_id=source_id)
+            await bot.send_to(channel_id=channel.id, message=Dc_MsgSeg.text(msg))
 
     elif isinstance(msg, bytes):
         # 图片
@@ -453,6 +474,10 @@ async def send_private_msg(bot: Bot, source_id, msg: str | bytes, event=None):
                 logger.warning(f"主动消息发送失败，api操作结果为{e.__dict__}")
         elif isinstance(bot, Tg_Bot):
             await bot.send_photo(source_id, img)
+        elif isinstance(bot, Dc_Bot):
+            channel = await bot.create_DM(recipient_id=source_id)
+            await bot.send_to(channel_id=channel.id,
+                              message=Dc_MsgSeg.attachment(file="temp.png", content=img))
 
 
 async def _qq_bot_send_md(bot: QQ_Bot, event: Event, qq_md):

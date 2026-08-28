@@ -386,6 +386,10 @@ async def get_event_info(bot, event):
         data.update({
             'user_name': user_name,
         })
+    elif isinstance(bot, Dc_Bot):
+        data.update({
+            'user_name': _event.get('author', {}).get('username') or '',
+        })
 
     return data
 

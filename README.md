@@ -37,6 +37,9 @@ _✨ splatoon3 nso查询插件 ✨_
 <a href="https://github.com/nonebot/adapter-qq">
 <img src="https://img.shields.io/badge/QQ-Adapter-lightgrey?style=social" alt="QQ">
 </a>
+<a href="https://github.com/nonebot/adapter-discord">
+<img src="https://img.shields.io/badge/discord-Adapter-lightgrey?style=social&logo=discord" alt="discord">
+</a>
 </p>
 
 </div>
@@ -46,7 +49,7 @@ _✨ splatoon3 nso查询插件 ✨_
 - 一个基于nonebot2框架的splatoon3
   nso查询插件,支持onebot11,onebot12,[telegram](https://github.com/nonebot/adapter-telegram)
   协议,[kook](https://github.com/Tian-que/nonebot-adapter-kaiheila)
-  协议,[QQ官方bot](https://github.com/nonebot/adapter-qq)协议
+  协议,[QQ官方bot](https://github.com/nonebot/adapter-qq)协议,[discord](https://github.com/nonebot/adapter-discord)协议
 - 本仓库代码是基于paul的[splatoon3-bot](https://github.com/paul-sama/splatoon3-bot)内的nso插件进行的重构版本
 - 建议配合我做的[日程查询插件](https://github.com/Cypas/splatoon3-schedule)一起使用
 
