@@ -15,11 +15,13 @@ from ..s3s.splatoon import Splatoon
 from ..s3s.utils import SPLATNET3_URL
 from ..utils.bot import *
 
-matcher_last = on_command("last", priority=10, block=True)
+matcher_last = on_regex(
+    r"^[\/.,，。]?last(?:[ ]*((?:battle|b|coop|c|equip|e|image|i|screenshot|ss|mask|m|\d+)(?:[ ]*(?:battle|b|coop|c|equip|e|image|i|screenshot|ss|mask|m|\d+))*))?[ ]?$",
+    priority=10, block=True)
 
 
 @matcher_last.handle(parameterless=[Depends(_check_session_handler)])
-async def last(bot: Bot, event: Event, args: Message = CommandArg()):
+async def last(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """获取上一局对战或打工数据图"""
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
@@ -33,7 +35,7 @@ async def last(bot: Bot, event: Event, args: Message = CommandArg()):
     get_image = False
     mask = False
     idx = 0
-    cmd_message = args.extract_plain_text().strip()
+    cmd_message = str(re_tuple[0] or "").strip()
     logger.debug(f'last: {cmd_message}')
     # 筛选参数
     if cmd_message:
@@ -130,7 +132,9 @@ async def get_last_battle_or_coop(bot, event, for_push=False, get_battle=False, 
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
     if isinstance(splatoon.bot, QQ_Bot) and (
-            splatoon.user_name in ["QQ群", "QQ私信"] or splatoon.user_id == splatoon.user_name):
+            splatoon.user_name in ["QQ群", "QQ私信"] or
+            splatoon.user_id == splatoon.user_name or
+            not splatoon.user_name):
         user_name = await get_qq_user_name(splatoon.bot, splatoon.user_id)
         # 更新缓存
         if user_name:

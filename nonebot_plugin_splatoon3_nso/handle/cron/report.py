@@ -235,7 +235,7 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
     try:
         phase1_splatoons = await asyncio.wait_for(
             asyncio.gather(*phase1_tasks, return_exceptions=True),
-            timeout=2 * 3600
+            timeout=4 * 3600
         )
         # 记录失败的任务
         for i, result in enumerate(phase1_splatoons):
@@ -244,7 +244,7 @@ async def create_set_report_tasks(is_corn_job=False, is_inactive_user=False):
                 msg_id = get_msg_id(platform, user_id)
                 cron_logger.error(f"阶段1任务执行失败: {msg_id}, 错误: {result}")
     except asyncio.TimeoutError:
-        cron_logger.error("阶段1任务执行超时(2小时),已自动退出")
+        cron_logger.error("阶段1任务执行超时(4小时),已自动退出")
         phase1_splatoons = []
 
     # 标记阶段1已完成
@@ -538,12 +538,12 @@ async def send_report_task():
         if not have_report:
             continue
         counters["new_report_count"] += 1
-        # 排除qq平台发信 和 日报通知未打开的用户
-        if user.platform == "QQ" or not user.report_notify:
+        # 排除 日报通知未打开的用户
+        if not user.report_notify:
             continue
         counters["can_send_report_count"] += 1
         # 每次循环强制睡眠0.1s，使一分钟内不超过120次发信阈值
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
         try:
             msg = get_report(user.platform, user.user_id, _type="cron")
             if msg:

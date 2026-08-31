@@ -8,13 +8,13 @@ from ..s3s.splatoon import Splatoon
 from ..utils import get_msg_id, utc_str_to_china_str, game_name_replace
 from ..utils.bot import *
 
-matcher_top = on_command("top", priority=10, block=True)
+matcher_top = on_regex(r"^[\/.,，。]?top[ ]?(.*)$", priority=10, block=True)
 
 
 @matcher_top.handle(parameterless=[Depends(_check_session_handler)])
-async def _top(bot: Bot, event: Event, args: Message = CommandArg()):
+async def _top(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """top查询"""
-    cmd_message = args.extract_plain_text().strip()
+    cmd_message = str(re_tuple[0] or "").strip()
     logger.debug(f'top: {cmd_message}')
     battle_idx = None
     player_idx = None
@@ -206,7 +206,7 @@ async def get_top_md(player_code: str | list, player_name=""):
     return msg
 
 
-@on_command("x_top", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_regex(r"^[\/.,，。]?x_top[ ]?$", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def x_top(bot: Bot, event: Event):
     """x_top查询"""
     msg = await get_x_top_msg(bot, event)

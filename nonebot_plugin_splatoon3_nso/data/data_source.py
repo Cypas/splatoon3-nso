@@ -258,7 +258,7 @@ def model_get_all_active_report_user() -> list[UserTable]:
             or_(
                 func.date(UserTable.last_cmd_time) == today,
                 func.date(UserTable.last_cmd_time) == yesterday,
-                func.date(UserTable.last_cmd_time) == two_before_day,
+                # func.date(UserTable.last_cmd_time) == two_before_day,
             )
         )
     ))

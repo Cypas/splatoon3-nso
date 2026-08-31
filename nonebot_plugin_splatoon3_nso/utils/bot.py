@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Tuple
 import nonebot
 from nonebot.permission import SUPERUSER
 from nonebot.typing import T_State
@@ -6,7 +6,7 @@ from nonebot.adapters import Bot, Event
 from nonebot.matcher import Matcher
 from nonebot.internal.params import Depends
 from nonebot.internal.adapter import Message
-from nonebot.params import CommandArg
+from nonebot.params import CommandArg, RegexGroup
 from nonebot import get_bots, logger, on_regex, on_command, on_startswith, require, on_message
 
 # onebot11 协议

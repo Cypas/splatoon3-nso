@@ -6,14 +6,14 @@ from ..s3s.splatoon import Splatoon
 from ..utils.bot import *
 
 
-@on_command("history", aliases={'his'}, priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
-async def history(bot: Bot, event: Event, args: Message = CommandArg()):
+@on_regex(r"^[\/.,，。]?(?:history|his)[ ]?(.*)$", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+async def history(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """历史记录查询"""
     _type = 'open'
     _type_str = '开放'
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
-    cmd_message = args.extract_plain_text().strip()
+    cmd_message = str(re_tuple[0] or "").strip()
     logger.debug(f'history: {cmd_message}')
     if cmd_message:
         cmd_lst = cmd_message.split()

@@ -99,7 +99,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                                           game_sp_id="", game_name="", nsa_id="", stat_key=admin_stat_key)
                 await bot_send(bot, event, message=f"token已恢复")
 
-        case "help":
+        case "help" | "":
             """指令目录"""
             msg = "所有命令都需要加上/admin 前缀\n" \
                   "get_push 获取当前push统计\n" \
@@ -187,7 +187,7 @@ async def admin_cmd(bot: Bot, event: Event, args: Message = CommandArg()):
                 return False
             # 设置别人的值
             dict_get_or_set_user_info(platform, my_user_id, session_token=user.session_token, access_token="",
-                                      g_token="", bullet_token="", game_sp_id=user.game_sp_id or "",
+                                      g_token="", bullet_token="", game_sp_id=user.game_sp_id or "", stat_key="",
                                       game_name=user.game_name or "", nsa_id=user.nsa_id or "")
             await bot_send(bot, event,
                            message=f"已复制账号 db_id:{user.id},msg_id:{get_msg_id(user.platform, user.user_id)},\ngame_name:{user.game_name}\n还原:/admin restore_token")

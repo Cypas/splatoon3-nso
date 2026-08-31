@@ -24,7 +24,8 @@ MSG_PRIVATE = "该指令需要私信机器人才能使用"
 global_login_status_dict: dict = {}
 global_login_code_dict: dict = {}
 
-matcher_login_in = on_command("login", aliases={'登录', 'nso登录', "登陸", "nso登陸", 'nso_login', 'nsologin'}, priority=10, block=True)
+matcher_login_in = on_regex(r"^[\/.,，。]?(login|登录|nso登录|登陸|nso登陸|nso_login|nsologin)[ ]?$",
+                            priority=10, block=True)
 
 
 @matcher_login_in.handle()
@@ -168,7 +169,7 @@ async def login_in_2(bot: Bot, event: Event):
     new_user_name = event_info.get('user_name', "")
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
-    if isinstance(bot, QQ_Bot):
+    if isinstance(bot, QQ_Bot) and (new_user_name in ["QQ群", "QQ私信"] or user_id == new_user_name or not new_user_name):
         user_name = await get_qq_user_name(bot, user_id)
         if user_name:
             new_user_name = user_name
@@ -233,14 +234,15 @@ async def login_in_2(bot: Bot, event: Event):
     except Exception as e:
         game_sp_id = None
 
-    _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:{game_sp_id}\n{session_token}'
+    _msg = f'new_login_user:{msg_id}\n会话昵称:{new_user_name}\nns_player_code:{game_sp_id}'
     # 写登陆到文件
     write_text = f"用户登陆:msg_id:{msg_id},会话昵称:{user.user_name},游戏昵称:{user.game_name},ns_player_code:{user.game_sp_id}"
     write_login_text(msg_id, text=write_text)
     await notify_to_channel(_msg)
 
 
-@on_command("clear_db_info", aliases={'loginout', 'login_out', '退出登录', "退出登陸"}, priority=10, block=True).handle()
+@on_regex(r"^[\/.,，。]?(clear_db_info|loginout|login_out|退出登录|退出登陸)[ ]?$", priority=10,
+            block=True).handle()
 async def clear_db_info(bot: Bot, event: Event):
     """清空账号数据"""
     platform = bot.adapter.get_name()
@@ -276,7 +278,7 @@ async def clear_db_info(bot: Bot, event: Event):
         global_user_info_dict.pop(msg_id)
 
 
-@on_command("get_login_code", aliases={'getlogincode', 'glc', 'getlc'}, priority=10, block=True).handle(
+@on_regex(r"^[\/.,，。]?(get_login_code|getlogincode|glc|getlc)[ ]?$", priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def get_login_code(bot: Bot, event: Event):
     """获取绑定码"""
@@ -313,11 +315,11 @@ async def get_login_code(bot: Bot, event: Event):
     await bot_send(bot, event, message=f"/set_login {login_code}", skip_ad=True)
 
 
-@on_command("set_login", priority=10, block=True).handle()
-async def set_login_code(bot: Bot, event: Event):
+@on_regex(r"^[\/.,，。]?set_login[ ]?(.+)$", priority=10, block=True).handle()
+async def set_login_code(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """绑定账号"""
 
-    login_code = event.get_plaintext().strip()[10:].strip()
+    login_code = str(re_tuple[0] or "").strip()
     platform = bot.adapter.get_name()
     user_id = event.get_user_id()
     msg_id = get_msg_id(platform, user_id)
@@ -371,7 +373,7 @@ async def set_login_code(bot: Bot, event: Event):
     new_user_name = event_info.get('user_name', "")
 
     # 如果qq平台用户的用户名还是默认值QQ群，请求接口获取真实名字
-    if isinstance(bot, QQ_Bot):
+    if isinstance(bot, QQ_Bot) and (new_user_name in ["QQ群", "QQ私信"] or user_id == new_user_name or not new_user_name):
         user_name = await get_qq_user_name(bot, user_id)
         if user_name:
             new_user_name = user_name
@@ -400,7 +402,7 @@ async def set_login_code(bot: Bot, event: Event):
     await notify_to_channel(f"绑定账号成功: {msg_id},{new_user_name}, 旧用户为{old_msg_id},{old_user_name}")
 
 
-matcher_set_api_key = on_command("set_stat_key", aliases={"set_api_key"}, priority=10, block=True)
+matcher_set_api_key = on_regex(r"^[\/.,，。]?(set_stat_key|set_api_key)[ ]?$", priority=10, block=True)
 
 
 @matcher_set_api_key.handle(parameterless=[Depends(_check_session_handler)])
@@ -441,9 +443,9 @@ async def get_set_api_key(bot: Bot, event: Event):
     if isinstance(bot, Tg_Bot):
         msg = "set_api_key success, bot will check every 2 hours and post your data to stat.ink.\n" \
               "first sync will be in minutes."
-    elif isinstance(bot, QQ_Bot):
-        msg = "设置成功，bot将开始同步你当前的对战及打工数据到 stat点ink，并后续每2h自动进行一次同步\n" \
-              "因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat网站自行查看记录，kook平台bot才可以主动推送"
+    # elif isinstance(bot, QQ_Bot):
+    #     msg = "设置成功，bot将开始同步你当前的对战及打工数据到 stat点ink，并后续每2h自动进行一次同步\n" \
+    #           "因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat网站自行查看记录，kook平台bot才可以主动推送"
     elif isinstance(bot, All_BOT):
         msg = f"设置成功，bot将开始同步你当前的对战及打工数据到 stat.ink，并后续每2h自动进行一次同步"
     await bot_send(bot, event, message=msg, skip_ad=True)
@@ -454,7 +456,7 @@ async def get_set_api_key(bot: Bot, event: Event):
     asyncio.create_task(sync_stat_ink_func(db_user))
 
 
-@on_command("sync_now", aliases={'sync', 'syncnow', 'syncstat'}, priority=10, block=True).handle(
+@on_regex(r"^[\/.,，。]?(sync_now|sync|syncnow|syncstat)[ ]?$", priority=10, block=True).handle(
     parameterless=[Depends(_check_session_handler)])
 async def sync_now(bot: Bot, event: Event):
     platform = bot.adapter.get_name()
@@ -470,8 +472,8 @@ async def sync_now(bot: Bot, event: Event):
 
     # await update_s3si_ts()
     msg = "战绩手动同步任务已开始，请稍等..."
-    if isinstance(bot, QQ_Bot):
-        msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat点ink网站自行查看记录，kook平台bot才可以主动推送"
+    # if isinstance(bot, QQ_Bot):
+    #     msg += "\n因QQ平台主动推送限制，同步成功时Bot无法主动推送消息，如需确认，请在三分钟后前往stat点ink网站自行查看记录，kook平台bot才可以主动推送"
     db_user = model_get_or_set_user(platform, user_id)
     if db_user:
         await bot_send(bot, event, msg, skip_ad=True)
