@@ -7,7 +7,7 @@ from ..data.data_source import dict_get_or_set_user_info, model_get_report, mode
 from ..utils.bot import *
 
 
-@on_regex(r"^[\/.,，。]?report(.*)$", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
+@on_regex(r"^[\/.,，。]?report(?!_all)(.*)$", priority=10, block=True).handle(parameterless=[Depends(_check_session_handler)])
 async def report(bot: Bot, event: Event, re_tuple: Tuple = RegexGroup()):
     """日报统计查询"""
     # await bot_mixed_send_report(bot, event, title="未获取到日报", msg="日报功能暂不可用")
