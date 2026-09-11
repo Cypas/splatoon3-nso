@@ -75,6 +75,6 @@ All_BOT = (V11_Bot, V12_Bot, Kook_Bot, Tg_Bot, QQ_Bot, Dc_Bot)
 
 # 公开发言消息类型
 All_Group_Message = (Kook_CME, Tg_GME, Tg_CME, QQ_CME, QQ_GATME, QQ_GME, V11_GME, V12_GME, V12_CME, Dc_GME)
-All_Group_Message_Without_QQ_G = (Kook_CME, Tg_GME, Tg_CME, QQ_CME, V11_GME, V12_GME, V12_CME)
+All_Group_Message_Without_QQ_G = (Kook_CME, Tg_GME, Tg_CME, QQ_CME, V11_GME, V12_GME, V12_CME, Dc_GME)
 # 私聊消息
 All_Private_Message = (Kook_PME, Tg_PME, QQ_PME, QQ_C2CME, V11_PME, V12_PME, Dc_PME)
