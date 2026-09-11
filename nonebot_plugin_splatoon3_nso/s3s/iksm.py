@@ -423,7 +423,8 @@ class S3S:
                 except:  # error with web request
                     pass
 
-                return NSOAPP_VER_FALLBACK
+                NSOAPP_VERSION = NSOAPP_VER_FALLBACK
+                return NSOAPP_VERSION
 
     @staticmethod
     async def get_web_view_ver(bhead=None, gtoken=""):
