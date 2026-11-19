@@ -20,9 +20,38 @@ global_dict_ss_user: dict = {}
 _browser_using_proxy: bool = False  # 当前浏览器是否使用代理
 _last_proxy_check_time: float = 0  # 上次代理检测时间
 
+# ===== 浏览器回收策略 =====
+# 长时间不重建的 Chromium 会持续积累 network service / compositor / V8 堆的内存，
+# 单靠 page.close()+context.close() 释放不掉，必须定期重建整个浏览器实例。
+_BROWSER_MAX_AGE = 24 * 3600    # 最长存活时间：1 天（主策略）
+_BROWSER_MAX_USES = 100         # 兜底：累计截图 100 次也回收一次（防止高峰期一天跑太多）
+_browser_uses = 0               # 本个浏览器实例已服务的截图次数
+_browser_born_at = 0.0          # 本个浏览器实例的创建时刻（event loop time）
+_active_screenshots = 0         # 正在进行的截图数，>0 时不允许回收，避免打断请求
+
+
+def _loop_now() -> float:
+    """取当前事件循环的时间（秒），无运行循环时返回 0"""
+    try:
+        return asyncio.get_running_loop().time()
+    except RuntimeError:
+        return 0.0
+
+
+def _browser_should_recycle() -> bool:
+    """判断当前浏览器是否该回收"""
+    if global_browser is None:
+        return False
+    if _browser_uses >= _BROWSER_MAX_USES:
+        return True
+    if _browser_born_at and (_loop_now() - _browser_born_at) >= _BROWSER_MAX_AGE:
+        return True
+    return False
+
 
 async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=False) -> str | bytes:
     """获取app页面截图（仅优化内存释放版本）"""
+    global _browser_uses, _active_screenshots
     ### nso截图需要的是gtoken(3h)，home页面校验的是bullet_token(2h)
     # 就会存在说g_token已过期，但home页面校验通过的情况，此时截图nso仍会无数据(可能gtoken未正确刷新，或redis跳过了gtoken获取)
     # 稳定验证 需要去校验gtoken的jwt是否过期
@@ -57,8 +86,10 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
         height = 1200
     viewport = ViewportSize({"width": 500, "height": height})
 
-    # 获取上下文对象
-    context = await init_context(cookies=cookies, viewport=viewport)
+    # 整段截图期间占位：从建上下文开始到关闭为止都不允许回收浏览器
+    _active_screenshots += 1
+    page = None
+    context = None
 
     # 更新使用次数计数
     ss_user = global_dict_ss_user.get(msg_id)
@@ -68,9 +99,11 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
     else:
         global_dict_ss_user.update({msg_id: 1})
 
-    page = await context.new_page()
-
     try:
+        # 获取上下文对象
+        context = await init_context(cookies=cookies, viewport=viewport)
+        page = await context.new_page()
+
         if url:
             await page.goto(url)
             if mask and url and 'detail' in url:
@@ -123,9 +156,23 @@ async def get_app_screenshot(splatoon: Splatoon, key: str = "", url="", mask=Fal
     except Exception as e:
         return f"nso截图错误:{e}"
     finally:
-        # 关键优化1：确保页面和上下文彻底关闭
-        await page.close()  # 先关闭页面释放渲染资源
-        await context.close()  # 再关闭上下文
+        _active_screenshots -= 1
+        # 关键优化1：确保页面和上下文彻底关闭，且互不阻塞
+        if page is not None:
+            try:
+                await page.close()  # 先关闭页面释放渲染资源
+            except Exception as e:
+                logger.warning(f"关闭page失败: {e}")
+        if context is not None:
+            try:
+                await context.close()  # 再关闭上下文
+            except Exception as e:
+                logger.warning(f"关闭context失败: {e}")
+
+        # 关键优化2：累计使用次数，到点回收整个浏览器实例
+        _browser_uses += 1
+        if _active_screenshots == 0 and _browser_should_recycle():
+            await recycle_browser()
 
     return img_raw
 
@@ -173,6 +220,7 @@ async def check_proxy_available() -> bool:
 async def init_browser() -> Browser:
     """初始化浏览器（优化：管理Playwright实例生命周期 + 代理自动切换）"""
     global global_browser, global_playwright, _browser_using_proxy, _last_proxy_check_time
+    global _browser_uses, _browser_born_at
     # 关键优化2：先关闭旧的Playwright实例，避免进程残留
     if global_playwright is not None:
         await global_playwright.stop()
@@ -182,6 +230,14 @@ async def init_browser() -> Browser:
     browser_args = [
         # 设置默认字体
         '--default-font-family="Noto Sans CJK"',
+        '--disable-gpu',                        # 服务器无显卡，省掉 GPU 进程及其显存/内存开销
+        '--disable-software-rasterizer',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--renderer-process-limit=3',           # 限制渲染进程数（本场景并发很低）
+        # 注意：此处刻意不设置 --disk-cache-size / --js-flags=--max-old-space-size。
+        # 磁盘缓存不是"资源下载上限"（超了只是淘汰旧条目，不会导致加载失败），
+        # 而图标类页面（几百个图标、单页 30MB+ 资源）在 V8 堆被限死时反而可能 OOM 白屏。
     ]
 
     proxy = None
@@ -217,7 +273,11 @@ async def init_browser() -> Browser:
     else:
         global_browser = await global_playwright.chromium.launch(args=browser_args)
         logger.info("浏览器已启动，使用直连模式")
-    
+
+    # 记录新实例的计时起点
+    _browser_uses = 0
+    _browser_born_at = _loop_now()
+
     return global_browser
 
 
@@ -269,11 +329,41 @@ async def init_context(cookies=None, viewport: ViewportSize = None) -> BrowserCo
 
 
 # 在 splatnet_image.py 中添加资源清理
+async def recycle_browser(force: bool = False):
+    """回收浏览器实例。定时任务 / 到期自动回收都走这里。
+
+    :param force: True 时即使有截图在跑也强行回收
+    """
+    global _browser_uses
+    if not force and _active_screenshots > 0:
+        logger.info(f"有 {_active_screenshots} 个截图任务进行中，跳过本次浏览器回收")
+        return
+    if global_browser is None:
+        return
+    _age_h = (_loop_now() - _browser_born_at) / 3600 if _browser_born_at else -1
+    logger.info(f"回收 Playwright 浏览器：已存活 {_age_h:.1f}h，累计使用 {_browser_uses} 次")
+    try:
+        await cleanup_browser()
+    except Exception as e:
+        logger.warning(f"回收浏览器失败: {e}")
+    _browser_uses = 0
+
+
 async def cleanup_browser():
     global global_browser, global_playwright
-    if global_browser:
-        await global_browser.close()
-    if global_playwright:
-        await global_playwright.stop()
+    # 先把全局引用置空再 await 关闭：这样并发的 get_browser() 立刻看到 None 而重建，
+    # 不会拿到一个正在被关闭的实例。
+    _browser, _pw = global_browser, global_playwright
     global_browser = None
     global_playwright = None
+    # 关闭顺序很重要：先关浏览器，再停 Playwright 驱动，否则会残留 Chromium 进程
+    if _browser:
+        try:
+            await _browser.close()
+        except Exception as e:
+            logger.warning(f"关闭浏览器失败: {e}")
+    if _pw:
+        try:
+            await _pw.stop()
+        except Exception as e:
+            logger.warning(f"停止 Playwright 失败: {e}")

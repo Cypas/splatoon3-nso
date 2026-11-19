@@ -13,6 +13,7 @@ from .x_player import get_x_player
 from ..my import clean_ban_user_sp_id_list
 from ...config import plugin_config
 from ...data.data_source import model_delete_user_friend
+from ...s3s.splatnet_image import recycle_browser
 
 require("nonebot_plugin_apscheduler")
 from nonebot_plugin_apscheduler import scheduler
@@ -76,6 +77,9 @@ def scheduler_controller():
         add_scheduler("sync_stat_ink", trigger='cron', hour="0,2,4,6,9,12,14,16,18,20,22", minute=4)
         # 每周一周四清理一次公共用户字典
         # add_scheduler("clean_global_user_info_dict", trigger='cron', day_of_week="mon,thu", hour=4, minute=40)
+        # 每天 4:30 回收一次 Playwright 浏览器，释放长期运行积累的 Chromium 内存
+        # （即使无人截图，浏览器也会常驻占用数百 MB）
+        add_scheduler("recycle_browser", trigger='cron', hour=4, minute=30)
         # 每天23:59分将 NSOAPP_VERSION 和 WEB_VIEW_VERSION 置空
         add_scheduler("init_nso_version", trigger='cron', hour=23, minute=59)
         # 每天23:59分将 stat_ink 因会员过期重复刷新的账号缓存列表置空
@@ -126,6 +130,8 @@ async def cron(_type):
             await show_dict_status()
         case "clean_expired_clients":
             await clean_expired_clients()
+        case "recycle_browser":
+            await recycle_browser()
         case "delete_early_friend":
             model_delete_user_friend()
 

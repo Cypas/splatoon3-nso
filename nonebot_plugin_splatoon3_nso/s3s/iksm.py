@@ -31,7 +31,7 @@ from ..utils import BOT_VERSION, AsHttpReq
 S3S_AGENT = "s3s - github.com/Cypas/splatoon3-nso"  # s3s agent
 S3S_VERSION = "0.7.0"  # s3s脚本版本号
 NSOAPP_VERSION = "unknown"
-NSOAPP_VER_FALLBACK = "3.5.0"  # fallback
+NSOAPP_VER_FALLBACK = "3.6.0"  # fallback
 WEB_VIEW_VERSION = "unknown"
 WEB_VIEW_VER_FALLBACK = "10.0.0-dfefd0af"  # fallback
 

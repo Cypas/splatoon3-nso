@@ -383,7 +383,7 @@ async def get_row_user_stats(k_idx, p, mask=False, is_last_player=False, team_po
     if power and isinstance(team_power, list):
         team_power.append(power)
 
-    weapon_img = ((p.get('weapon') or {}).get('image') or {}).get('url') or ''
+    weapon_img = ((p.get('weapon') or {}).get('image2d') or {}).get('url') or ''
     img_type = "battle_weapon_main"
     weapon_main_img = await model_get_temp_image_path(img_type, p['weapon']['name'], weapon_img)
     w_str = f'<img height="40" src="{weapon_main_img}"/>'
